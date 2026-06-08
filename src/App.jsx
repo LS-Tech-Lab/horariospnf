@@ -517,7 +517,14 @@ export default function App() {
         setError("No se encontraron datos válidos en el archivo.");
         setUploading(false);
         return;
-      }
+
+        // 👇 AGREGAR ESTOS CONSOLE.LOG AQUÍ
+console.log('📊 Total filas leídas del Excel:', allRows.length);
+console.log('📋 Ejemplo de primeras 3 filas:', allRows.slice(0, 3));
+
+const { error: insertError } = await supabase.from("horarios").insert(allRows);
+          }
+      
       const { error: insertError } = await supabase.from("horarios").insert(allRows);
       if (insertError) {
         console.error(insertError);
