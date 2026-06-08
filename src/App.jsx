@@ -954,7 +954,7 @@ export default function App() {
     // Buscar otro registro con el mismo nombre_display (insensible a mayúsculas y espacios)
     const { data: existing, error: searchError } = await supabase
       .from(tableName)
-      .select("nombre_raw")
+      .select("nombre_raw, nombre_display")
       .ilike("nombre_display", newDisplayName.trim())
       .neq("nombre_raw", rawName)
       .limit(1);
@@ -962,17 +962,17 @@ export default function App() {
 
     if (existing && existing.length > 0) {
       const targetRaw = existing[0].nombre_raw;
-      // Actualizar todas las filas de horarios que contengan rawName
+      const canonicalDisplay = existing[0].nombre_display;
+
+      // Actualizar todas las filas de horarios que usen rawName → cambiar a targetRaw
       const { data: horarios, error: fetchError } = await supabase
         .from("horarios")
-        .select("id, clase")
-        .ilike("clase", `%${rawName}%`);
+        .select("id, clase");
       if (fetchError) throw fetchError;
 
       for (const row of horarios) {
-        let nuevaClase = row.clase;
-        // Reemplazo exacto del nombre (sin prefijos)
-        nuevaClase = nuevaClase.split(rawName).join(targetRaw);
+        if (!row.clase || !row.clase.includes(rawName)) continue;
+        const nuevaClase = row.clase.split(rawName).join(targetRaw);
         if (nuevaClase !== row.clase) {
           const { error: updateError } = await supabase
             .from("horarios")
@@ -983,7 +983,7 @@ export default function App() {
       }
       // Eliminar el registro antiguo de la tabla de nombres
       await supabase.from(tableName).delete().eq("nombre_raw", rawName);
-      return targetRaw;
+      return { targetRaw, canonicalDisplay };
     }
     return null;
   };
@@ -994,7 +994,7 @@ export default function App() {
       if (unified) {
         await fetchDocenteNames();
         await fetchHorarios();
-        alert(`✅ El docente "${displayName}" ya existía. Se han unificado los registros.`);
+        alert(`✅ El docente "${displayName}" ya existía. Se han unificado los registros bajo "${unified.canonicalDisplay}".`);
         return true;
       }
       const { error } = await supabase
@@ -1016,7 +1016,7 @@ export default function App() {
       if (unified) {
         await fetchMateriaNames();
         await fetchHorarios();
-        alert(`✅ La materia "${displayName}" ya existía. Se han unificado los registros.`);
+        alert(`✅ La materia "${displayName}" ya existía. Se han unificado los registros bajo "${unified.canonicalDisplay}".`);
         return true;
       }
       const { error } = await supabase
@@ -1075,11 +1075,15 @@ export default function App() {
         let horaColIdx = -1;
         let diaCols = { LUNES: -1, MARTES: -1, MIÉRCOLES: -1, JUEVES: -1, VIERNES: -1 };
         
-        // Buscar fila que contenga "HORA" (en mayúsculas o minúsculas)
+        // Buscar fila que contenga "HORA" (en cualquier columna)
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
-          if (row && row[0] && row[0].toString().trim().toUpperCase() === "HORA") {
+          if (!row) continue;
+          // Buscar "HORA" en cualquier columna de la fila
+          const horaIdx = row.findIndex(cell => cell?.toString().trim().toUpperCase() === "HORA");
+          if (horaIdx !== -1) {
             headerRowIdx = i;
+            horaColIdx = horaIdx; // La hora está en la columna donde se encontró "HORA"
             for (let j = 0; j < row.length; j++) {
               const cell = row[j]?.toString().toUpperCase().trim();
               if (cell === "LUNES") diaCols.LUNES = j;
@@ -1088,7 +1092,6 @@ export default function App() {
               else if (cell === "JUEVES") diaCols.JUEVES = j;
               else if (cell === "VIERNES") diaCols.VIERNES = j;
             }
-            horaColIdx = 0; // La hora está en la columna A (índice 0)
             break;
           }
         }
@@ -1102,13 +1105,25 @@ export default function App() {
         for (let i = 0; i < headerRowIdx; i++) {
           const row = json[i];
           if (!row) continue;
-          const firstCell = row[0]?.toString().trim();
-          if (firstCell === "PROGRAMA") programa = row[1]?.toString().trim() || "";
-          else if (firstCell === "TRAYECTO") trayecto = row[1]?.toString().trim() || "";
-          else if (firstCell === "Sede:") sede = row[1]?.toString().trim() || "";
-          else if (firstCell === "Sección") seccion = row[5]?.toString().trim() || "";
-          else if (firstCell === "Turno") turno = row[5]?.toString().trim() || "";
-          else if (firstCell === "AULA") aula = row[1]?.toString().trim() || "";
+          // Buscar la celda clave en cualquier columna
+          for (let j = 0; j < row.length; j++) {
+            const cellVal = row[j]?.toString().trim();
+            if (!cellVal) continue;
+            if (cellVal === "PROGRAMA" && !programa) programa = row[j+1]?.toString().trim() || "";
+            else if (cellVal === "TRAYECTO" && !trayecto) trayecto = row[j+1]?.toString().trim() || "";
+            else if (cellVal === "Sede:" && !sede) sede = row[j+1]?.toString().trim() || "";
+            else if (cellVal === "AULA" && j === row.findIndex(c => c?.toString().trim() === "AULA") && !aula) {
+              aula = row[j+1]?.toString().trim() || "";
+            }
+            // Sección y Turno: buscar el valor en la celda a la derecha o en el mismo par
+            else if (cellVal === "Sección" && !seccion) {
+              // El valor puede estar una o dos celdas a la derecha
+              seccion = row[j+1]?.toString().trim() || row[j+2]?.toString().trim() || "";
+            }
+            else if (cellVal === "Turno" && !turno) {
+              turno = row[j+1]?.toString().trim() || row[j+2]?.toString().trim() || "";
+            }
+          }
         }
         
         // Forzar programa según selección
