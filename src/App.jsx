@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 
 // ========== Configuración de Supabase ==========
-// Soporta tanto Vite como Create React App
 const supabaseUrl = import.meta?.env?.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = import.meta?.env?.VITE_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY;
 
@@ -15,6 +14,8 @@ const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", 
 
 // ========== Constantes globales ==========
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
+const ALL_TRAYECTOS = ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"];
+
 const TRAYECTO_COLORS = {
   "1-1": "#2563EB", "1-2": "#059669",
   "2-1": "#DC2626", "2-2": "#DB2777",
@@ -170,7 +171,12 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
       <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
         <div style={S.card}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-            <thead><tr><th style={{ ...S.th, width: 130 }}>Hora</th>{days.map(d => (<th key={d} style={{ ...S.th, borderLeft: "1px solid #E5E7EB" }}>{d.charAt(0) + d.slice(1).toLowerCase()}</th>))}</tr></thead>
+            <thead>
+              <tr>
+                <th style={{ ...S.th, width: 130 }}>Hora</th>
+                {days.map(d => (<th key={d} style={{ ...S.th, borderLeft: "1px solid #E5E7EB" }}>{d.charAt(0) + d.slice(1).toLowerCase()}</th>))}
+              </tr>
+            </thead>
             <tbody>
               {getUniqueHoras(filtered).map((hora, ri) => (
                 <tr key={hora}>
@@ -267,7 +273,8 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
   const [search, setSearch] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [editValue, setEditValue] = useState("");
-  useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel]);
+  
+  useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
   useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel, getDocName]);
 
   const hasConflict = (name) => conflicts.some(c => c.docente === name);
@@ -289,9 +296,123 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
     <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
       <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar docente…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
-        <div style={{ ...S.card, flex: 1, overflowY: "auto" }}><div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSorted.length} docentes</div>{filteredSorted.map(d => (<div key={d} onClick={() => { setSel(d); setEditingName(false); }} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === d ? "#EFF6FF" : "transparent", color: sel === d ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === d ? 600 : 400 }}><span style={{ display: "flex", alignItems: "center", gap: 6 }}>{hasConflict(d) && <span title="Tiene conflictos" style={{ fontSize: 14 }}>⚠️</span>}{getDocName(d)}</span><span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600 }}>{byDocente[d].length}</span></div>))}</div>
+        <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
+          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSorted.length} docentes</div>
+          {filteredSorted.map(d => (
+            <div key={d} onClick={() => { setSel(d); setEditingName(false); }} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === d ? "#EFF6FF" : "transparent", color: sel === d ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === d ? 600 : 400 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>{hasConflict(d) && <span title="Tiene conflictos" style={{ fontSize: 14 }}>⚠️</span>}{getDocName(d)}</span>
+              <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600 }}>{byDocente[d].length}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>{!sel ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona un docente para ver su horario</div>) : (<><div style={{ ...S.card, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}><Avatar name={getDocName(sel)} size={48} /><div style={{ flex: 1 }}>{editingName ? (<div style={{ display: "flex", alignItems: "center", gap: 8 }}><input value={editValue} onChange={e => setEditValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingName(false); }} autoFocus style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} /><button onClick={saveEdit} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Guardar</button><button onClick={() => setEditingName(false)} style={{ padding: "5px 10px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Cancelar</button></div>) : (<div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ fontSize: 17, fontWeight: 700, color: "#111827" }}>{getDocName(sel)}</div><button onClick={() => { setEditValue(getDocName(sel)); setEditingName(true); }} title="Editar nombre" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: "#6B7280", display: "flex", alignItems: "center", gap: 4 }}>✏️ Editar</button></div>)}<div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>{selEntries.length} clases asignadas{selConflicts.length > 0 && (<span style={{ marginLeft: 10, ...S.badge("#FEF2F2", "#DC2626") }}>⚠️ {selConflicts.length} conflicto{selConflicts.length > 1 ? "s" : ""}</span>)}</div></div><div style={{ display: "flex", gap: 8 }}>{[...new Set(selEntries.map(e => e.trayecto))].map(t => (<span key={t} style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>T.{t}</span>))}</div></div>{selConflicts.map((c, i) => (<div key={i} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 10, display: "flex", gap: 10, alignItems: "flex-start" }}><span style={{ fontSize: 18 }}>⚠️</span><div><div style={{ fontSize: 13, fontWeight: 600, color: "#991B1B" }}>Conflicto: {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.hora}</div><div style={{ fontSize: 12, color: "#B91C1C", marginTop: 4 }}>{c.entries.map(e => parseClase(e.clase).materia).join(" · ")}</div></div></div>))}{usedHoras.length > 0 && (<div style={{ ...S.card, marginBottom: 16 }}><div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Vista semanal</div><div style={{ overflowX: "auto" }}><table style={{ borderCollapse: "collapse", minWidth: "100%" }}><thead><tr><th style={{ ...S.th, width: 120 }}>Hora</th>{DAYS.map(d => <th key={d} style={{ ...S.th, borderLeft: "1px solid #E5E7EB" }}>{d.slice(0, 3)}</th>)}</thead><tbody>{usedHoras.map((hora, ri) => (<tr key={hora}><td style={{ ...S.td, fontSize: 11, color: "#9CA3AF", fontWeight: 600, background: ri % 2 === 0 ? "#fff" : "#FAFAFA" }}>{hora}</td>{DAYS.map(day => { const es = docGrid[`${hora}__${day}`] || []; return (<td key={day} style={{ padding: "4px 6px", borderTop: "1px solid #F3F4F6", borderLeft: "1px solid #F3F4F6", background: ri % 2 === 0 ? "#fff" : "#FAFAFA", verticalAlign: "top" }}>{es.map((e, i) => { const { materia } = parseClase(e.clase); const col = TRAYECTO_COLORS[e.trayecto] || "#555"; const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5"; return (<div key={i} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 5, padding: "4px 7px" }}><div style={{ fontSize: 11, fontWeight: 600, color: col }}>{materia.length > 18 ? materia.slice(0, 16) + "…" : materia}</div><div style={{ fontSize: 10, color: col, opacity: 0.7 }}>{e.sheet.trim()}</div></div>); })}</td>); })}</tr>))}</tbody></table></div></div>)}<div style={S.card}><table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Día", "Hora", "Materia", "Trayecto", "Sección"].map(h => (<th key={h} style={S.th}>{h}</th>))}</thead><tbody>{selEntries.sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia)).map((e, i) => { const { materia } = parseClase(e.clase); return (<tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}><td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td><td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td><td style={{ ...S.td, fontWeight: 500 }}>{materia}</td><td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td><td style={{ ...S.td, color: "#6B7280" }}>{e.sheet.trim()}</td></tr>); })}</tbody></table></div></>)}</div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {!sel ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona un docente para ver su horario</div>
+        ) : (
+          <>
+            <div style={{ ...S.card, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+              <Avatar name={getDocName(sel)} size={48} />
+              <div style={{ flex: 1 }}>
+                {editingName ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input value={editValue} onChange={e => setEditValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingName(false); }} autoFocus style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} />
+                    <button onClick={saveEdit} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Guardar</button>
+                    <button onClick={() => setEditingName(false)} style={{ padding: "5px 10px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Cancelar</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#111827" }}>{getDocName(sel)}</div>
+                    <button onClick={() => { setEditValue(getDocName(sel)); setEditingName(true); }} title="Editar nombre" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: "#6B7280", display: "flex", alignItems: "center", gap: 4 }}>✏️ Editar</button>
+                  </div>
+                )}
+                <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                  {selEntries.length} clases asignadas
+                  {selConflicts.length > 0 && (<span style={{ marginLeft: 10, ...S.badge("#FEF2F2", "#DC2626") }}>⚠️ {selConflicts.length} conflicto{selConflicts.length > 1 ? "s" : ""}</span>)}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[...new Set(selEntries.map(e => e.trayecto))].map(t => (<span key={t} style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>T.{t}</span>))}
+              </div>
+            </div>
+            
+            {selConflicts.map((c, i) => (
+              <div key={i} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 10, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#991B1B" }}>Conflicto: {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.hora}</div>
+                  <div style={{ fontSize: 12, color: "#B91C1C", marginTop: 4 }}>{c.entries.map(e => parseClase(e.clase).materia).join(" · ")}</div>
+                </div>
+              </div>
+            ))}
+            
+            {usedHoras.length > 0 && (
+              <div style={{ ...S.card, marginBottom: 16 }}>
+                <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Vista semanal</div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...S.th, width: 120 }}>Hora</th>
+                        {DAYS.map(d => <th key={d} style={{ ...S.th, borderLeft: "1px solid #E5E7EB" }}>{d.slice(0, 3)}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usedHoras.map((hora, ri) => (
+                        <tr key={hora}>
+                          <td style={{ ...S.td, fontSize: 11, color: "#9CA3AF", fontWeight: 600, background: ri % 2 === 0 ? "#fff" : "#FAFAFA" }}>{hora}</td>
+                          {DAYS.map(day => {
+                            const es = docGrid[`${hora}__${day}`] || [];
+                            return (
+                              <td key={day} style={{ padding: "4px 6px", borderTop: "1px solid #F3F4F6", borderLeft: "1px solid #F3F4F6", background: ri % 2 === 0 ? "#fff" : "#FAFAFA", verticalAlign: "top" }}>
+                                {es.map((e, i) => {
+                                  const { materia } = parseClase(e.clase);
+                                  const col = TRAYECTO_COLORS[e.trayecto] || "#555";
+                                  const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5";
+                                  return (
+                                    <div key={i} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 5, padding: "4px 7px" }}>
+                                      <div style={{ fontSize: 11, fontWeight: 600, color: col }}>{materia.length > 18 ? materia.slice(0, 16) + "…" : materia}</div>
+                                      <div style={{ fontSize: 10, color: col, opacity: 0.7 }}>{e.sheet.trim()}</div>
+                                    </div>
+                                  );
+                                })}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            
+            <div style={S.card}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Día", "Hora", "Materia", "Trayecto", "Sección"].map(h => (<th key={h} style={S.th}>{h}</th>))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selEntries.sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia)).map((e, i) => {
+                    const { materia } = parseClase(e.clase);
+                    return (
+                      <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                        <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
+                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td>
+                        <td style={{ ...S.td, fontWeight: 500 }}>{materia}</td>
+                        <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
+                        <td style={{ ...S.td, color: "#6B7280" }}>{e.sheet.trim()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -322,9 +443,70 @@ function MateriasView({ data, getDocName }) {
     <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
       <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar materia…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
-        <div style={{ ...S.card, flex: 1, overflowY: "auto" }}><div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filtered.length} materias</div>{filtered.map(m => (<div key={m} onClick={() => setSel(m)} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === m ? "#EFF6FF" : "transparent", color: sel === m ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === m ? 600 : 400 }}><span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m}</span><span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600, marginLeft: 6, flexShrink: 0 }}>{byMateria[m].length}</span></div>))}</div>
+        <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
+          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filtered.length} materias</div>
+          {filtered.map(m => (
+            <div key={m} onClick={() => setSel(m)} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === m ? "#EFF6FF" : "transparent", color: sel === m ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === m ? 600 : 400 }}>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m}</span>
+              <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600, marginLeft: 6, flexShrink: 0 }}>{byMateria[m].length}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>{!sel ? (<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona una materia para ver detalles</div>) : (<><div style={{ ...S.card, padding: "16px 20px", marginBottom: 16 }}><div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 10 }}>{sel}</div><div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}><div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Total clases</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{selEntries.length}</div></div><div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Docentes</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{docentesForMateria.length}</div></div><div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Secciones</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{seccionesForMateria.length}</div></div><div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Trayectos</div><div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>{[...new Set(selEntries.map(e => e.trayecto))].sort().map(t => (<span key={t} style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>T.{t}</span>))}</div></div></div></div>{docentesForMateria.length > 0 && (<div style={{ ...S.card, marginBottom: 16 }}><div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>👥 Docentes que imparten esta materia</div><div style={{ padding: "12px 16px", display: "flex", gap: 10, flexWrap: "wrap" }}>{docentesForMateria.map(d => (<div key={d} style={{ display: "flex", alignItems: "center", gap: 8, background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px 12px" }}><Avatar name={getDocName(d)} size={28} /><span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>{getDocName(d)}</span></div>))}</div></div>)}<div style={S.card}><div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Todas las asignaciones</div><table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr>{["Día", "Hora", "Turno", "Docente", "Trayecto", "Sección"].map(h => (<th key={h} style={S.th}>{h}</th>))}</thead><tbody>{selEntries.sort((a, b) => { const di = DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia); return di !== 0 ? di : a.hora.localeCompare(b.hora); }).map((e, i) => (<tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}><td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td><td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td><td style={S.td}><span style={S.badge(e.turno === "DIURNO" ? "#EFF6FF" : "#FDF2F8", e.turno === "DIURNO" ? "#2563EB" : "#DB2777")}>{e.turno}</span></td><td style={{ ...S.td, fontWeight: 500 }}>{getDocName(e.docente) || "—"}</td><td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td><td style={{ ...S.td, color: "#6B7280" }}>{e.sheet.trim()}</td></tr>))}</tbody></table></div></>)}</div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {!sel ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona una materia para ver detalles</div>
+        ) : (
+          <>
+            <div style={{ ...S.card, padding: "16px 20px", marginBottom: 16 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 10 }}>{sel}</div>
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Total clases</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{selEntries.length}</div></div>
+                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Docentes</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{docentesForMateria.length}</div></div>
+                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Secciones</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{seccionesForMateria.length}</div></div>
+                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Trayectos</div><div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>{[...new Set(selEntries.map(e => e.trayecto))].sort().map(t => (<span key={t} style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>T.{t}</span>))}</div></div>
+              </div>
+            </div>
+            
+            {docentesForMateria.length > 0 && (
+              <div style={{ ...S.card, marginBottom: 16 }}>
+                <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>👥 Docentes que imparten esta materia</div>
+                <div style={{ padding: "12px 16px", display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {docentesForMateria.map(d => (
+                    <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px 12px" }}>
+                      <Avatar name={getDocName(d)} size={28} />
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>{getDocName(d)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div style={S.card}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Todas las asignaciones</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Día", "Hora", "Turno", "Docente", "Trayecto", "Sección"].map(h => (<th key={h} style={S.th}>{h}</th>))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selEntries.sort((a, b) => { const di = DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia); return di !== 0 ? di : a.hora.localeCompare(b.hora); }).map((e, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                      <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
+                      <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td>
+                      <td style={S.td}><span style={S.badge(e.turno === "DIURNO" ? "#EFF6FF" : "#FDF2F8", e.turno === "DIURNO" ? "#2563EB" : "#DB2777")}>{e.turno}</span></td>
+                      <td style={{ ...S.td, fontWeight: 500 }}>{getDocName(e.docente) || "—"}</td>
+                      <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
+                      <td style={{ ...S.td, color: "#6B7280" }}>{e.sheet.trim()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -332,7 +514,6 @@ function MateriasView({ data, getDocName }) {
 function AsistenciasView({ data, getDocName }) {
   const [turno, setTurno] = useState("DIURNO");
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
-  const printRef = useRef();
 
   const docentesDelDia = useMemo(() => {
     const map = {};
@@ -368,10 +549,46 @@ function AsistenciasView({ data, getDocName }) {
         <div><div style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", marginBottom: 6, textTransform: "uppercase" }}>Día</div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{DAYS.map(d => (<button key={d} onClick={() => setSelectedDay(d)} style={S.btn(selectedDay === d)}>{d.charAt(0) + d.slice(1).toLowerCase()}</button>))}</div></div>
         <div style={{ marginLeft: "auto" }}><button onClick={handlePrint} style={{ padding: "8px 18px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>🖨️ Imprimir / PDF</button></div>
       </div>
-      <div ref={printRef} style={S.card}>
+      <div style={S.card}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}><div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Control de Asistencia Docentes</div><div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>PNF en Informática · Cabimas - Sede Los Laureles · {selectedDay.charAt(0)+selectedDay.slice(1).toLowerCase()} · Turno: {turno.charAt(0)+turno.slice(1).toLowerCase()} · 2-2026</div></div>
         {docentesDelDia.length === 0 ? (<div style={{ padding: "40px 20px", textAlign: "center", color: "#9CA3AF", fontSize: 14 }}>No hay docentes registrados para {turno.toLowerCase()} el {selectedDay.toLowerCase()}.</div>) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><th style={{ ...S.th, width: 36 }}>N°</th><th style={{ ...S.th, width: 200 }}>Docente</th><th style={S.th}>Materia(s) / Sección(es)</th><th style={{ ...S.th, width: 120 }}>Hora</th><th style={{ ...S.th, width: 80 }}>Entrada</th><th style={{ ...S.th, width: 80 }}>Salida</th><th style={{ ...S.th, width: 120 }}>Firma</th></tr></thead><tbody>{docentesDelDia.map(([rawDoc, info], idx) => { const displayName = getDocName(rawDoc); return (<tr key={rawDoc} style={{ background: idx % 2 === 0 ? "#fff" : "#FAFAFA" }}><td style={{ ...S.td, textAlign: "center", color: "#9CA3AF", fontSize: 12 }}>{idx + 1}</td><td style={S.td}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={displayName} size={28} /><span style={{ fontWeight: 600, fontSize: 13, color: "#111827" }}>{displayName}</span></div></td><td style={{ ...S.td, fontSize: 12 }}>{info.clases.map((c, i) => (<div key={i} style={{ marginBottom: i < info.clases.length - 1 ? 4 : 0 }}><span style={{ fontWeight: 500 }}>{c.materia}</span><span style={{ color: "#9CA3AF", marginLeft: 6 }}>— {c.seccion}</span>{c.trayecto && (<span style={{ ...S.badge(TRAYECTO_BG[c.trayecto] || "#f3f4f6", TRAYECTO_COLORS[c.trayecto] || "#555"), marginLeft: 6 }}>T.{c.trayecto}</span>)}</div>))}</td><td style={{ ...S.td, fontSize: 12, color: "#6B7280" }}>{info.clases.map((c, i) => (<div key={i} style={{ marginBottom: i < info.clases.length - 1 ? 4 : 0 }}>{c.hora}</div>))}</td><td style={{ ...S.td, border: "1px solid #E5E7EB" }}></td><td style={{ ...S.td, border: "1px solid #E5E7EB" }}></td><td style={{ ...S.td, border: "1px solid #E5E7EB", height: 44 }}></td></tr>); })}</tbody></table>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ ...S.th, width: 36 }}>N°</th>
+                <th style={{ ...S.th, width: 200 }}>Docente</th>
+                <th style={S.th}>Materia(s) / Sección(es)</th>
+                <th style={{ ...S.th, width: 120 }}>Hora</th>
+                <th style={{ ...S.th, width: 80 }}>Entrada</th>
+                <th style={{ ...S.th, width: 80 }}>Salida</th>
+                <th style={{ ...S.th, width: 120 }}>Firma</th>
+              </tr>
+            </thead>
+            <tbody>
+              {docentesDelDia.map(([rawDoc, info], idx) => {
+                const displayName = getDocName(rawDoc);
+                return (
+                  <tr key={rawDoc} style={{ background: idx % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                    <td style={{ ...S.td, textAlign: "center", color: "#9CA3AF", fontSize: 12 }}>{idx + 1}</td>
+                    <td style={S.td}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={displayName} size={28} /><span style={{ fontWeight: 600, fontSize: 13, color: "#111827" }}>{displayName}</span></div></td>
+                    <td style={{ ...S.td, fontSize: 12 }}>
+                      {info.clases.map((c, i) => (
+                        <div key={i} style={{ marginBottom: i < info.clases.length - 1 ? 4 : 0 }}>
+                          <span style={{ fontWeight: 500 }}>{c.materia}</span>
+                          <span style={{ color: "#9CA3AF", marginLeft: 6 }}>— {c.seccion}</span>
+                          {c.trayecto && (<span style={{ ...S.badge(TRAYECTO_BG[c.trayecto] || "#f3f4f6", TRAYECTO_COLORS[c.trayecto] || "#555"), marginLeft: 6 }}>T.{c.trayecto}</span>)}
+                        </div>
+                      ))}
+                    </td>
+                    <td style={{ ...S.td, fontSize: 12, color: "#6B7280" }}>{info.clases.map((c, i) => (<div key={i} style={{ marginBottom: i < info.clases.length - 1 ? 4 : 0 }}>{c.hora}</div>))}</td>
+                    <td style={{ ...S.td, border: "1px solid #E5E7EB" }}></td>
+                    <td style={{ ...S.td, border: "1px solid #E5E7EB" }}></td>
+                    <td style={{ ...S.td, border: "1px solid #E5E7EB", height: 44 }}></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
         {docentesDelDia.length > 0 && (<div style={{ padding: "16px 20px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between" }}><div style={{ fontSize: 12, color: "#9CA3AF" }}>Total docentes: <strong style={{ color: "#111827" }}>{docentesDelDia.length}</strong></div><div style={{ fontSize: 12, color: "#9CA3AF" }}>Total clases: <strong style={{ color: "#111827" }}>{docentesDelDia.reduce((a, [, v]) => a + v.clases.length, 0)}</strong></div></div>)}
       </div>
@@ -383,7 +600,48 @@ function ConflictosView({ conflicts, onGoDocente, getDocName }) {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}><h1 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>⚠️ Conflictos detectados</h1><span style={S.badge(conflicts.length > 0 ? "#FEF2F2" : "#F0FDF4", conflicts.length > 0 ? "#DC2626" : "#16A34A")}>{conflicts.length} {conflicts.length === 1 ? "conflicto" : "conflictos"}</span></div>
-      {conflicts.length === 0 ? (<div style={{ ...S.card, padding: "60px 20px", textAlign: "center" }}><div style={{ fontSize: 48, marginBottom: 12 }}>✅</div><div style={{ fontSize: 17, fontWeight: 600, color: "#111827" }}>Sin conflictos</div><div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 6 }}>No se detectaron solapamientos horarios.</div></div>) : (<><div style={{ ...S.card, padding: "14px 18px", marginBottom: 20, background: "#FFFBEB", border: "1px solid #FDE68A", display: "flex", gap: 10, alignItems: "flex-start" }}><span style={{ fontSize: 20 }}>💡</span><div style={{ fontSize: 13, color: "#92400E" }}><strong>Nota:</strong> Un conflicto ocurre cuando el mismo docente aparece asignado a dos grupos distintos en el mismo día y horario.</div></div><div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{conflicts.map((c, i) => (<div key={i} style={{ ...S.card, borderLeft: "4px solid #EF4444", padding: "14px 18px" }}><div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}><span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span><div style={{ flex: 1 }}><div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}><button onClick={() => onGoDocente(c.docente)} style={{ fontSize: 14, fontWeight: 700, color: "#DC2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>{getDocName(c.docente)}</button><span style={{ fontSize: 13, color: "#6B7280" }}>— {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.hora}</span></div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{c.entries.map((e, j) => { const { materia } = parseClase(e.clase); const col = TRAYECTO_COLORS[e.trayecto] || "#555"; const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5"; return (<div key={j} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 6, padding: "6px 12px", fontSize: 12 }}><div style={{ fontWeight: 600, color: col }}>{materia}</div><div style={{ color: col, opacity: 0.7, fontSize: 11 }}>{e.sheet.trim()} · T.{e.trayecto}</div></div>); })}</div></div></div></div>))}</div></>)}
+      {conflicts.length === 0 ? (
+        <div style={{ ...S.card, padding: "60px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: "#111827" }}>Sin conflictos</div>
+          <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 6 }}>No se detectaron solapamientos horarios.</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ ...S.card, padding: "14px 18px", marginBottom: 20, background: "#FFFBEB", border: "1px solid #FDE68A", display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 20 }}>💡</span>
+            <div style={{ fontSize: 13, color: "#92400E" }}><strong>Nota:</strong> Un conflicto ocurre cuando el mismo docente aparece asignado a dos grupos distintos en el mismo día y horario.</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {conflicts.map((c, i) => (
+              <div key={i} style={{ ...S.card, borderLeft: "4px solid #EF4444", padding: "14px 18px" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                      <button onClick={() => onGoDocente(c.docente)} style={{ fontSize: 14, fontWeight: 700, color: "#DC2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>{getDocName(c.docente)}</button>
+                      <span style={{ fontSize: 13, color: "#6B7280" }}>— {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.hora}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {c.entries.map((e, j) => {
+                        const { materia } = parseClase(e.clase);
+                        const col = TRAYECTO_COLORS[e.trayecto] || "#555";
+                        const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5";
+                        return (
+                          <div key={j} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+                            <div style={{ fontWeight: 600, color: col }}>{materia}</div>
+                            <div style={{ color: col, opacity: 0.7, fontSize: 11 }}>{e.sheet.trim()} · T.{e.trayecto}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -395,7 +653,7 @@ function EstadisticasView({ stats, byDocente, data }) {
   DAYS.forEach(d => { dayCount[d] = data.filter(r => r.dia === d).length; });
   const maxDay = Math.max(...Object.values(dayCount));
   const top8 = Object.entries(byDocente).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
-  const maxLoad = Math.max(...top8.map(([, e]) => e.length));
+  const maxLoad = Math.max(...top8.map(([, e]) => e.length), 1);
   const materiaCount = {};
   data.forEach(d => { const { materia } = parseClase(d.clase); materiaCount[materia] = (materiaCount[materia] || 0) + 1; });
   const topMaterias = Object.entries(materiaCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
@@ -408,16 +666,96 @@ function EstadisticasView({ stats, byDocente, data }) {
   return (
     <div style={{ padding: 20 }}>
       <h1 style={{ margin: "0 0 20px", fontSize: 17, fontWeight: 700 }}>📊 Estadísticas</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}><StatCard label="Total de clases" value={totalClases} icon="📅" color="#2563EB" /><StatCard label="Secciones" value={seccionesCount} icon="🏫" color="#059669" /><StatCard label="Docentes" value={stats.docentes} icon="👥" color="#7C3AED" /><StatCard label="Materias únicas" value={stats.materias} icon="📖" color="#D97706" /></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
+        <StatCard label="Total de clases" value={totalClases} icon="📅" color="#2563EB" />
+        <StatCard label="Secciones" value={seccionesCount} icon="🏫" color="#059669" />
+        <StatCard label="Docentes" value={stats.docentes} icon="👥" color="#7C3AED" />
+        <StatCard label="Materias únicas" value={stats.materias} icon="📖" color="#D97706" />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div style={{ ...S.card, padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Clases por trayecto</div>{Object.entries(trayectoCount).sort().map(([t, c]) => (<div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><span style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>{t}</span><div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}><div style={{ width: `${(c / totalClases) * 100}%`, height: "100%", background: TRAYECTO_COLORS[t] || "#888", borderRadius: 4 }} /></div><span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{c}</span></div>))}</div>
-        <div style={{ ...S.card, padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Distribución por día</div>{DAYS.map(d => (<div key={d} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><span style={{ fontSize: 12, width: 80, color: "#6B7280", fontWeight: 500 }}>{d.charAt(0) + d.slice(1).toLowerCase()}</span><div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}><div style={{ width: `${(dayCount[d] / maxDay) * 100}%`, height: "100%", background: "#059669", borderRadius: 4 }} /></div><span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{dayCount[d]}</span></div>))}</div>
+        <div style={{ ...S.card, padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Clases por trayecto</div>
+          {Object.entries(trayectoCount).sort().map(([t, c]) => (
+            <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>{t}</span>
+              <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}>
+                <div style={{ width: `${(c / totalClases) * 100}%`, height: "100%", background: TRAYECTO_COLORS[t] || "#888", borderRadius: 4 }} />
+              </div>
+              <span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{c}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...S.card, padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Distribución por día</div>
+          {DAYS.map(d => (
+            <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 12, width: 80, color: "#6B7280", fontWeight: 500 }}>{d.charAt(0) + d.slice(1).toLowerCase()}</span>
+              <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}>
+                <div style={{ width: `${(dayCount[d] / maxDay) * 100}%`, height: "100%", background: "#059669", borderRadius: 4 }} />
+              </div>
+              <span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{dayCount[d]}</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div style={{ ...S.card, padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Docentes con mayor carga</div>{top8.map(([doc, entries], idx) => (<div key={doc} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span><span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc}</span><div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${(entries.length / maxLoad) * 100}%`, height: "100%", background: "#7C3AED", borderRadius: 4 }} /></div><span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{entries.length}</span></div>))}</div>
-        <div style={{ ...S.card, padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Materias más frecuentes</div>{topMaterias.map(([mat, cnt], idx) => (<div key={mat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span><span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={mat}>{mat.length > 28 ? mat.slice(0, 26) + "…" : mat}</span><div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${(cnt / maxMat) * 100}%`, height: "100%", background: "#D97706", borderRadius: 4 }} /></div><span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span></div>))}</div>
-        <div style={{ ...S.card, padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Distribución por turno</div>{Object.entries(turnoCount).sort().map(([t, cnt]) => { const pct = Math.round((cnt / totalClases) * 100); const colors = { DIURNO: "#2563EB", VESPERTINO: "#DB2777" }; return (<div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}><span style={{ fontSize: 12, width: 90, color: "#6B7280", fontWeight: 500 }}>{t.charAt(0) + t.slice(1).toLowerCase()}</span><div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 14, overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", background: colors[t] || "#888", borderRadius: 4 }} /></div><span style={{ fontSize: 12, color: "#6B7280", fontWeight: 600, width: 60, textAlign: "right" }}>{cnt} ({pct}%)</span></div>); })}</div>
-        <div style={{ ...S.card, padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Secciones por trayecto</div>{ALL_TRAYECTOS.map(t => { const cnt = [...new Set(data.filter(d => d.trayecto === t).map(d => d.sheet.trim()))].length; return (<div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><span style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>{t}</span><div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}><div style={{ width: `${(cnt / seccionesCount) * 100}%`, height: "100%", background: TRAYECTO_COLORS[t] || "#888", borderRadius: 4 }} /></div><span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span></div>); })}</div>
+        <div style={{ ...S.card, padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Docentes con mayor carga</div>
+          {top8.map(([doc, entries], idx) => (
+            <div key={doc} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span>
+              <span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc}</span>
+              <div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}>
+                <div style={{ width: `${(entries.length / maxLoad) * 100}%`, height: "100%", background: "#7C3AED", borderRadius: 4 }} />
+              </div>
+              <span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{entries.length}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...S.card, padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Materias más frecuentes</div>
+          {topMaterias.map(([mat, cnt], idx) => (
+            <div key={mat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span>
+              <span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={mat}>{mat.length > 28 ? mat.slice(0, 26) + "…" : mat}</span>
+              <div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}>
+                <div style={{ width: `${(cnt / maxMat) * 100}%`, height: "100%", background: "#D97706", borderRadius: 4 }} />
+              </div>
+              <span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...S.card, padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Distribución por turno</div>
+          {Object.entries(turnoCount).sort().map(([t, cnt]) => {
+            const pct = Math.round((cnt / totalClases) * 100);
+            const colors = { DIURNO: "#2563EB", VESPERTINO: "#DB2777" };
+            return (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 12, width: 90, color: "#6B7280", fontWeight: 500 }}>{t.charAt(0) + t.slice(1).toLowerCase()}</span>
+                <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 14, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: colors[t] || "#888", borderRadius: 4 }} />
+                </div>
+                <span style={{ fontSize: 12, color: "#6B7280", fontWeight: 600, width: 60, textAlign: "right" }}>{cnt} ({pct}%)</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ ...S.card, padding: "16px 20px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Secciones por trayecto</div>
+          {ALL_TRAYECTOS.map(t => {
+            const cnt = [...new Set(data.filter(d => d.trayecto === t).map(d => d.sheet.trim()))].length;
+            return (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>{t}</span>
+                <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}>
+                  <div style={{ width: `${(cnt / seccionesCount) * 100}%`, height: "100%", background: TRAYECTO_COLORS[t] || "#888", borderRadius: 4 }} />
+                </div>
+                <span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -455,7 +793,7 @@ export default function App() {
     fetchHorarios();
   }, []);
 
-  // ========== NUEVA FUNCIÓN: Borrar todos los registros ==========
+  // Borrar todos los registros
   const clearAllData = async () => {
     if (!window.confirm("⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios cargados. Esta acción no se puede deshacer.")) {
       return;
@@ -475,7 +813,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // ========== FUNCIÓN MEJORADA: Procesar archivo Excel sin duplicados ==========
+  // Procesar archivo Excel sin duplicados
   const handleFileUpload = async (file) => {
     setUploading(true);
     setError(null);
@@ -714,12 +1052,23 @@ export default function App() {
               display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px", border: "none", borderRadius: 8,
               background: view === item.id ? "#2563EB" : "transparent", color: view === item.id ? "#fff" : "#9CA3AF",
               cursor: "pointer", fontSize: 13, textAlign: "left", marginBottom: 2, fontWeight: view === item.id ? 600 : 400, transition: "all 0.15s",
-            }}><span style={{ fontSize: 15 }}>{item.emoji}</span><span style={{ flex: 1 }}>{item.label}</span>{item.badge > 0 && (<span style={{ background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontWeight: 700 }}>{item.badge}</span>)}</button>
+            }}>
+              <span style={{ fontSize: 15 }}>{item.emoji}</span>
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {item.badge > 0 && (<span style={{ background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 10, padding: "2px 6px", fontWeight: 700 }}>{item.badge}</span>)}
+            </button>
           ))}
         </nav>
         <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Leyenda</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>{allTrayectos.map(t => (<div key={t} style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: TRAYECTO_COLORS[t], flexShrink: 0 }} /><span style={{ fontSize: 10, color: "#9CA3AF" }}>T.{t}</span></div>))}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+            {allTrayectos.map(t => (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: TRAYECTO_COLORS[t], flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: "#9CA3AF" }}>T.{t}</span>
+              </div>
+            ))}
+          </div>
         </div>
         {/* Sección de carga y borrado de datos */}
         <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
