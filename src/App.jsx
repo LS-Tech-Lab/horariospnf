@@ -15,14 +15,7 @@ const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", 
 // ========== Constantes globales ==========
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 const ALL_TRAYECTOS = ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"];
-
-// Programas predefinidos
-const PROGRAMAS = [
-  "PNF Informática",
-  "PNF Contaduría Pública",
-  "PNF Agroalimentación",
-  "PNF Educación Especial"
-];
+const PROGRAMAS = ["PNF Informática", "PNF Contaduría Pública", "PNF Agroalimentación", "PNF Educación Especial"];
 
 const TRAYECTO_COLORS = {
   "1-1": "#2563EB", "1-2": "#059669",
@@ -152,7 +145,7 @@ function GlobalSearch({ onNavigate, docenteNames, materiaNames, data }) {
   );
 }
 
-// ========== Vistas principales (sin cambios, solo se pasan las props correctas) ==========
+// ========== Vistas principales ==========
 function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayecto, selectedSeccion, setSelectedSeccion, selectedTurno, setSelectedTurno, activeDay, setActiveDay, seccionesByTrayecto, expandedCell, setExpandedCell, getDocName, getMateriaName, allTrayectos, allTurnos }) {
   const days = activeDay === "all" ? DAYS : [activeDay];
 
@@ -405,7 +398,7 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                               </td>
                             );
                           })}
-                        </table>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
@@ -632,9 +625,7 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
                       <td class="docente-name">${displayName}</td>
                       <td>${info.clases.map(c => `${c.materia} — ${c.seccion}`).join("<br>")}</td>
                       <td>${info.clases.map(c => c.hora).join("<br>")}</td>
-                      <td></td>
-                      <td></td>
-                      <td><div class="firma-box"></div></td>
+                      <td></div><div class="firma-box"></div></td>
                     </tr>
                   `;
                 }).join("")}
@@ -894,7 +885,6 @@ export default function App() {
   const [docenteNames, setDocenteNames] = useState({});
   const [materiaNames, setMateriaNames] = useState({});
 
-  // Cargar horarios filtrados por programa
   const fetchHorarios = async () => {
     setLoading(true);
     const { data: horarios, error } = await supabase
@@ -911,7 +901,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // Cargar nombres de docentes desde Supabase
   const fetchDocenteNames = async () => {
     const { data: docentes, error } = await supabase.from("docentes").select("*");
     if (error) {
@@ -925,7 +914,6 @@ export default function App() {
     setDocenteNames(namesMap);
   };
 
-  // Cargar nombres de materias desde Supabase
   const fetchMateriaNames = async () => {
     const { data: materias, error } = await supabase.from("materias").select("*");
     if (error) {
@@ -945,31 +933,26 @@ export default function App() {
     fetchMateriaNames();
   }, [selectedPrograma]);
 
-  // Función genérica para unificar nombres (docentes o materias)
+  // Helper para unificar nombres (docentes o materias) en la tabla horarios
   const unifyName = async (tableName, rawName, newDisplayName) => {
-    // Buscar si ya existe otro raw con el mismo display name
+    // Buscar si ya existe otro registro con el mismo displayName
     const { data: existing, error: searchError } = await supabase
       .from(tableName)
       .select("nombre_raw")
       .eq("nombre_display", newDisplayName)
       .neq("nombre_raw", rawName)
       .limit(1);
-    
     if (searchError) throw searchError;
-    
+
     if (existing && existing.length > 0) {
       const targetRaw = existing[0].nombre_raw;
-      // Actualizar todas las referencias en la tabla horarios
-      const campo = tableName === "docentes" ? "clase" : "clase"; // Ambos están en la misma columna 'clase'
-      // Para docentes y materias se parsea la clase, es más complejo.
-      // Vamos a actualizar directamente el texto en la columna 'clase'
+      // Actualizar todas las referencias en la tabla horarios (campo 'clase')
       const { data: horarios, error: fetchError } = await supabase
         .from("horarios")
         .select("id, clase")
         .ilike("clase", `%${rawName}%`);
-      
       if (fetchError) throw fetchError;
-      
+
       for (const row of horarios) {
         let nuevaClase = row.clase;
         if (tableName === "docentes") {
@@ -987,26 +970,22 @@ export default function App() {
           if (updateError) throw updateError;
         }
       }
-      // Eliminar el registro actual de la tabla de nombres
+      // Eliminar el registro antiguo de la tabla de nombres
       await supabase.from(tableName).delete().eq("nombre_raw", rawName);
-      return targetRaw; // Retornar el raw al que se unificó
+      return targetRaw;
     }
     return null;
   };
 
-  // Guardar nombre de docente con unificación
   const saveDocenteName = async (rawName, displayName) => {
     try {
-      // Verificar si ya existe otro docente con el mismo displayName
       const unifiedRaw = await unifyName("docentes", rawName, displayName);
       if (unifiedRaw) {
-        // Si se unificó, actualizar el estado local y recargar datos
         await fetchDocenteNames();
         await fetchHorarios();
         alert(`✅ El docente "${displayName}" ya existía. Se han unificado los registros.`);
         return true;
       }
-      // Si no hay duplicado, simplemente actualizar o insertar
       const { error } = await supabase
         .from("docentes")
         .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
@@ -1020,7 +999,6 @@ export default function App() {
     }
   };
 
-  // Guardar nombre de materia con unificación
   const saveMateriaName = async (rawName, displayName) => {
     try {
       const unifiedRaw = await unifyName("materias", rawName, displayName);
@@ -1043,7 +1021,6 @@ export default function App() {
     }
   };
 
-  // Borrar todos los registros del programa actual
   const clearAllData = async () => {
     if (!window.confirm(`⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios del programa "${selectedPrograma}". Esta acción no se puede deshacer.`)) {
       return;
@@ -1064,7 +1041,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // Procesar archivo Excel (asignando el programa seleccionado)
   const handleFileUpload = async (file) => {
     setUploading(true);
     setError(null);
@@ -1127,7 +1103,7 @@ export default function App() {
         setUploading(false);
         return;
       }
-      // Verificar duplicados dentro del programa
+      // Verificar duplicados dentro del programa actual
       const { data: existingData } = await supabase
         .from("horarios")
         .select("sheet, dia, hora, clase")
@@ -1153,7 +1129,7 @@ export default function App() {
         if (duplicateCount > 0) message += `\n⚠️ Se omitieron ${duplicateCount} duplicados.`;
         alert(message);
         await fetchHorarios();
-        // Extraer y guardar docentes y materias únicas
+        // Extraer docentes y materias únicas para insertar en sus tablas
         const uniqueDocentes = new Set();
         const uniqueMaterias = new Set();
         newRows.forEach(row => {
