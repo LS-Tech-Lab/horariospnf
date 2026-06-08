@@ -401,7 +401,7 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                                     </div>
                                   );
                                 })}
-                              <tr>
+                              </td>
                             );
                           })}
                         </tr>
@@ -470,7 +470,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     }
   };
 
-  // Agrupar por sección y día para la vista de asignaciones
   const asignaciones = useMemo(() => {
     const map = [];
     selEntries.forEach(e => {
@@ -632,7 +631,9 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
                       <td class="docente-name">${displayName}</td>
                       <td>${info.clases.map(c => `${c.materia} — ${c.seccion}`).join("<br>")}</td>
                       <td>${info.clases.map(c => c.hora).join("<br>")}</td>
-                      <td></div><div class="firma-box"></div></td>
+                      <td></td>
+                      <td></td>
+                      <td><div class="firma-box"></div></td>
                     </tr>
                   `;
                 }).join("")}
@@ -892,7 +893,6 @@ export default function App() {
   const [docenteNames, setDocenteNames] = useState({});
   const [materiaNames, setMateriaNames] = useState({});
 
-  // Cargar datos desde Supabase filtrando por programa
   const fetchHorarios = async () => {
     setLoading(true);
     const { data: horarios, error } = await supabase
@@ -909,7 +909,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // Cargar nombres de docentes desde Supabase
   const fetchDocenteNames = async () => {
     const { data: docentes, error } = await supabase.from("docentes").select("*");
     if (error) {
@@ -923,7 +922,6 @@ export default function App() {
     setDocenteNames(namesMap);
   };
 
-  // Cargar nombres de materias desde Supabase
   const fetchMateriaNames = async () => {
     const { data: materias, error } = await supabase.from("materias").select("*");
     if (error) {
@@ -943,93 +941,70 @@ export default function App() {
     fetchMateriaNames();
   }, [selectedPrograma]);
 
-  // Guardar nombre de docente editado
   const saveDocenteName = async (rawName, displayName) => {
     try {
       const { error } = await supabase
         .from("docentes")
         .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
-      
-      if (error) {
-        console.error("Error guardando docente:", error);
-        alert("❌ Error al guardar: " + error.message);
-        return false;
-      }
-      
+      if (error) throw error;
       setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
       return true;
     } catch (err) {
-      console.error("Error:", err);
-      alert("❌ Error al guardar");
+      console.error(err);
+      alert("❌ Error al guardar: " + err.message);
       return false;
     }
   };
 
-  // Guardar nombre de materia editado
   const saveMateriaName = async (rawName, displayName) => {
     try {
       const { error } = await supabase
         .from("materias")
         .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
-      
-      if (error) {
-        console.error("Error guardando materia:", error);
-        alert("❌ Error al guardar: " + error.message);
-        return false;
-      }
-      
+      if (error) throw error;
       setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
       return true;
     } catch (err) {
-      console.error("Error:", err);
-      alert("❌ Error al guardar");
+      console.error(err);
+      alert("❌ Error al guardar: " + err.message);
       return false;
     }
   };
 
-  // Borrar todos los registros del programa actual
   const clearAllData = async () => {
     if (!window.confirm(`⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios del programa "${selectedPrograma}". Esta acción no se puede deshacer.`)) {
       return;
     }
-    
     setLoading(true);
-    // Intentar eliminar solo los registros del programa actual
     const { error } = await supabase
       .from("horarios")
       .delete()
       .eq("programa", selectedPrograma);
-    
     if (error) {
       console.error(error);
       setError("Error al borrar los datos: " + error.message);
-      alert("❌ Error al borrar: " + error.message + "\n\nPosible solución: Crea una política de eliminación en Supabase o usa la consola de Supabase para borrar manualmente.");
+      alert("❌ Error al borrar: " + error.message + "\n\nVerifica las políticas de seguridad en Supabase (RLS).");
     } else {
-      alert(`✅ Todos los registros de "${selectedPrograma}" han sido eliminados correctamente.`);
+      alert(`✅ Todos los registros de "${selectedPrograma}" han sido eliminados.`);
       await fetchHorarios();
     }
     setLoading(false);
   };
 
-  // Procesar archivo Excel sin duplicados y asignando el programa seleccionado
   const handleFileUpload = async (file) => {
     setUploading(true);
     setError(null);
-    
     const reader = new FileReader();
     reader.onload = async (e) => {
       const binaryStr = e.target.result;
       const workbook = XLSX.read(binaryStr, { type: "binary" });
       const allRows = [];
-      
       for (const sheetName of workbook.SheetNames) {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        
         let headerRowIdx = -1;
         let horaColIdx = -1;
         let diaCols = { LUNES: -1, MARTES: -1, MIÉRCOLES: -1, JUEVES: -1, VIERNES: -1 };
-        
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
           if (row && row[0] === "HORA") {
@@ -1046,9 +1021,7 @@ export default function App() {
             break;
           }
         }
-        
         if (headerRowIdx === -1) continue;
-        
         let programa = selectedPrograma, trayecto = "", seccion = "", turno = "", sede = "", aula = "";
         for (let i = 0; i < headerRowIdx; i++) {
           const row = json[i];
@@ -1062,12 +1035,10 @@ export default function App() {
           else if (firstCell === "AULA") aula = row[1]?.toString().trim() || "";
         }
         turno = normalizeTurno(turno);
-        
         for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row = json[i];
           const hora = row[horaColIdx]?.toString().trim();
           if (!hora || hora === "") continue;
-          
           for (const [dia, colIdx] of Object.entries(diaCols)) {
             if (colIdx === -1) continue;
             const clase = row[colIdx]?.toString().trim();
@@ -1077,35 +1048,27 @@ export default function App() {
           }
         }
       }
-      
       if (allRows.length === 0) {
         setError("No se encontraron datos válidos en el archivo.");
         setUploading(false);
         return;
       }
-      
-      // Verificar duplicados solo dentro del mismo programa
       const { data: existingData } = await supabase
         .from("horarios")
         .select("sheet, dia, hora, clase, programa")
         .eq("programa", selectedPrograma);
-      
       const existingKeys = new Set();
       existingData?.forEach(record => {
         existingKeys.add(`${record.sheet}|${record.dia}|${record.hora}|${record.clase}`);
       });
-      
       const newRows = allRows.filter(row => !existingKeys.has(`${row.sheet}|${row.dia}|${row.hora}|${row.clase}`));
       const duplicateCount = allRows.length - newRows.length;
-      
       if (newRows.length === 0) {
-        alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} registros duplicados en el programa ${selectedPrograma}.`);
+        alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} duplicados en ${selectedPrograma}.`);
         setUploading(false);
         return;
       }
-      
       const { error: insertError } = await supabase.from("horarios").insert(newRows);
-      
       if (insertError) {
         console.error(insertError);
         setError("Error al guardar: " + insertError.message);
@@ -1115,8 +1078,6 @@ export default function App() {
         if (duplicateCount > 0) message += `\n⚠️ Se omitieron ${duplicateCount} duplicados.`;
         alert(message);
         await fetchHorarios();
-        
-        // Extraer y guardar docentes únicos automáticamente
         const uniqueDocentes = new Set();
         const uniqueMaterias = new Set();
         newRows.forEach(row => {
@@ -1124,30 +1085,21 @@ export default function App() {
           if (docente) uniqueDocentes.add(docente);
           if (materia) uniqueMaterias.add(materia);
         });
-        
         for (const docente of uniqueDocentes) {
-          await supabase.from("docentes").upsert(
-            { nombre_raw: docente, nombre_display: docente },
-            { onConflict: "nombre_raw" }
-          );
+          await supabase.from("docentes").upsert({ nombre_raw: docente, nombre_display: docente }, { onConflict: "nombre_raw" });
         }
         for (const materia of uniqueMaterias) {
-          await supabase.from("materias").upsert(
-            { nombre_raw: materia, nombre_display: materia },
-            { onConflict: "nombre_raw" }
-          );
+          await supabase.from("materias").upsert({ nombre_raw: materia, nombre_display: materia }, { onConflict: "nombre_raw" });
         }
         await fetchDocenteNames();
         await fetchMateriaNames();
       }
       setUploading(false);
     };
-    
     reader.onerror = () => { setError("Error al leer el archivo."); setUploading(false); };
     reader.readAsBinaryString(file);
   };
 
-  // Cálculos derivados (filtrando por programa ya que data ya viene filtrada)
   const filtered = useMemo(() => {
     return data.filter(d => {
       if (selectedTrayecto !== "all" && d.trayecto !== selectedTrayecto) return false;
@@ -1220,7 +1172,6 @@ export default function App() {
 
   const getDocName = (raw) => docenteNames[raw] || raw;
   const getMateriaName = (raw) => materiaNames[raw] || raw;
-  
   const handleNavigate = (result) => {
     if (result.docente) { setDocenteNav(result.rawDocente || result.docente); setView("docentes"); }
     else if (result.materia) { setMateriaNav(result.rawMateria); setView("materias"); }
@@ -1262,7 +1213,7 @@ export default function App() {
             <button key={item.id} onClick={() => setView(item.id)} style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px", border: "none", borderRadius: 8,
               background: view === item.id ? "#2563EB" : "transparent", color: view === item.id ? "#fff" : "#9CA3AF",
-              cursor: "pointer", fontSize: 13, textAlign: "left", marginBottom: 2, fontWeight: view === item.id ? 600 : 400, transition: "all 0.15s",
+              cursor: "pointer", fontSize: 13, textAlign: "left", marginBottom: 2, fontWeight: view === item.id ? 600 : 400,
             }}>
               <span style={{ fontSize: 15 }}>{item.emoji}</span>
               <span style={{ flex: 1 }}>{item.label}</span>
@@ -1286,34 +1237,20 @@ export default function App() {
             📂 Cargar Excel
           </label>
           <input id="upload-excel" type="file" accept=".xlsx, .xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) handleFileUpload(e.target.files[0]); e.target.value = ""; }} disabled={uploading} />
-          
           <button 
             onClick={clearAllData} 
             disabled={loading || data.length === 0}
             style={{ 
-              display: "block", 
-              width: "100%", 
-              cursor: data.length === 0 ? "not-allowed" : "pointer", 
-              background: "#DC2626", 
-              color: "#fff", 
-              textAlign: "center", 
-              padding: "6px 12px", 
-              borderRadius: 6, 
-              fontSize: 12, 
-              fontWeight: 600,
-              border: "none",
-              opacity: data.length === 0 ? 0.5 : 1
+              display: "block", width: "100%", cursor: data.length === 0 ? "not-allowed" : "pointer", background: "#DC2626", color: "#fff",
+              textAlign: "center", padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", opacity: data.length === 0 ? 0.5 : 1
             }}
           >
             🗑️ Borrar datos del programa
           </button>
-          
           {uploading && <div style={{ fontSize: 10, marginTop: 6, color: "#9CA3AF" }}>Subiendo...</div>}
           {error && <div style={{ fontSize: 10, marginTop: 6, color: "#EF4444" }}>{error}</div>}
           {data.length > 0 && !uploading && !loading && (
-            <div style={{ fontSize: 10, marginTop: 6, color: "#6B7280", textAlign: "center" }}>
-              {data.length} registros cargados
-            </div>
+            <div style={{ fontSize: 10, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{data.length} registros cargados</div>
           )}
         </div>
       </aside>
