@@ -273,8 +273,15 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
   useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel, getDocName]);
 
+  useEffect(() => {
+    if (sel && !byDocente[sel]) {
+      const newSel = Object.keys(byDocente).find(k => getDocName(k).toLowerCase() === editValue.trim().toLowerCase());
+      setSel(newSel || null);
+    }
+  }, [byDocente, sel, editValue, getDocName]);
+
   const hasConflict = (name) => conflicts.some(c => c.docente === name);
-  const selEntries = sel ? byDocente[sel] : [];
+  const selEntries = byDocente[sel] || [];
   const selConflicts = sel ? conflicts.filter(c => c.docente === sel) : [];
 
   const filteredSorted = search ? sorted.filter(d => getDocName(d).toLowerCase().includes(search.toLowerCase())) : sorted;
@@ -446,7 +453,14 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
   useEffect(() => { if (sel) setEditValue(getMateriaName(sel)); }, [sel, getMateriaName]);
 
-  const selEntries = sel ? byMateria[sel] : [];
+  useEffect(() => {
+    if (sel && !byMateria[sel]) {
+      const newSel = Object.keys(byMateria).find(k => getMateriaName(k).toLowerCase() === editValue.trim().toLowerCase());
+      setSel(newSel || null);
+    }
+  }, [byMateria, sel, editValue, getMateriaName]);
+
+  const selEntries = byMateria[sel] || [];
   const filteredSorted = search ? sorted.filter(m => getMateriaName(m).toLowerCase().includes(search.toLowerCase())) : sorted;
 
   const saveEdit = async () => { 
