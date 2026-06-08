@@ -267,12 +267,13 @@ function SeccionesView({ data, getDocName }) {
   );
 }
 
-function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteNames, setDocenteNames, getDocName, data }) {
+function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteNames, setDocenteNames, getDocName, onSaveDocenteName }) {
   const sorted = Object.keys(byDocente).sort();
   const [sel, setSel] = useState(initialSel || null);
   const [search, setSearch] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
   
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
   useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel, getDocName]);
@@ -290,7 +291,20 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
   }, [selEntries]);
 
   const usedHoras = getUniqueHoras(selEntries);
-  const saveEdit = () => { const trimmed = editValue.trim(); if (trimmed && sel) setDocenteNames(prev => ({ ...prev, [sel]: trimmed })); setEditingName(false); };
+  
+  const saveEdit = async () => { 
+    const trimmed = editValue.trim(); 
+    if (trimmed && sel) {
+      setSaving(true);
+      const success = await onSaveDocenteName(sel, trimmed);
+      setSaving(false);
+      if (success) {
+        setEditingName(false);
+      }
+    } else {
+      setEditingName(false);
+    }
+  };
 
   return (
     <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
@@ -317,7 +331,9 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                 {editingName ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input value={editValue} onChange={e => setEditValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingName(false); }} autoFocus style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} />
-                    <button onClick={saveEdit} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Guardar</button>
+                    <button onClick={saveEdit} disabled={saving} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: saving ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600, opacity: saving ? 0.6 : 1 }}>
+                      {saving ? "Guardando..." : "Guardar"}
+                    </button>
                     <button onClick={() => setEditingName(false)} style={{ padding: "5px 10px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Cancelar</button>
                   </div>
                 ) : (
@@ -379,7 +395,7 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                               </td>
                             );
                           })}
-                        </tr>
+                        </table>
                       ))}
                     </tbody>
                   </table>
@@ -533,8 +549,8 @@ function AsistenciasView({ data, getDocName }) {
       <style>*{margin:0;padding:0;box-sizing:border-box;} body{font-family:Arial,sans-serif;font-size:11px;color:#000;} .page{padding:20px;} h1{font-size:15px;margin-bottom:4px;} .subtitle{font-size:11px;color:#555;margin-bottom:16px;} table{width:100%;border-collapse:collapse;margin-bottom:20px;} th{background:#f0f0f0;border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;} td{border:1px solid #ccc;padding:6px 8px;font-size:11px;vertical-align:top;} .docente-name{font-weight:bold;font-size:12px;} .firma-box{width:120px;height:40px;border:1px solid #999;}</style>
       </head><body><div class="page"><h1>Control de Asistencia Docentes</h1><div class="subtitle">PNF en Informática · Cabimas - Sede Los Laureles · ${selectedDay.charAt(0)+selectedDay.slice(1).toLowerCase()} · Turno: ${turno.charAt(0)+turno.slice(1).toLowerCase()} · 2-2026</div>
       <table><thead><tr><th style="width:30px">N°</th><th style="width:180px">Docente</th><th>Materia(s) / Sección(es)</th><th style="width:90px">Hora</th><th style="width:80px">Entrada</th><th style="width:80px">Salida</th><th style="width:120px">Firma</th></tr></thead><tbody>
-      ${docentesDelDia.map(([rawDoc, info], idx) => { const displayName = getDocName(rawDoc); return `<tr><td>${idx+1}</td><td class="docente-name">${displayName}</td><td>${info.clases.map(c=>`${c.materia} — ${c.seccion}`).join("<br>")}</td><td>${info.clases.map(c=>c.hora).join("<br>")}</td><td></td><td></td><td><div class="firma-box"></div></td></tr>`; }).join("")}
-      </tbody></table><div style="margin-top:30px; display:flex; justify-content:space-between;"><div style="text-align:center; width:200px;"><div style="border-top:1px solid #000; margin-top:40px; padding-top:4px; font-size:10px;">Coordinador(a) Académico</div></div><div style="text-align:center; width:200px;"><div style="border-top:1px solid #000; margin-top:40px; padding-top:4px; font-size:10px;">Secretaría</div></div></div></div></body></html>
+      ${docentesDelDia.map(([rawDoc, info], idx) => { const displayName = getDocName(rawDoc); return `<tr><td>${idx+1}</td><td class="docente-name">${displayName}</td><td>${info.clases.map(c=>`${c.materia} — ${c.seccion}`).join("<br>")}</td><td>${info.clases.map(c=>c.hora).join("<br>")}</td><td></div><div class="firma-box"></div></tr>`; }).join("")}
+      </tbody>追赶<div style="margin-top:30px; display:flex; justify-content:space-between;"><div style="text-align:center; width:200px;"><div style="border-top:1px solid #000; margin-top:40px; padding-top:4px; font-size:10px;">Coordinador(a) Académico</div></div><div style="text-align:center; width:200px;"><div style="border-top:1px solid #000; margin-top:40px; padding-top:4px; font-size:10px;">Secretaría</div></div></div></div></body></html>
     `);
     win.document.close();
     win.focus();
@@ -651,7 +667,7 @@ function EstadisticasView({ stats, byDocente, data }) {
   data.forEach(d => { trayectoCount[d.trayecto] = (trayectoCount[d.trayecto] || 0) + 1; });
   const dayCount = {};
   DAYS.forEach(d => { dayCount[d] = data.filter(r => r.dia === d).length; });
-  const maxDay = Math.max(...Object.values(dayCount));
+  const maxDay = Math.max(...Object.values(dayCount), 1);
   const top8 = Object.entries(byDocente).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
   const maxLoad = Math.max(...top8.map(([, e]) => e.length), 1);
   const materiaCount = {};
@@ -728,7 +744,7 @@ function EstadisticasView({ stats, byDocente, data }) {
         <div style={{ ...S.card, padding: "16px 20px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Distribución por turno</div>
           {Object.entries(turnoCount).sort().map(([t, cnt]) => {
-            const pct = Math.round((cnt / totalClases) * 100);
+            const pct = totalClases > 0 ? Math.round((cnt / totalClases) * 100) : 0;
             const colors = { DIURNO: "#2563EB", VESPERTINO: "#DB2777" };
             return (
               <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -745,11 +761,12 @@ function EstadisticasView({ stats, byDocente, data }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Secciones por trayecto</div>
           {ALL_TRAYECTOS.map(t => {
             const cnt = [...new Set(data.filter(d => d.trayecto === t).map(d => d.sheet.trim()))].length;
+            const pct = seccionesCount > 0 ? (cnt / seccionesCount) * 100 : 0;
             return (
               <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <span style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>{t}</span>
                 <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden" }}>
-                  <div style={{ width: `${(cnt / seccionesCount) * 100}%`, height: "100%", background: TRAYECTO_COLORS[t] || "#888", borderRadius: 4 }} />
+                  <div style={{ width: `${pct}%`, height: "100%", background: TRAYECTO_COLORS[t] || "#888", borderRadius: 4 }} />
                 </div>
                 <span style={{ fontSize: 12, width: 32, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span>
               </div>
@@ -789,9 +806,47 @@ export default function App() {
     setLoading(false);
   };
 
+  // Cargar nombres de docentes desde Supabase
+  const fetchDocenteNames = async () => {
+    const { data: docentes, error } = await supabase.from("docentes").select("*");
+    if (error) {
+      console.error("Error cargando docentes:", error);
+      return;
+    }
+    const namesMap = {};
+    docentes?.forEach(d => {
+      namesMap[d.nombre_raw] = d.nombre_display;
+    });
+    setDocenteNames(namesMap);
+  };
+
   useEffect(() => {
     fetchHorarios();
+    fetchDocenteNames();
   }, []);
+
+  // Guardar nombre de docente editado
+  const saveDocenteName = async (rawName, displayName) => {
+    try {
+      const { error } = await supabase
+        .from("docentes")
+        .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
+      
+      if (error) {
+        console.error("Error guardando docente:", error);
+        alert("❌ Error al guardar: " + error.message);
+        return false;
+      }
+      
+      // Actualizar estado local
+      setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
+      return true;
+    } catch (err) {
+      console.error("Error:", err);
+      alert("❌ Error al guardar");
+      return false;
+    }
+  };
 
   // Borrar todos los registros
   const clearAllData = async () => {
@@ -832,7 +887,6 @@ export default function App() {
         let horaColIdx = -1;
         let diaCols = { LUNES: -1, MARTES: -1, MIÉRCOLES: -1, JUEVES: -1, VIERNES: -1 };
         
-        // Buscar fila de encabezados
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
           if (row && row[0] === "HORA") {
@@ -852,7 +906,6 @@ export default function App() {
         
         if (headerRowIdx === -1) continue;
         
-        // Extraer metadatos
         let programa = "", trayecto = "", seccion = "", turno = "", sede = "", aula = "";
         for (let i = 0; i < headerRowIdx; i++) {
           const row = json[i];
@@ -867,7 +920,6 @@ export default function App() {
         }
         turno = normalizeTurno(turno);
         
-        // Extraer clases
         for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row = json[i];
           const hora = row[horaColIdx]?.toString().trim();
@@ -877,18 +929,7 @@ export default function App() {
             if (colIdx === -1) continue;
             const clase = row[colIdx]?.toString().trim();
             if (clase && clase !== "") {
-              allRows.push({ 
-                sheet: sheetName, 
-                programa, 
-                trayecto, 
-                seccion, 
-                turno, 
-                sede, 
-                aula: aula || null, 
-                dia, 
-                hora, 
-                clase 
-              });
+              allRows.push({ sheet: sheetName, programa, trayecto, seccion, turno, sede, aula: aula || null, dia, hora, clase });
             }
           }
         }
@@ -900,60 +941,53 @@ export default function App() {
         return;
       }
       
-      // Verificar duplicados antes de insertar
-      const { data: existingData, error: fetchError } = await supabase
-        .from("horarios")
-        .select("sheet, dia, hora, clase");
-      
-      if (fetchError) {
-        console.error("Error al verificar duplicados:", fetchError);
-      }
-      
-      // Crear un Set con los registros existentes
+      // Verificar duplicados
+      const { data: existingData } = await supabase.from("horarios").select("sheet, dia, hora, clase");
       const existingKeys = new Set();
-      if (existingData) {
-        existingData.forEach(record => {
-          const key = `${record.sheet}|${record.dia}|${record.hora}|${record.clase}`;
-          existingKeys.add(key);
-        });
-      }
-      
-      // Filtrar solo los registros NUEVOS
-      const newRows = allRows.filter(row => {
-        const key = `${row.sheet}|${row.dia}|${row.hora}|${row.clase}`;
-        return !existingKeys.has(key);
+      existingData?.forEach(record => {
+        existingKeys.add(`${record.sheet}|${record.dia}|${record.hora}|${record.clase}`);
       });
       
+      const newRows = allRows.filter(row => !existingKeys.has(`${row.sheet}|${row.dia}|${row.hora}|${row.clase}`));
       const duplicateCount = allRows.length - newRows.length;
       
       if (newRows.length === 0) {
-        alert(`⚠️ No se cargaron nuevos registros. Los ${duplicateCount} registros del archivo ya existen en la base de datos.`);
+        alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} registros duplicados.`);
         setUploading(false);
         return;
       }
       
-      // Insertar solo los registros nuevos
       const { error: insertError } = await supabase.from("horarios").insert(newRows);
       
       if (insertError) {
         console.error(insertError);
-        setError("Error al guardar en la base de datos: " + insertError.message);
+        setError("Error al guardar: " + insertError.message);
         alert("❌ Error al guardar: " + insertError.message);
       } else {
-        let message = `✅ Se cargaron ${newRows.length} clases correctamente.`;
-        if (duplicateCount > 0) {
-          message += `\n⚠️ Se omitieron ${duplicateCount} registros duplicados.`;
-        }
+        let message = `✅ Se cargaron ${newRows.length} clases.`;
+        if (duplicateCount > 0) message += `\n⚠️ Se omitieron ${duplicateCount} duplicados.`;
         alert(message);
-        fetchHorarios();
+        await fetchHorarios();
+        
+        // Extraer y guardar docentes únicos automáticamente
+        const uniqueDocentes = new Set();
+        newRows.forEach(row => {
+          const { docente } = parseClase(row.clase);
+          if (docente) uniqueDocentes.add(docente);
+        });
+        
+        for (const docente of uniqueDocentes) {
+          await supabase.from("docentes").upsert(
+            { nombre_raw: docente, nombre_display: docente },
+            { onConflict: "nombre_raw" }
+          );
+        }
+        await fetchDocenteNames();
       }
       setUploading(false);
     };
     
-    reader.onerror = () => { 
-      setError("Error al leer el archivo."); 
-      setUploading(false); 
-    };
+    reader.onerror = () => { setError("Error al leer el archivo."); setUploading(false); };
     reader.readAsBinaryString(file);
   };
 
@@ -1025,14 +1059,14 @@ export default function App() {
   const nav = [
     { id: "horarios", emoji: "📅", label: "Horarios" },
     { id: "secciones", emoji: "🏫", label: "Secciones" },
-    { id: "docentes", emoji: "👥", label: "Docentes" },
+    { id: "docentes", emoji: "👥", label: "Docentes", badge: conflicts.length },
     { id: "materias", emoji: "📖", label: "Materias" },
     { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
     { id: "conflictos", emoji: "⚠️", label: "Conflictos", badge: conflicts.length },
     { id: "estadisticas", emoji: "📊", label: "Estadísticas" },
   ];
 
-  if (loading) return <div style={{ padding: 20 }}>Cargando horarios...</div>;
+  if (loading && data.length === 0) return <div style={{ padding: 20, textAlign: "center" }}>Cargando horarios...</div>;
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui,-apple-system,sans-serif", background: "#F3F4F6", overflow: "hidden" }}>
@@ -1070,7 +1104,6 @@ export default function App() {
             ))}
           </div>
         </div>
-        {/* Sección de carga y borrado de datos */}
         <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
           <label htmlFor="upload-excel" style={{ display: "block", cursor: "pointer", background: "#2563EB", color: "#fff", textAlign: "center", padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
             📂 Cargar Excel
@@ -1115,7 +1148,7 @@ export default function App() {
         <main style={{ flex: 1, overflow: "auto" }}>
           {view === "horarios" && <HorariosView filtered={filtered} gridData={gridData} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} selectedTurno={selectedTurno} setSelectedTurno={setSelectedTurno} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} allTrayectos={allTrayectos} allTurnos={allTurnos} />}
           {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} />}
-          {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} docenteNames={docenteNames} setDocenteNames={setDocenteNames} getDocName={getDocName} data={data} />}
+          {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} docenteNames={docenteNames} setDocenteNames={setDocenteNames} getDocName={getDocName} onSaveDocenteName={saveDocenteName} />}
           {view === "materias" && <MateriasView data={data} getDocName={getDocName} />}
           {view === "asistencias" && <AsistenciasView data={data} getDocName={getDocName} />}
           {view === "conflictos" && <ConflictosView conflicts={conflicts} onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }} getDocName={getDocName} />}
