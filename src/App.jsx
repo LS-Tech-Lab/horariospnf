@@ -551,7 +551,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              <tr>
             </div>
           </>
         )}
@@ -941,32 +941,39 @@ export default function App() {
     fetchHorarios();
   }, [selectedPrograma]);
 
+  // ========== UNIFICACIÓN CORREGIDA ==========
   const unifyName = async (tableName, rawName, newDisplayName) => {
+    // Buscar otro registro con el mismo nombre_display (insensible a mayúsculas y espacios)
     const { data: existing, error: searchError } = await supabase
       .from(tableName)
       .select("nombre_raw")
-      .eq("nombre_display", newDisplayName)
+      .ilike("nombre_display", newDisplayName.trim())
       .neq("nombre_raw", rawName)
       .limit(1);
     if (searchError) throw searchError;
+
     if (existing && existing.length > 0) {
       const targetRaw = existing[0].nombre_raw;
+      // Actualizar todas las filas de horarios que contengan rawName
       const { data: horarios, error: fetchError } = await supabase
         .from("horarios")
         .select("id, clase")
         .ilike("clase", `%${rawName}%`);
       if (fetchError) throw fetchError;
+
       for (const row of horarios) {
         let nuevaClase = row.clase;
-        if (tableName === "docentes") {
-          nuevaClase = nuevaClase.replace(new RegExp(`Prof\\.?\\s*${rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'), `Prof. ${targetRaw}`);
-        } else {
-          nuevaClase = nuevaClase.replace(new RegExp(`^${rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'i'), `${targetRaw} `);
-        }
+        // Reemplazo exacto del nombre (sin prefijos)
+        nuevaClase = nuevaClase.split(rawName).join(targetRaw);
         if (nuevaClase !== row.clase) {
-          await supabase.from("horarios").update({ clase: nuevaClase }).eq("id", row.id);
+          const { error: updateError } = await supabase
+            .from("horarios")
+            .update({ clase: nuevaClase })
+            .eq("id", row.id);
+          if (updateError) throw updateError;
         }
       }
+      // Eliminar el registro antiguo de la tabla de nombres
       await supabase.from(tableName).delete().eq("nombre_raw", rawName);
       return targetRaw;
     }
@@ -982,7 +989,10 @@ export default function App() {
         alert(`✅ El docente "${displayName}" ya existía. Se han unificado los registros.`);
         return true;
       }
-      await supabase.from("docentes").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
+      const { error } = await supabase
+        .from("docentes")
+        .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
+      if (error) throw error;
       setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
       return true;
     } catch (err) {
@@ -1001,7 +1011,10 @@ export default function App() {
         alert(`✅ La materia "${displayName}" ya existía. Se han unificado los registros.`);
         return true;
       }
-      await supabase.from("materias").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
+      const { error } = await supabase
+        .from("materias")
+        .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
+      if (error) throw error;
       setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
       return true;
     } catch (err) {
@@ -1011,6 +1024,7 @@ export default function App() {
     }
   };
 
+  // ========== ELIMINACIÓN CORREGIDA ==========
   const clearAllData = async () => {
     if (!window.confirm(`⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios${selectedPrograma !== "todos" ? ` del programa "${selectedPrograma}"` : " de TODOS los programas"}. Esta acción no se puede deshacer.`)) {
       return;
@@ -1035,6 +1049,7 @@ export default function App() {
     setLoading(false);
   };
 
+  // ========== CARGA DE EXCEL MEJORADA (CON LOGS Y DETECCIÓN DE HORA) ==========
   const handleFileUpload = async (file) => {
     setUploading(true);
     setError(null);
@@ -1043,29 +1058,38 @@ export default function App() {
       const binaryStr = e.target.result;
       const workbook = XLSX.read(binaryStr, { type: "binary" });
       const allRows = [];
+      console.log(`📄 Leyendo archivo con ${workbook.SheetNames.length} hojas...`);
+      
       for (const sheetName of workbook.SheetNames) {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
         let headerRowIdx = -1;
         let horaColIdx = -1;
         let diaCols = { LUNES: -1, MARTES: -1, MIÉRCOLES: -1, JUEVES: -1, VIERNES: -1 };
+        
+        // Buscar fila que contenga "HORA" (en mayúsculas o minúsculas)
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
-          if (row && row[0] === "HORA") {
+          if (row && row[0] && row[0].toString().trim().toUpperCase() === "HORA") {
             headerRowIdx = i;
             for (let j = 0; j < row.length; j++) {
-              const cell = row[j]?.toString().toUpperCase();
+              const cell = row[j]?.toString().toUpperCase().trim();
               if (cell === "LUNES") diaCols.LUNES = j;
               else if (cell === "MARTES") diaCols.MARTES = j;
               else if (cell === "MIÉRCOLES") diaCols.MIÉRCOLES = j;
               else if (cell === "JUEVES") diaCols.JUEVES = j;
               else if (cell === "VIERNES") diaCols.VIERNES = j;
             }
-            horaColIdx = 0;
+            horaColIdx = 0; // La hora está en la columna A (índice 0)
             break;
           }
         }
-        if (headerRowIdx === -1) continue;
+        if (headerRowIdx === -1) {
+          console.warn(`⚠️ Hoja "${sheetName}" no tiene fila "HORA". Se omite.`);
+          continue;
+        }
+        
+        // Extraer metadatos (programa, trayecto, sección, turno, sede, aula)
         let programa = "", trayecto = "", seccion = "", turno = "", sede = "", aula = "";
         for (let i = 0; i < headerRowIdx; i++) {
           const row = json[i];
@@ -1078,30 +1102,43 @@ export default function App() {
           else if (firstCell === "Turno") turno = row[5]?.toString().trim() || "";
           else if (firstCell === "AULA") aula = row[1]?.toString().trim() || "";
         }
+        
+        // Forzar programa según selección
         if (selectedPrograma !== "todos") {
           programa = selectedPrograma;
         } else if (!programa) {
           programa = "Sin programa";
         }
         turno = normalizeTurno(turno);
+        
+        let filasProcesadas = 0;
+        // Recorrer filas desde después del encabezado
         for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row = json[i];
           const hora = row[horaColIdx]?.toString().trim();
           if (!hora || hora === "") continue;
+          
           for (const [dia, colIdx] of Object.entries(diaCols)) {
             if (colIdx === -1) continue;
             const clase = row[colIdx]?.toString().trim();
             if (clase && clase !== "") {
               allRows.push({ sheet: sheetName, programa, trayecto, seccion, turno, sede, aula: aula || null, dia, hora, clase });
+              filasProcesadas++;
             }
           }
         }
+        console.log(`✅ Hoja "${sheetName}": extraídas ${filasProcesadas} clases.`);
       }
+      
       if (allRows.length === 0) {
         setError("No se encontraron datos válidos en el archivo.");
         setUploading(false);
         return;
       }
+      
+      console.log(`📊 Total de filas extraídas: ${allRows.length}`);
+      
+      // Verificar duplicados contra base de datos actual
       const { data: existingData } = await supabase
         .from("horarios")
         .select("sheet, dia, hora, clase, programa");
@@ -1111,11 +1148,14 @@ export default function App() {
       });
       const newRows = allRows.filter(row => !existingKeys.has(`${row.sheet}|${row.dia}|${row.hora}|${row.clase}|${row.programa}`));
       const duplicateCount = allRows.length - newRows.length;
+      console.log(`🆕 Nuevos registros: ${newRows.length}, duplicados omitidos: ${duplicateCount}`);
+      
       if (newRows.length === 0) {
         alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} duplicados.`);
         setUploading(false);
         return;
       }
+      
       const { error: insertError } = await supabase.from("horarios").insert(newRows);
       if (insertError) {
         console.error(insertError);
@@ -1127,6 +1167,8 @@ export default function App() {
         alert(message);
         await fetchHorarios();
         await fetchProgramas();
+        
+        // Extraer docentes y materias únicos
         const uniqueDocentes = new Set();
         const uniqueMaterias = new Set();
         newRows.forEach(row => {
@@ -1149,6 +1191,7 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
+  // ========== FILTROS Y CÁLCULOS (sin cambios) ==========
   const filtered = useMemo(() => {
     return data.filter(d => {
       if (selectedTrayecto !== "all" && d.trayecto !== selectedTrayecto) return false;
