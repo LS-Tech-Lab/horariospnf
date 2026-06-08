@@ -16,6 +16,13 @@ const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", 
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 const ALL_TRAYECTOS = ["1-1", "1-2", "2-1", "2-2", "3-1", "3-2", "4-1", "4-2"];
 
+const PROGRAMAS = [
+  "PNF Informática",
+  "PNF Contaduría Pública",
+  "PNF Agroalimentación",
+  "PNF Educación Especial"
+];
+
 const TRAYECTO_COLORS = {
   "1-1": "#2563EB", "1-2": "#059669",
   "2-1": "#DC2626", "2-2": "#DB2777",
@@ -94,7 +101,7 @@ function StatCard({ label, value, icon, color = "#2563EB" }) {
   );
 }
 
-function GlobalSearch({ onNavigate, docenteNames, data }) {
+function GlobalSearch({ onNavigate, docenteNames, materiaNames, data }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const ref = useRef();
@@ -107,14 +114,15 @@ function GlobalSearch({ onNavigate, docenteNames, data }) {
     data.forEach(d => {
       const { materia, docente: rawDocente } = parseClase(d.clase);
       const docente = docenteNames[rawDocente] || rawDocente;
+      const materiaDisplay = materiaNames[materia] || materia;
       const key = `${materia}__${rawDocente}`;
-      if (!seen.has(key) && (materia.toLowerCase().includes(lo) || docente.toLowerCase().includes(lo))) {
+      if (!seen.has(key) && (materiaDisplay.toLowerCase().includes(lo) || docente.toLowerCase().includes(lo))) {
         seen.add(key);
-        out.push({ type: rawDocente ? "clase" : "materia", materia, docente, trayecto: d.trayecto, sheet: d.sheet.trim() });
+        out.push({ type: rawDocente ? "clase" : "materia", materia: materiaDisplay, docente, trayecto: d.trayecto, sheet: d.sheet.trim(), rawMateria: materia, rawDocente });
       }
     });
     return out.slice(0, 8);
-  }, [q, docenteNames, data]);
+  }, [q, docenteNames, materiaNames, data]);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -144,7 +152,7 @@ function GlobalSearch({ onNavigate, docenteNames, data }) {
 }
 
 // ========== Vistas principales ==========
-function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayecto, selectedSeccion, setSelectedSeccion, selectedTurno, setSelectedTurno, activeDay, setActiveDay, seccionesByTrayecto, expandedCell, setExpandedCell, getDocName, allTrayectos, allTurnos }) {
+function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayecto, selectedSeccion, setSelectedSeccion, selectedTurno, setSelectedTurno, activeDay, setActiveDay, seccionesByTrayecto, expandedCell, setExpandedCell, getDocName, getMateriaName, allTrayectos, allTurnos }) {
   const days = activeDay === "all" ? DAYS : [activeDay];
 
   return (
@@ -188,7 +196,8 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
                     return (
                       <td key={day} style={{ padding: "4px 6px", borderTop: "1px solid #F3F4F6", borderLeft: "1px solid #F3F4F6", verticalAlign: "top", background: ri % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                         {entries.map((e, i) => {
-                          const { materia, docente: rawDoc } = parseClase(e.clase);
+                          const { materia: rawMateria, docente: rawDoc } = parseClase(e.clase);
+                          const materia = getMateriaName(rawMateria);
                           const docente = getDocName(rawDoc);
                           const bg = TRAYECTO_BG[e.trayecto] || "#f0f0f0";
                           const col = TRAYECTO_COLORS[e.trayecto] || "#555";
@@ -213,7 +222,7 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
   );
 }
 
-function SeccionesView({ data, getDocName }) {
+function SeccionesView({ data, getDocName, getMateriaName }) {
   const allSecciones = useMemo(() => [...new Set(data.map(d => d.sheet.trim()))].sort(), [data]);
   const [selSheet, setSelSheet] = useState(allSecciones[0]);
   const [filterTray, setFilterTray] = useState("all");
@@ -258,7 +267,7 @@ function SeccionesView({ data, getDocName }) {
             </div>
             <div style={S.card}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", borderBottom: "1px solid #E5E7EB" }}>{DAYS.map(day => (<div key={day} style={{ padding: "10px 12px", borderRight: "1px solid #E5E7EB", fontWeight: 600, fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", background: "#F9FAFB" }}>{day.slice(0, 3)}</div>))}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)" }}>{DAYS.map(day => (<div key={day} style={{ padding: "10px 10px", borderRight: "1px solid #F3F4F6", minHeight: 120, verticalAlign: "top" }}>{(byDay[day] || []).map((e, i) => { const { materia, docente: rawDoc } = parseClase(e.clase); const docente = getDocName(rawDoc); const col = TRAYECTO_COLORS[e.trayecto] || "#555"; const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5"; return (<div key={i} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 5, padding: "5px 8px", marginBottom: 5 }}><div style={{ fontSize: 11, fontWeight: 600, color: col, lineHeight: 1.3 }}>{materia.length > 22 ? materia.slice(0, 20) + "…" : materia}</div><div style={{ fontSize: 10, color: col, opacity: 0.7, marginTop: 2 }}>{e.hora.split(" ")[0]}</div>{docente && <div style={{ fontSize: 10, color: col, opacity: 0.65, marginTop: 1 }}>{docente.split(" ")[0]}</div>}</div>); })}{byDay[day].length === 0 && (<div style={{ fontSize: 11, color: "#D1D5DB", textAlign: "center", marginTop: 20 }}>—</div>)}</div>))}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)" }}>{DAYS.map(day => (<div key={day} style={{ padding: "10px 10px", borderRight: "1px solid #F3F4F6", minHeight: 120, verticalAlign: "top" }}>{(byDay[day] || []).map((e, i) => { const { materia: rawMateria, docente: rawDoc } = parseClase(e.clase); const materia = getMateriaName(rawMateria); const docente = getDocName(rawDoc); const col = TRAYECTO_COLORS[e.trayecto] || "#555"; const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5"; return (<div key={i} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 5, padding: "5px 8px", marginBottom: 5 }}><div style={{ fontSize: 11, fontWeight: 600, color: col, lineHeight: 1.3 }}>{materia.length > 22 ? materia.slice(0, 20) + "…" : materia}</div><div style={{ fontSize: 10, color: col, opacity: 0.7, marginTop: 2 }}>{e.hora.split(" ")[0]}</div>{docente && <div style={{ fontSize: 10, color: col, opacity: 0.65, marginTop: 1 }}>{docente.split(" ")[0]}</div>}</div>); })}{byDay[day].length === 0 && (<div style={{ fontSize: 11, color: "#D1D5DB", textAlign: "center", marginTop: 20 }}>—</div>)}</div>))}</div>
             </div>
           </>
         )}
@@ -392,7 +401,7 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                                     </div>
                                   );
                                 })}
-                              </td>
+                              <tr>
                             );
                           })}
                         </tr>
@@ -433,38 +442,60 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
   );
 }
 
-function MateriasView({ data, getDocName }) {
-  const [search, setSearch] = useState("");
-  const [sel, setSel] = useState(null);
-
-  const byMateria = useMemo(() => {
-    const map = {};
-    data.forEach(d => {
-      const { materia, docente } = parseClase(d.clase);
-      if (!map[materia]) map[materia] = [];
-      map[materia].push({ ...d, docente });
-    });
-    return map;
-  }, [data]);
-
+function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMateriaNames, getMateriaName, onSaveMateriaName, data }) {
   const sorted = Object.keys(byMateria).sort();
-  const filtered = search ? sorted.filter(m => m.toLowerCase().includes(search.toLowerCase())) : sorted;
-  const selEntries = sel ? byMateria[sel] : [];
-  const docentesForMateria = sel ? [...new Set(selEntries.map(e => e.docente).filter(Boolean))] : [];
-  const seccionesForMateria = sel ? [...new Set(selEntries.map(e => e.sheet.trim()))] : [];
+  const [sel, setSel] = useState(initialSel || null);
+  const [search, setSearch] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  
+  useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
+  useEffect(() => { if (sel) setEditValue(getMateriaName(sel)); }, [sel, getMateriaName]);
 
-  useEffect(() => { if (filtered.length > 0 && !sel) setSel(filtered[0]); }, [filtered, sel]);
+  const selEntries = sel ? byMateria[sel] : [];
+  const filteredSorted = search ? sorted.filter(m => getMateriaName(m).toLowerCase().includes(search.toLowerCase())) : sorted;
+
+  const saveEdit = async () => { 
+    const trimmed = editValue.trim(); 
+    if (trimmed && sel) {
+      setSaving(true);
+      const success = await onSaveMateriaName(sel, trimmed);
+      setSaving(false);
+      if (success) {
+        setEditingName(false);
+      }
+    } else {
+      setEditingName(false);
+    }
+  };
+
+  // Agrupar por sección y día para la vista de asignaciones
+  const asignaciones = useMemo(() => {
+    const map = [];
+    selEntries.forEach(e => {
+      map.push({
+        dia: e.dia,
+        hora: e.hora,
+        turno: e.turno,
+        seccion: e.sheet.trim(),
+        trayecto: e.trayecto,
+        docente: e.docente
+      });
+    });
+    return map.sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || a.hora.localeCompare(b.hora));
+  }, [selEntries]);
 
   return (
     <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
-      <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar materia…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
-          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filtered.length} materias</div>
-          {filtered.map(m => (
-            <div key={m} onClick={() => setSel(m)} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === m ? "#EFF6FF" : "transparent", color: sel === m ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === m ? 600 : 400 }}>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m}</span>
-              <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600, marginLeft: 6, flexShrink: 0 }}>{byMateria[m].length}</span>
+          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSorted.length} materias</div>
+          {filteredSorted.map(m => (
+            <div key={m} onClick={() => { setSel(m); setEditingName(false); }} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === m ? "#EFF6FF" : "transparent", color: sel === m ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === m ? 600 : 400 }}>
+              <span>{getMateriaName(m)}</span>
+              <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600 }}>{byMateria[m].length}</span>
             </div>
           ))}
         </div>
@@ -474,47 +505,56 @@ function MateriasView({ data, getDocName }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona una materia para ver detalles</div>
         ) : (
           <>
-            <div style={{ ...S.card, padding: "16px 20px", marginBottom: 16 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 10 }}>{sel}</div>
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Total clases</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{selEntries.length}</div></div>
-                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Docentes</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{docentesForMateria.length}</div></div>
-                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Secciones</div><div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{seccionesForMateria.length}</div></div>
-                <div><div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>Trayectos</div><div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>{[...new Set(selEntries.map(e => e.trayecto))].sort().map(t => (<span key={t} style={S.badge(TRAYECTO_BG[t] || "#f3f4f6", TRAYECTO_COLORS[t] || "#555")}>T.{t}</span>))}</div></div>
+            <div style={{ ...S.card, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+              <Avatar name={getMateriaName(sel)} size={48} />
+              <div style={{ flex: 1 }}>
+                {editingName ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input value={editValue} onChange={e => setEditValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingName(false); }} autoFocus style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} />
+                    <button onClick={saveEdit} disabled={saving} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: saving ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600, opacity: saving ? 0.6 : 1 }}>
+                      {saving ? "Guardando..." : "Guardar"}
+                    </button>
+                    <button onClick={() => setEditingName(false)} style={{ padding: "5px 10px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Cancelar</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#111827" }}>{getMateriaName(sel)}</div>
+                    <button onClick={() => { setEditValue(getMateriaName(sel)); setEditingName(true); }} title="Editar nombre" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: "#6B7280", display: "flex", alignItems: "center", gap: 4 }}>✏️ Editar</button>
+                  </div>
+                )}
+                <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                  {selEntries.length} clases asignadas
+                  {selEntries.length > 0 && (
+                    <span style={{ marginLeft: 10, ...S.badge("#EFF6FF", "#2563EB") }}>
+                      {new Set(selEntries.map(e => e.trayecto)).size} trayecto(s)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             
-            {docentesForMateria.length > 0 && (
-              <div style={{ ...S.card, marginBottom: 16 }}>
-                <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>👥 Docentes que imparten esta materia</div>
-                <div style={{ padding: "12px 16px", display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {docentesForMateria.map(d => (
-                    <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px 12px" }}>
-                      <Avatar name={getDocName(d)} size={28} />
-                      <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>{getDocName(d)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
             <div style={S.card}>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Todas las asignaciones</div>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>📋 Asignaciones</div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["Día", "Hora", "Turno", "Docente", "Trayecto", "Sección"].map(h => (<th key={h} style={S.th}>{h}</th>))}
+                    <th style={S.th}>Día</th>
+                    <th style={S.th}>Hora</th>
+                    <th style={S.th}>Turno</th>
+                    <th style={S.th}>Sección</th>
+                    <th style={S.th}>Trayecto</th>
+                    <th style={S.th}>Docente</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selEntries.sort((a, b) => { const di = DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia); return di !== 0 ? di : a.hora.localeCompare(b.hora); }).map((e, i) => (
+                  {asignaciones.map((e, i) => (
                     <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                       <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
                       <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td>
                       <td style={S.td}><span style={S.badge(e.turno === "DIURNO" ? "#EFF6FF" : "#FDF2F8", e.turno === "DIURNO" ? "#2563EB" : "#DB2777")}>{e.turno}</span></td>
-                      <td style={{ ...S.td, fontWeight: 500 }}>{getDocName(e.docente) || "—"}</td>
+                      <td style={S.td}>{e.seccion}</td>
                       <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
-                      <td style={{ ...S.td, color: "#6B7280" }}>{e.sheet.trim()}</td>
+                      <td style={S.td}>{e.docente || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -527,7 +567,7 @@ function MateriasView({ data, getDocName }) {
   );
 }
 
-function AsistenciasView({ data, getDocName }) {
+function AsistenciasView({ data, getDocName, getMateriaName }) {
   const [turno, setTurno] = useState("DIURNO");
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
 
@@ -537,10 +577,16 @@ function AsistenciasView({ data, getDocName }) {
       const { docente, materia } = parseClase(d.clase);
       if (!docente) return;
       if (!map[docente]) map[docente] = { clases: [] };
-      map[docente].clases.push({ materia, hora: d.hora, seccion: d.sheet.trim(), trayecto: d.trayecto, aula: d.aula });
+      map[docente].clases.push({ 
+        materia: getMateriaName(materia), 
+        hora: d.hora, 
+        seccion: d.sheet.trim(), 
+        trayecto: d.trayecto, 
+        aula: d.aula 
+      });
     });
     return Object.entries(map).sort((a, b) => getDocName(a[0]).localeCompare(getDocName(b[0])));
-  }, [data, turno, selectedDay]);
+  }, [data, turno, selectedDay, getDocName, getMateriaName]);
 
   const handlePrint = () => {
     const win = window.open("", "_blank");
@@ -586,9 +632,7 @@ function AsistenciasView({ data, getDocName }) {
                       <td class="docente-name">${displayName}</td>
                       <td>${info.clases.map(c => `${c.materia} — ${c.seccion}`).join("<br>")}</td>
                       <td>${info.clases.map(c => c.hora).join("<br>")}</td>
-                      <td></td>
-                      <td></td>
-                      <td><div class="firma-box"></div></td>
+                      <td></div><div class="firma-box"></div></td>
                     </tr>
                   `;
                 }).join("")}
@@ -713,17 +757,15 @@ function ConflictosView({ conflicts, onGoDocente, getDocName }) {
   );
 }
 
-function EstadisticasView({ stats, byDocente, data }) {
+function EstadisticasView({ stats, byDocente, byMateria, data, getDocName, getMateriaName }) {
   const trayectoCount = {};
   data.forEach(d => { trayectoCount[d.trayecto] = (trayectoCount[d.trayecto] || 0) + 1; });
   const dayCount = {};
   DAYS.forEach(d => { dayCount[d] = data.filter(r => r.dia === d).length; });
   const maxDay = Math.max(...Object.values(dayCount), 1);
-  const top8 = Object.entries(byDocente).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
-  const maxLoad = Math.max(...top8.map(([, e]) => e.length), 1);
-  const materiaCount = {};
-  data.forEach(d => { const { materia } = parseClase(d.clase); materiaCount[materia] = (materiaCount[materia] || 0) + 1; });
-  const topMaterias = Object.entries(materiaCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const top8Docentes = Object.entries(byDocente).sort((a, b) => b[1].length - a[1].length).slice(0, 8);
+  const maxLoadDocente = Math.max(...top8Docentes.map(([, e]) => e.length), 1);
+  const topMaterias = Object.entries(byMateria).sort((a, b) => b[1].length - a[1].length).slice(0, 6);
   const maxMat = topMaterias[0]?.[1] || 1;
   const turnoCount = {};
   data.forEach(d => { turnoCount[d.turno] = (turnoCount[d.turno] || 0) + 1; });
@@ -768,12 +810,12 @@ function EstadisticasView({ stats, byDocente, data }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ ...S.card, padding: "16px 20px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Docentes con mayor carga</div>
-          {top8.map(([doc, entries], idx) => (
+          {top8Docentes.map(([doc, entries], idx) => (
             <div key={doc} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span>
-              <span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc}</span>
+              <span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getDocName(doc)}</span>
               <div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}>
-                <div style={{ width: `${(entries.length / maxLoad) * 100}%`, height: "100%", background: "#7C3AED", borderRadius: 4 }} />
+                <div style={{ width: `${(entries.length / maxLoadDocente) * 100}%`, height: "100%", background: "#7C3AED", borderRadius: 4 }} />
               </div>
               <span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{entries.length}</span>
             </div>
@@ -781,16 +823,19 @@ function EstadisticasView({ stats, byDocente, data }) {
         </div>
         <div style={{ ...S.card, padding: "16px 20px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Materias más frecuentes</div>
-          {topMaterias.map(([mat, cnt], idx) => (
-            <div key={mat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span>
-              <span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={mat}>{mat.length > 28 ? mat.slice(0, 26) + "…" : mat}</span>
-              <div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}>
-                <div style={{ width: `${(cnt / maxMat) * 100}%`, height: "100%", background: "#D97706", borderRadius: 4 }} />
+          {topMaterias.map(([mat, entries], idx) => {
+            const cnt = entries.length;
+            return (
+              <div key={mat} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#D1D5DB", width: 16 }}>{idx + 1}</span>
+                <span style={{ fontSize: 12, flex: 1, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={getMateriaName(mat)}>{getMateriaName(mat).length > 28 ? getMateriaName(mat).slice(0, 26) + "…" : getMateriaName(mat)}</span>
+                <div style={{ width: 100, background: "#F3F4F6", borderRadius: 4, height: 10, overflow: "hidden" }}>
+                  <div style={{ width: `${(cnt / maxMat) * 100}%`, height: "100%", background: "#D97706", borderRadius: 4 }} />
+                </div>
+                <span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span>
               </div>
-              <span style={{ fontSize: 12, width: 24, textAlign: "right", color: "#6B7280", fontWeight: 600 }}>{cnt}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div style={{ ...S.card, padding: "16px 20px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Distribución por turno</div>
@@ -836,18 +881,25 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState("horarios");
+  const [selectedPrograma, setSelectedPrograma] = useState(PROGRAMAS[0]);
   const [selectedTrayecto, setSelectedTrayecto] = useState("all");
   const [selectedSeccion, setSelectedSeccion] = useState("all");
   const [selectedTurno, setSelectedTurno] = useState("all");
   const [activeDay, setActiveDay] = useState("all");
   const [expandedCell, setExpandedCell] = useState(null);
   const [docenteNav, setDocenteNav] = useState(null);
+  const [materiaNav, setMateriaNav] = useState(null);
   const [docenteNames, setDocenteNames] = useState({});
+  const [materiaNames, setMateriaNames] = useState({});
 
-  // Cargar datos desde Supabase
+  // Cargar datos desde Supabase filtrando por programa
   const fetchHorarios = async () => {
     setLoading(true);
-    const { data: horarios, error } = await supabase.from("horarios").select("*").order("id", { ascending: true });
+    const { data: horarios, error } = await supabase
+      .from("horarios")
+      .select("*")
+      .eq("programa", selectedPrograma)
+      .order("id", { ascending: true });
     if (error) {
       console.error(error);
       setError(error.message);
@@ -871,10 +923,25 @@ export default function App() {
     setDocenteNames(namesMap);
   };
 
+  // Cargar nombres de materias desde Supabase
+  const fetchMateriaNames = async () => {
+    const { data: materias, error } = await supabase.from("materias").select("*");
+    if (error) {
+      console.error("Error cargando materias:", error);
+      return;
+    }
+    const namesMap = {};
+    materias?.forEach(m => {
+      namesMap[m.nombre_raw] = m.nombre_display;
+    });
+    setMateriaNames(namesMap);
+  };
+
   useEffect(() => {
     fetchHorarios();
     fetchDocenteNames();
-  }, []);
+    fetchMateriaNames();
+  }, [selectedPrograma]);
 
   // Guardar nombre de docente editado
   const saveDocenteName = async (rawName, displayName) => {
@@ -898,27 +965,53 @@ export default function App() {
     }
   };
 
-  // Borrar todos los registros
+  // Guardar nombre de materia editado
+  const saveMateriaName = async (rawName, displayName) => {
+    try {
+      const { error } = await supabase
+        .from("materias")
+        .upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
+      
+      if (error) {
+        console.error("Error guardando materia:", error);
+        alert("❌ Error al guardar: " + error.message);
+        return false;
+      }
+      
+      setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
+      return true;
+    } catch (err) {
+      console.error("Error:", err);
+      alert("❌ Error al guardar");
+      return false;
+    }
+  };
+
+  // Borrar todos los registros del programa actual
   const clearAllData = async () => {
-    if (!window.confirm("⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios cargados. Esta acción no se puede deshacer.")) {
+    if (!window.confirm(`⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios del programa "${selectedPrograma}". Esta acción no se puede deshacer.`)) {
       return;
     }
     
     setLoading(true);
-    const { error } = await supabase.from("horarios").delete().neq("id", 0);
+    // Intentar eliminar solo los registros del programa actual
+    const { error } = await supabase
+      .from("horarios")
+      .delete()
+      .eq("programa", selectedPrograma);
     
     if (error) {
       console.error(error);
       setError("Error al borrar los datos: " + error.message);
-      alert("❌ Error al borrar: " + error.message);
+      alert("❌ Error al borrar: " + error.message + "\n\nPosible solución: Crea una política de eliminación en Supabase o usa la consola de Supabase para borrar manualmente.");
     } else {
-      alert("✅ Todos los registros han sido eliminados correctamente.");
+      alert(`✅ Todos los registros de "${selectedPrograma}" han sido eliminados correctamente.`);
       await fetchHorarios();
     }
     setLoading(false);
   };
 
-  // Procesar archivo Excel sin duplicados
+  // Procesar archivo Excel sin duplicados y asignando el programa seleccionado
   const handleFileUpload = async (file) => {
     setUploading(true);
     setError(null);
@@ -956,12 +1049,12 @@ export default function App() {
         
         if (headerRowIdx === -1) continue;
         
-        let programa = "", trayecto = "", seccion = "", turno = "", sede = "", aula = "";
+        let programa = selectedPrograma, trayecto = "", seccion = "", turno = "", sede = "", aula = "";
         for (let i = 0; i < headerRowIdx; i++) {
           const row = json[i];
           if (!row) continue;
           const firstCell = row[0]?.toString().trim();
-          if (firstCell === "PROGRAMA") programa = row[1]?.toString().trim() || "";
+          if (firstCell === "PROGRAMA") programa = row[1]?.toString().trim() || selectedPrograma;
           else if (firstCell === "TRAYECTO") trayecto = row[1]?.toString().trim() || "";
           else if (firstCell === "Sede:") sede = row[1]?.toString().trim() || "";
           else if (firstCell === "Sección") seccion = row[5]?.toString().trim() || "";
@@ -991,7 +1084,12 @@ export default function App() {
         return;
       }
       
-      const { data: existingData } = await supabase.from("horarios").select("sheet, dia, hora, clase");
+      // Verificar duplicados solo dentro del mismo programa
+      const { data: existingData } = await supabase
+        .from("horarios")
+        .select("sheet, dia, hora, clase, programa")
+        .eq("programa", selectedPrograma);
+      
       const existingKeys = new Set();
       existingData?.forEach(record => {
         existingKeys.add(`${record.sheet}|${record.dia}|${record.hora}|${record.clase}`);
@@ -1001,7 +1099,7 @@ export default function App() {
       const duplicateCount = allRows.length - newRows.length;
       
       if (newRows.length === 0) {
-        alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} registros duplicados.`);
+        alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} registros duplicados en el programa ${selectedPrograma}.`);
         setUploading(false);
         return;
       }
@@ -1013,15 +1111,18 @@ export default function App() {
         setError("Error al guardar: " + insertError.message);
         alert("❌ Error al guardar: " + insertError.message);
       } else {
-        let message = `✅ Se cargaron ${newRows.length} clases.`;
+        let message = `✅ Se cargaron ${newRows.length} clases en "${selectedPrograma}".`;
         if (duplicateCount > 0) message += `\n⚠️ Se omitieron ${duplicateCount} duplicados.`;
         alert(message);
         await fetchHorarios();
         
+        // Extraer y guardar docentes únicos automáticamente
         const uniqueDocentes = new Set();
+        const uniqueMaterias = new Set();
         newRows.forEach(row => {
-          const { docente } = parseClase(row.clase);
+          const { docente, materia } = parseClase(row.clase);
           if (docente) uniqueDocentes.add(docente);
+          if (materia) uniqueMaterias.add(materia);
         });
         
         for (const docente of uniqueDocentes) {
@@ -1030,7 +1131,14 @@ export default function App() {
             { onConflict: "nombre_raw" }
           );
         }
+        for (const materia of uniqueMaterias) {
+          await supabase.from("materias").upsert(
+            { nombre_raw: materia, nombre_display: materia },
+            { onConflict: "nombre_raw" }
+          );
+        }
         await fetchDocenteNames();
+        await fetchMateriaNames();
       }
       setUploading(false);
     };
@@ -1039,7 +1147,7 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
-  // Cálculos derivados
+  // Cálculos derivados (filtrando por programa ya que data ya viene filtrada)
   const filtered = useMemo(() => {
     return data.filter(d => {
       if (selectedTrayecto !== "all" && d.trayecto !== selectedTrayecto) return false;
@@ -1057,6 +1165,17 @@ export default function App() {
       if (!docente) return;
       if (!map[docente]) map[docente] = [];
       map[docente].push(d);
+    });
+    return map;
+  }, [data]);
+
+  const byMateria = useMemo(() => {
+    const map = {};
+    data.forEach(d => {
+      const { materia } = parseClase(d.clase);
+      if (!materia) return;
+      if (!map[materia]) map[materia] = [];
+      map[materia].push(d);
     });
     return map;
   }, [data]);
@@ -1096,12 +1215,16 @@ export default function App() {
     total: data.length,
     secciones: new Set(data.map(d => d.sheet.trim())).size,
     docentes: Object.keys(byDocente).length,
-    materias: new Set(data.map(d => parseClase(d.clase).materia)).size,
-  }), [data, byDocente]);
+    materias: Object.keys(byMateria).length,
+  }), [data, byDocente, byMateria]);
 
   const getDocName = (raw) => docenteNames[raw] || raw;
+  const getMateriaName = (raw) => materiaNames[raw] || raw;
+  
   const handleNavigate = (result) => {
-    if (result.docente) { setDocenteNav(result.docente); setView("docentes"); } else { setView("horarios"); }
+    if (result.docente) { setDocenteNav(result.rawDocente || result.docente); setView("docentes"); }
+    else if (result.materia) { setMateriaNav(result.rawMateria); setView("materias"); }
+    else { setView("horarios"); }
   };
 
   const nav = [
@@ -1114,14 +1237,20 @@ export default function App() {
     { id: "estadisticas", emoji: "📊", label: "Estadísticas" },
   ];
 
-  if (loading && data.length === 0) return <div style={{ padding: 20, textAlign: "center" }}>Cargando horarios...</div>;
+  if (loading && data.length === 0) return <div style={{ padding: 20, textAlign: "center" }}>Cargando horarios de {selectedPrograma}...</div>;
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui,-apple-system,sans-serif", background: "#F3F4F6", overflow: "hidden" }}>
       <aside style={{ width: 220, background: "#111827", display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "20px 16px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>PNF Informática</div>
-          <div style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>Cabimas · 2-2026</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>PNF</div>
+          <select 
+            value={selectedPrograma} 
+            onChange={e => setSelectedPrograma(e.target.value)}
+            style={{ ...S.select, width: "100%", background: "#1F2937", color: "#fff", borderColor: "#374151", marginBottom: 12 }}
+          >
+            {PROGRAMAS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
           <div style={{ marginTop: 12, padding: "10px 12px", background: "#1F2937", borderRadius: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontSize: 11, color: "#9CA3AF" }}>Clases</span><span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{stats.total}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontSize: 11, color: "#9CA3AF" }}>Secciones</span><span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{stats.secciones}</span></div>
@@ -1176,7 +1305,7 @@ export default function App() {
               opacity: data.length === 0 ? 0.5 : 1
             }}
           >
-            🗑️ Borrar todos los datos
+            🗑️ Borrar datos del programa
           </button>
           
           {uploading && <div style={{ fontSize: 10, marginTop: 6, color: "#9CA3AF" }}>Subiendo...</div>}
@@ -1190,17 +1319,17 @@ export default function App() {
       </aside>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          <GlobalSearch onNavigate={handleNavigate} docenteNames={docenteNames} data={data} />
+          <GlobalSearch onNavigate={handleNavigate} docenteNames={docenteNames} materiaNames={materiaNames} data={data} />
           <div style={{ marginLeft: "auto", fontSize: 12, color: "#9CA3AF" }}>{stats.total} registros · {stats.materias} materias</div>
         </header>
         <main style={{ flex: 1, overflow: "auto" }}>
-          {view === "horarios" && <HorariosView filtered={filtered} gridData={gridData} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} selectedTurno={selectedTurno} setSelectedTurno={setSelectedTurno} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} allTrayectos={allTrayectos} allTurnos={allTurnos} />}
-          {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} />}
+          {view === "horarios" && <HorariosView filtered={filtered} gridData={gridData} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} selectedTurno={selectedTurno} setSelectedTurno={setSelectedTurno} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} allTurnos={allTurnos} />}
+          {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
           {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} docenteNames={docenteNames} setDocenteNames={setDocenteNames} getDocName={getDocName} onSaveDocenteName={saveDocenteName} />}
-          {view === "materias" && <MateriasView data={data} getDocName={getDocName} />}
-          {view === "asistencias" && <AsistenciasView data={data} getDocName={getDocName} />}
+          {view === "materias" && <MateriasView byMateria={byMateria} initialSel={materiaNav} onConsumeNav={() => setMateriaNav(null)} materiaNames={materiaNames} setMateriaNames={setMateriaNames} getMateriaName={getMateriaName} onSaveMateriaName={saveMateriaName} data={data} />}
+          {view === "asistencias" && <AsistenciasView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
           {view === "conflictos" && <ConflictosView conflicts={conflicts} onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }} getDocName={getDocName} />}
-          {view === "estadisticas" && <EstadisticasView stats={stats} byDocente={byDocente} data={data} />}
+          {view === "estadisticas" && <EstadisticasView stats={stats} byDocente={byDocente} byMateria={byMateria} data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
         </main>
       </div>
     </div>
