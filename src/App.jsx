@@ -1,16 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
-
-// ========== Configuración de Supabase ==========
-const supabaseUrl = import.meta?.env?.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = import.meta?.env?.VITE_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("❌ Faltan las variables de entorno de Supabase");
-}
-
-const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", supabaseAnonKey || "placeholder");
+import { supabase } from "./lib/supabase";
+import LoginScreen from "./components/LoginScreen";
 
 // ========== Constantes globales ==========
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
@@ -876,7 +867,19 @@ function EstadisticasView({ stats, byDocente, byMateria, data, getDocName, getMa
 }
 
 // ========== Componente principal App ==========
+// ========== Constante de navegación (fuera del componente para evitar recreación) ==========
+const NAV_ITEMS = [
+  { id: "horarios",     emoji: "📅", label: "Horarios" },
+  { id: "secciones",   emoji: "🏫", label: "Secciones" },
+  { id: "docentes",    emoji: "👥", label: "Docentes",    hasBadge: true },
+  { id: "materias",    emoji: "📖", label: "Materias" },
+  { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
+  { id: "conflictos",  emoji: "⚠️", label: "Conflictos",  hasBadge: true },
+  { id: "estadisticas",emoji: "📊", label: "Estadísticas" },
+];
+
 export default function App() {
+  const [user, setUser] = useState(undefined); // undefined = cargando, null = sin sesión
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -893,6 +896,23 @@ export default function App() {
   const [materiaNav, setMateriaNav] = useState(null);
   const [docenteNames, setDocenteNames] = useState({});
   const [materiaNames, setMateriaNames] = useState({});
+
+  // ========== AUTH ==========
+  useEffect(() => {
+    // Obtener sesión actual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    // Escuchar cambios de sesión
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const fetchProgramas = async () => {
     const { data: programas, error } = await supabase
@@ -1271,9 +1291,9 @@ export default function App() {
     return map;
   }, [filtered]);
 
-  const allTrayectos = [...new Set(data.map(d => d.trayecto))].sort();
-  const allTurnos = [...new Set(data.map(d => d.turno))].sort();
-  const allSecciones = [...new Set(data.map(d => d.sheet.trim()))].sort();
+  const allTrayectos = useMemo(() => [...new Set(data.map(d => d.trayecto))].sort(), [data]);
+  const allTurnos = useMemo(() => [...new Set(data.map(d => d.turno))].sort(), [data]);
+  const allSecciones = useMemo(() => [...new Set(data.map(d => d.sheet.trim()))].sort(), [data]);
   const seccionesByTrayecto = useMemo(() =>
     allSecciones.filter(s => selectedTrayecto === "all" || data.some(d => d.sheet.trim() === s && d.trayecto === selectedTrayecto)),
     [selectedTrayecto, data, allSecciones]);
@@ -1293,15 +1313,23 @@ export default function App() {
     else { setView("horarios"); }
   };
 
-  const nav = [
-    { id: "horarios", emoji: "📅", label: "Horarios" },
-    { id: "secciones", emoji: "🏫", label: "Secciones" },
-    { id: "docentes", emoji: "👥", label: "Docentes", badge: conflicts.length },
-    { id: "materias", emoji: "📖", label: "Materias" },
-    { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
-    { id: "conflictos", emoji: "⚠️", label: "Conflictos", badge: conflicts.length },
-    { id: "estadisticas", emoji: "📊", label: "Estadísticas" },
-  ];
+  const nav = NAV_ITEMS.map(item => ({
+    ...item,
+    badge: item.hasBadge ? conflicts.length : 0,
+  }));
+
+  // ========== GUARDS ==========
+  // Mientras se verifica la sesión
+  if (user === undefined) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0F172A", color: "#94A3B8", fontFamily: "system-ui, sans-serif", fontSize: 14 }}>
+        Verificando sesión…
+      </div>
+    );
+  }
+
+  // Sin sesión → pantalla de login
+  if (!user) return <LoginScreen />;
 
   if (loading && data.length === 0) return <div style={{ padding: 20, textAlign: "center" }}>Cargando horarios...</div>;
 
@@ -1371,6 +1399,23 @@ export default function App() {
           {data.length > 0 && !uploading && !loading && (
             <div style={{ fontSize: 10, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{data.length} registros cargados</div>
           )}
+        </div>
+        {/* Usuario admin + Logout */}
+        <div style={{ padding: "10px 14px", borderTop: "1px solid #1F2937", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+            {user.email?.[0]?.toUpperCase() ?? "A"}
+          </div>
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <div style={{ fontSize: 11, color: "#D1D5DB", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>
+            <div style={{ fontSize: 10, color: "#4B5563" }}>Administrador</div>
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            style={{ background: "none", border: "1px solid #374151", borderRadius: 6, cursor: "pointer", color: "#6B7280", fontSize: 13, padding: "3px 6px", flexShrink: 0, lineHeight: 1 }}
+          >
+            ⏏
+          </button>
         </div>
       </aside>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
