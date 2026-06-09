@@ -708,9 +708,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   const [editingName, setEditingName] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
-  const prevSelRef = useRef(null);
   
-  // Manejar navegación inicial
   useEffect(() => { 
     if (initialSel) { 
       setSel(initialSel);
@@ -718,10 +716,8 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     } 
   }, [initialSel, onConsumeNav]);
   
-  // Actualizar editValue cuando cambia sel
   useEffect(() => { 
-    if (sel && sel !== prevSelRef.current) {
-      prevSelRef.current = sel;
+    if (sel) {
       setEditValue(getMateriaName(sel));
       setEditingName(false);
     }
@@ -738,43 +734,25 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     return sorted.filter(m => getMateriaName(m).toLowerCase().includes(lo));
   }, [search, sorted, getMateriaName]);
 
-  const handleSelectMateria = (m) => {
-    setSel(m);
-    setEditingName(false);
-  };
-
-  const handleStartEdit = () => {
-    setEditValue(getMateriaName(sel));
-    setEditingName(true);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingName(false);
-    setEditValue(getMateriaName(sel));
-  };
-
   const saveEdit = async () => { 
     const trimmed = editValue.trim(); 
-    if (!trimmed || !sel) {
-      setEditingName(false);
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      const res = await onSaveMateriaName(sel, trimmed);
-      if (res.success) {
-        setEditingName(false);
-        if (res.targetRaw) {
-          setSel(res.targetRaw);
-          prevSelRef.current = res.targetRaw;
+    if (trimmed && sel) {
+      setSaving(true);
+      try {
+        const res = await onSaveMateriaName(sel, trimmed);
+        setSaving(false);
+        if (res.success) {
+          setEditingName(false);
+          if (res.targetRaw) {
+            setSel(res.targetRaw);
+          }
         }
+      } catch (err) {
+        setSaving(false);
+        console.error("Error saving materia name:", err);
       }
-    } catch (err) {
-      console.error("Error saving materia name:", err);
-      alert("❌ Error al guardar: " + err.message);
-    } finally {
-      setSaving(false);
+    } else {
+      setEditingName(false);
     }
   };
 
@@ -803,7 +781,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
           {filteredSorted.map(m => (
             <div 
               key={m} 
-              onClick={() => handleSelectMateria(m)} 
+              onClick={() => { setSel(m); setEditingName(false); }} 
               style={{ 
                 padding: "9px 12px", 
                 cursor: "pointer", 
@@ -814,13 +792,12 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                 display: "flex", 
                 justifyContent: "space-between", 
                 alignItems: "center", 
-                fontWeight: sel === m ? 600 : 400,
-                transition: "background 0.15s"
+                fontWeight: sel === m ? 600 : 400 
               }}
             >
               <span>{getMateriaName(m)}</span>
               <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600 }}>
-                {byMateria[m]?.length || 0}
+                {byMateria[m].length}
               </span>
             </div>
           ))}
@@ -843,7 +820,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                       onChange={e => setEditValue(e.target.value)} 
                       onKeyDown={e => { 
                         if (e.key === "Enter") saveEdit(); 
-                        if (e.key === "Escape") handleCancelEdit();
+                        if (e.key === "Escape") setEditingName(false);
                       }} 
                       autoFocus 
                       style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} 
@@ -866,7 +843,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                       {saving ? "Guardando..." : "Guardar"}
                     </button>
                     <button 
-                      onClick={handleCancelEdit} 
+                      onClick={() => setEditingName(false)} 
                       style={{ 
                         padding: "5px 10px", 
                         background: "#F3F4F6", 
@@ -886,7 +863,10 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                       {getMateriaName(sel)}
                     </div>
                     <button 
-                      onClick={handleStartEdit} 
+                      onClick={() => {
+                        setEditValue(getMateriaName(sel));
+                        setEditingName(true);
+                      }} 
                       title="Editar nombre" 
                       style={{ 
                         background: "none", 
@@ -933,45 +913,35 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                 </thead>
                 <tbody>
                   {asignaciones.map((e, i) => {
-                    try {
-                      const turnoReal = getTurnoDeRegistro(e);
-                      const { docente: rawDoc } = parseClase(e.clase);
-                      return (
-                        <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                          <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
-                          <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap", fontSize: 11 }}>
-                            {getHoraDisplayDeRegistro(e)}
-                          </td>
-                          <td style={S.td}>
-                            <span style={S.badge(
-                              turnoReal === "DIURNO" ? "#EFF6FF" : "#FDF2F8", 
-                              turnoReal === "DIURNO" ? "#2563EB" : "#DB2777"
-                            )}>
-                              {turnoReal === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}
-                            </span>
-                          </td>
-                          <td style={S.td}>{e.sheet ? e.sheet.trim() : ""}</td>
-                          <td style={S.td}>
-                            <span style={S.badge(
-                              TRAYECTO_BG[e.trayecto] || "#f3f4f6", 
-                              TRAYECTO_COLORS[e.trayecto] || "#555"
-                            )}>
-                              {e.trayecto}
-                            </span>
-                          </td>
-                          <td style={S.td}>{rawDoc && getDocName ? getDocName(rawDoc) : (rawDoc || "—")}</td>
-                        </tr>
-                      );
-                    } catch (error) {
-                      console.error("Error rendering materia row:", error);
-                      return (
-                        <tr key={i} style={{ background: "#FEF2F2" }}>
-                          <td colSpan={6} style={{ ...S.td, color: "#DC2626", fontSize: 12 }}>
-                            Error al mostrar esta asignación
-                          </td>
-                        </tr>
-                      );
-                    }
+                    const turnoReal = getTurnoDeRegistro(e);
+                    const { docente: rawDoc } = parseClase(e.clase);
+                    const docenteDisplay = rawDoc && getDocName ? getDocName(rawDoc) : (rawDoc || "—");
+                    return (
+                      <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                        <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
+                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap", fontSize: 11 }}>
+                          {getHoraDisplayDeRegistro(e)}
+                        </td>
+                        <td style={S.td}>
+                          <span style={S.badge(
+                            turnoReal === "DIURNO" ? "#EFF6FF" : "#FDF2F8", 
+                            turnoReal === "DIURNO" ? "#2563EB" : "#DB2777"
+                          )}>
+                            {turnoReal === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}
+                          </span>
+                        </td>
+                        <td style={S.td}>{e.sheet ? e.sheet.trim() : ""}</td>
+                        <td style={S.td}>
+                          <span style={S.badge(
+                            TRAYECTO_BG[e.trayecto] || "#f3f4f6", 
+                            TRAYECTO_COLORS[e.trayecto] || "#555"
+                          )}>
+                            {e.trayecto}
+                          </span>
+                        </td>
+                        <td style={S.td}>{docenteDisplay}</td>
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>
@@ -982,7 +952,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     </div>
   );
 }
-
 
 function AsistenciasView({ data, getDocName, getMateriaName }) {
   const [turno, setTurno] = useState("DIURNO");
@@ -1864,7 +1833,7 @@ export default function App() {
           {view === "horarios" && <HorariosView filtered={filtered} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} />}
           {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
           {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} docenteNames={docenteNames} setDocenteNames={setDocenteNames} getDocName={getDocName} onSaveDocenteName={saveDocenteName} />}
-          {{view === "materias" && <MateriasView byMateria={byMateria} initialSel={materiaNav} onConsumeNav={() => setMateriaNav(null)} materiaNames={materiaNames} setMateriaNames={setMateriaNames} getMateriaName={getMateriaName} onSaveMateriaName={saveMateriaName} data={data} getDocName={getDocName} />}
+          {view === "materias" && <MateriasView byMateria={byMateria} initialSel={materiaNav} onConsumeNav={() => setMateriaNav(null)} materiaNames={materiaNames} setMateriaNames={setMateriaNames} getMateriaName={getMateriaName} onSaveMateriaName={saveMateriaName} data={data} getDocName={getDocName} />}
           {view === "asistencias" && <AsistenciasView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
           {view === "conflictos" && <ConflictosView conflicts={conflicts} onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }} getDocName={getDocName} />}
           {view === "estadisticas" && <EstadisticasView stats={stats} byDocente={byDocente} byMateria={byMateria} data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
