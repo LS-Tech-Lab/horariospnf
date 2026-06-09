@@ -85,6 +85,7 @@ function getBloquesForTurno(turno) {
   return turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
 }
 
+// CORREGIDA: Encuentra el bloque de inicio más cercano (para la grilla)
 function findStartBlock(bloques, horaStr) {
   const raw = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/)[0] : "";
   const min = timeToMin(raw);
@@ -96,8 +97,10 @@ function findStartBlock(bloques, horaStr) {
   return best;
 }
 
+// CORREGIDA: Calcula cuántos bloques ocupa basado en la hora real
 function countBlocks(horaStr) {
-  const parts = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/) : [];
+  if (!horaStr) return 1;
+  const parts = horaStr.replace(/\s/g, "").split(/[-–]/);
   if (parts.length < 2) return 1;
   
   const inicioMin = timeToMin(parts[0]);
@@ -105,17 +108,17 @@ function countBlocks(horaStr) {
   
   if (!finMin || finMin <= inicioMin) return 1;
   
-  // Calcular diferencia exacta en minutos y dividir por 45
+  // Calcular diferencia en minutos y redondear a bloques de 45 min
   const diffMin = finMin - inicioMin;
-  return Math.max(1, Math.round(diffMin / 45));
+  return Math.max(1, Math.ceil(diffMin / 45));
 }
 
+// CORREGIDA: Muestra la hora REAL del registro, no la de los bloques
 function getHoraDisplayDeRegistro(d) {
   if (!d || !d.hora) return "—";
   
-  // Extraer partes de la hora original
-  const horaOriginal = d.hora.replace(/\s/g, "");
-  const parts = horaOriginal.split(/[-–]/);
+  const horaStr = d.hora.replace(/\s/g, "");
+  const parts = horaStr.split(/[-–]/);
   
   if (parts.length >= 2) {
     const inicio = parts[0].replace("AM", " AM").replace("PM", " PM");
@@ -123,16 +126,18 @@ function getHoraDisplayDeRegistro(d) {
     return `${inicio} – ${fin}`;
   }
   
-  // Si solo tiene una hora (sin rango), devolverla formateada
-  return horaOriginal.replace("AM", " AM").replace("PM", " PM");
+  // Si solo tiene hora de inicio
+  return horaStr.replace("AM", " AM").replace("PM", " PM");
 }
 
+// CORREGIDA: Obtiene la hora de inicio en minutos (para ordenamiento)
 function getHoraMin(d) {
   if (!d || !d.hora) return 0;
-  const horaOriginal = d.hora.replace(/\s/g, "");
-  const inicio = horaOriginal.split(/[-–]/)[0];
+  const horaStr = d.hora.replace(/\s/g, "");
+  const inicio = horaStr.split(/[-–]/)[0];
   return timeToMin(inicio);
 }
+
 
 function parseClase(clase) {
   const parts = clase.trim().split(/\s+(?:Profes?\.?|Prof\.?)\s+/i);
