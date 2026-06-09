@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabase";
-import LoginScreen from "./components/LoginScreen";
+import LoginScreen from "./components/LoginScreen"; 
 
 // ========== Constantes globales ==========
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
