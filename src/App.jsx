@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabase";
-import LoginScreen from "./components/LoginScreen"; 
+import LoginScreen from "./components/LoginScreen";
 
 // ========== Constantes globales ==========
 const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
@@ -148,6 +148,57 @@ for (const [key, canonical] of Object.entries(PROGRAMA_ALIASES)) {
 if (lower.includes(key)) return canonical;
 }
 return raw.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
+// ========== SISTEMA DE CACHÉ LOCAL ==========
+const CACHE_KEYS = {
+horarios: "horarios_cache",
+docentes: "docentes_cache",
+materias: "materias_cache",
+lastSync: "horarios_last_sync",
+};
+const CACHE_EXPIRY = 1000 * 60 * 30; // 30 minutos
+
+function guardarEnCache(key, datos) {
+try {
+const cache = {
+timestamp: Date.now(),
+datos: datos,
+};
+localStorage.setItem(key, JSON.stringify(cache));
+} catch (err) {
+console.warn("No se pudo guardar en caché:", key, err);
+}
+}
+
+function cargarDeCache(key) {
+try {
+const cacheStr = localStorage.getItem(key);
+if (!cacheStr) return null;
+const cache = JSON.parse(cacheStr);
+// Verificar expiración
+if (Date.now() - cache.timestamp > CACHE_EXPIRY) {
+localStorage.removeItem(key);
+return null;
+}
+return cache.datos;
+} catch (err) {
+console.warn("Error al cargar caché:", key, err);
+return null;
+}
+}
+
+function limpiarCache() {
+Object.values(CACHE_KEYS).forEach(key => localStorage.removeItem(key));
+}
+
+function obtenerUltimaSincronizacion() {
+try {
+const ts = localStorage.getItem(CACHE_KEYS.lastSync);
+return ts ? new Date(parseInt(ts)).toLocaleString() : "Nunca";
+} catch {
+return "Desconocido";
+}
 }
 
 // ========== ESTILOS ==========
@@ -323,6 +374,99 @@ return (
 })}
 </tbody>
 </table>
+</div>
+</div>
+);
+}
+
+// ========== DASHBOARD CON KPIs ==========
+function DashboardView({ stats, data, byDocente, byMateria, conflicts, getDocName, getMateriaName }) {
+const [showConflicts, setShowConflicts] = useState(false);
+
+const metricas = useMemo(() => {
+if (!data.length) return null;
+const docentesConConflicto = new Set(conflicts.map(c => c.docente)).size;
+const clasesPorDia = {}; DAYS.forEach(d => { clasesPorDia[d] = data.filter(r => r.dia === d).length; });
+const promedioClasesDia = Math.round(Object.values(clasesPorDia).reduce((a, b) => a + b, 0) / 5);
+const trayectosActivos = [...new Set(data.map(d => d.trayecto))].length;
+const topDocente = Object.entries(byDocente).sort((a, b) => b[1].length - a[1].length)[0];
+const topMateria = Object.entries(byMateria).sort((a, b) => b[1].length - a[1].length)[0];
+const diurno = data.filter(d => getTurnoDeRegistro(d) === "DIURNO").length;
+const vespertino = data.filter(d => getTurnoDeRegistro(d) === "VESPERTINO").length;
+return { docentesConConflicto, promedioClasesDia, trayectosActivos, topDocente, topMateria, diurno, vespertino };
+}, [data, byDocente, byMateria, conflicts]);
+
+return (
+<div style={{ padding: 20 }}>
+<h1 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 700, color: "#111827" }}>🏠 Dashboard Principal</h1>
+
+{/* KPIs Principales */}
+<div className="stats-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 16 }}>
+<StatCard label="Total de clases" value={stats.total} icon="📅" color="#2563EB" />
+<StatCard label="Secciones activas" value={stats.secciones} icon="🏫" color="#059669" />
+<StatCard label="Docentes" value={stats.docentes} icon="👥" color="#7C3AED" />
+<StatCard label="Materias" value={stats.materias} icon="📖" color="#D97706" />
+</div>
+
+{/* Segunda fila de KPIs */}
+<div className="stats-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 16 }}>
+<StatCard label="Conflictos activos" value={conflicts.length} icon="⚠️" color={conflicts.length > 0 ? "#DC2626" : "#059669"} />
+<StatCard label="Trayectos activos" value={metricas?.trayectosActivos || 0} icon="📊" color="#8B5CF6" />
+<StatCard label="Prom. clases/día" value={metricas?.promedioClasesDia || 0} icon="📈" color="#0EA5E9" />
+<StatCard label="Docentes con conflictos" value={metricas?.docentesConConflicto || 0} icon="🔴" color={metricas?.docentesConConflicto > 0 ? "#DC2626" : "#059669"} />
+</div>
+
+{/* Alertas y Distribución */}
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+{conflicts.length > 0 && (
+<div style={{ ...S.card, padding: "16px 20px", background: "#FEF2F2", border: "1px solid #FECACA" }}>
+<div style={{ fontSize: 15, fontWeight: 700, color: "#991B1B", marginBottom: 8 }}>⚠️ Conflictos detectados</div>
+<div style={{ fontSize: 13, color: "#B91C1C", marginBottom: 10, fontWeight: 500 }}>Hay {conflicts.length} conflicto(s) de horario que requieren atención.</div>
+<button onClick={() => setShowConflicts(!showConflicts)} style={{ padding: "6px 14px", background: "#DC2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>{showConflicts ? "Ocultar detalles" : "Ver detalles"}</button>
+            {showConflicts && <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>{conflicts.slice(0, 5).map((c, i) => <div key={i} style={{ fontSize: 12, color: "#991B1B", fontWeight: 500 }}>{getDocName(c.docente)} — {c.dia.charAt(0)+c.dia.slice(1).toLowerCase()} · {getHoraDisplayDeRegistro(c.entries[0])}</div>)}</div>}
+            {showConflicts && <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>{conflicts.slice(0, 5).map((c, i) => <div key={i} style={{ fontSize: 12, color: "#991B1B", fontWeight: 500 }}>{getDocName(c.docente)} — {c.dia.charAt(0)+c.dia.slice(1).toLowerCase()} · {c.hora || "—"}</div>)}</div>}
+</div>
+)}
+{metricas && (
+<div style={{ ...S.card, padding: "16px 20px" }}>
+<div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 12 }}>Distribución por turno</div>
+<div style={{ display: "flex", gap: 16 }}>
+<div style={{ flex: 1, textAlign: "center", padding: 14, background: "#EFF6FF", borderRadius: 8 }}>
+<div style={{ fontSize: 28, fontWeight: 700, color: "#2563EB" }}>☀️</div>
+<div style={{ fontSize: 22, fontWeight: 700, color: "#1D4ED8" }}>{metricas.diurno}</div>
+<div style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>Diurno</div>
+</div>
+<div style={{ flex: 1, textAlign: "center", padding: 14, background: "#FDF2F8", borderRadius: 8 }}>
+<div style={{ fontSize: 28, fontWeight: 700, color: "#DB2777" }}>🌙</div>
+<div style={{ fontSize: 22, fontWeight: 700, color: "#BE185D" }}>{metricas.vespertino}</div>
+<div style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>Vespertino</div>
+</div>
+</div>
+</div>
+)}
+</div>
+
+{/* Top Docentes y Materias */}
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+{metricas?.topDocente && (
+<div style={{ ...S.card, padding: "16px 20px" }}>
+<div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 8 }}>👨‍🏫 Docente con mayor carga</div>
+<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+<Avatar name={getDocName(metricas.topDocente[0])} size={44} />
+<div>
+<div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>{getDocName(metricas.topDocente[0])}</div>
+<div style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{metricas.topDocente[1]} clases asignadas</div>
+</div>
+</div>
+</div>
+)}
+{metricas?.topMateria && (
+<div style={{ ...S.card, padding: "16px 20px" }}>
+<div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 8 }}>📖 Materia más frecuente</div>
+<div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>{getMateriaName(metricas.topMateria[0])}</div>
+<div style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{metricas.topMateria[1]} clases</div>
+</div>
+)}
 </div>
 </div>
 );
@@ -710,6 +854,7 @@ return (
 
 // ========== NAVEGACIÓN Y ESTILOS ==========
 const NAV_ITEMS = [
+{ id: "dashboard", emoji: "🏠", label: "Dashboard" }, // NUEVO - Primera opción
 { id: "horarios", emoji: "📅", label: "Horarios" },
 { id: "secciones", emoji: "🏫", label: "Secciones" },
 { id: "docentes", emoji: "👥", label: "Docentes", hasBadge: true },
@@ -734,7 +879,7 @@ const [data, setData] = useState([]);
 const [loading, setLoading] = useState(true);
 const [uploading, setUploading] = useState(false);
 const [error, setError] = useState(null);
-const [view, setView] = useState("horarios");
+const [view, setView] = useState("dashboard");
 const [sidebarOpen, setSidebarOpen] = useState(false);
 const [selectedPrograma, setSelectedPrograma] = useState("todos");
 const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
@@ -747,6 +892,29 @@ const [materiaNav, setMateriaNav] = useState(null);
 const [docenteNames, setDocenteNames] = useState({});
 const [materiaNames, setMateriaNames] = useState({});
 const [toast, setToast] = useState(null);
+const [isOffline, setIsOffline] = useState(!navigator.onLine);
+const [lastSync, setLastSync] = useState(obtenerUltimaSincronizacion());
+
+// ========== DETECCIÓN DE CONEXIÓN ==========
+useEffect(() => {
+const handleOnline = () => {
+setIsOffline(false);
+showToast("✅ Conexión restablecida. Sincronizando datos...", "success");
+fetchHorarios();
+fetchDocenteNames();
+fetchMateriaNames();
+};
+const handleOffline = () => {
+setIsOffline(true);
+showToast("⚠️ Sin conexión. Usando datos en caché.", "warning");
+};
+window.addEventListener("online", handleOnline);
+window.addEventListener("offline", handleOffline);
+return () => {
+window.removeEventListener("online", handleOnline);
+window.removeEventListener("offline", handleOffline);
+};
+}, []);
 
 useEffect(() => {
 supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
@@ -769,22 +937,83 @@ setProgramasDisponibles(["todos", ...unique, ...defaults]);
 
 const fetchHorarios = async () => {
 setLoading(true);
+
+// Cargar caché inmediatamente para mostrar algo rápido
+const cachedHorarios = cargarDeCache(CACHE_KEYS.horarios);
+if (cachedHorarios?.length > 0) {
+setData(cachedHorarios);
+setLoading(false);
+}
+
+try {
 let query = supabase.from("horarios").select("*");
 if (selectedPrograma !== "todos") query = query.eq("programa", selectedPrograma);
 const { data: horarios, error } = await query.order("id", { ascending: true });
-if (error) { console.error(error); setError(error.message); }
-else setData(horarios || []);
+
+if (error) {
+console.error(error);
+if (cachedHorarios?.length > 0) {
+setData(cachedHorarios);
+showToast("⚠️ Error de conexión. Usando datos en caché.", "warning");
+} else {
+setError(error.message);
+}
+} else {
+const nuevosDatos = horarios || [];
+setData(nuevosDatos);
+// Guardar en caché
+guardarEnCache(CACHE_KEYS.horarios, nuevosDatos);
+localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
+setLastSync(obtenerUltimaSincronizacion());
+}
+} catch (err) {
+console.error(err);
+if (cachedHorarios?.length > 0) {
+setData(cachedHorarios);
+showToast("⚠️ Modo offline: usando datos en caché.", "warning");
+}
+}
 setLoading(false);
 };
 
 const fetchDocenteNames = async () => {
+const cachedDocentes = cargarDeCache(CACHE_KEYS.docentes);
+if (cachedDocentes) {
+setDocenteNames(cachedDocentes);
+}
+
+try {
 const { data: docentes } = await supabase.from("docentes").select("*");
-if (docentes) { const m = {}; docentes.forEach(d => { m[d.nombre_raw] = d.nombre_display; }); setDocenteNames(m); }
+if (docentes) {
+const m = {};
+docentes.forEach(d => { m[d.nombre_raw] = d.nombre_display; });
+setDocenteNames(m);
+guardarEnCache(CACHE_KEYS.docentes, m);
+}
+} catch (err) {
+console.warn("Error fetching docentes:", err);
+if (cachedDocentes) setDocenteNames(cachedDocentes);
+}
 };
 
 const fetchMateriaNames = async () => {
+const cachedMaterias = cargarDeCache(CACHE_KEYS.materias);
+if (cachedMaterias) {
+setMateriaNames(cachedMaterias);
+}
+
+try {
 const { data: materias } = await supabase.from("materias").select("*");
-if (materias) { const m = {}; materias.forEach(d => { m[d.nombre_raw] = d.nombre_display; }); setMateriaNames(m); }
+if (materias) {
+const m = {};
+materias.forEach(d => { m[d.nombre_raw] = d.nombre_display; });
+setMateriaNames(m);
+guardarEnCache(CACHE_KEYS.materias, m);
+}
+} catch (err) {
+console.warn("Error fetching materias:", err);
+if (cachedMaterias) setMateriaNames(cachedMaterias);
+}
 };
 
 useEffect(() => { fetchProgramas(); fetchDocenteNames(); fetchMateriaNames(); }, []);
@@ -825,94 +1054,92 @@ showToast("✅ Materia actualizada.", "success"); return { success: true };
 };
 
 const clearAllData = async () => {
-    if (!window.confirm("⚠️ ¿Eliminar TODOS los horarios?")) return;
-    if (!window.confirm("⚠️ ¿Eliminar TODOS los horarios? Se recomienda hacer un backup primero.")) return;
+if (!window.confirm("⚠️ ¿Eliminar TODOS los horarios? Se recomienda hacer un backup primero.")) return;
 setLoading(true);
 let query = supabase.from("horarios").delete();
 if (selectedPrograma !== "todos") query = query.eq("programa", selectedPrograma); else query = query.neq("id", 0);
 const { error } = await query;
-if (error) showToast("❌ Error al borrar.", "error"); else { showToast("✅ Datos eliminados.", "success"); await fetchHorarios(); await fetchProgramas(); }
+if (error) showToast("❌ Error al borrar.", "error");
+else { 
+showToast("✅ Datos eliminados.", "success"); 
+limpiarCache();
+await fetchHorarios(); 
+await fetchProgramas(); 
+}
 setLoading(false);
 };
 
-  // ========== SISTEMA DE BACKUP ==========
-  const exportarDatos = async () => {
-    try {
-      showToast("📦 Preparando backup...", "info");
-      
-      const [horariosRes, docentesRes, materiasRes] = await Promise.all([
-        supabase.from("horarios").select("*"),
-        supabase.from("docentes").select("*"),
-        supabase.from("materias").select("*"),
-      ]);
-      
-      const backup = {
-        version: "1.0",
-        fecha: new Date().toISOString(),
-        programa: selectedPrograma,
-        horarios: horariosRes.data || [],
-        docentes: docentesRes.data || [],
-        materias: materiasRes.data || [],
-      };
-      
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `backup-horarios-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      showToast("✅ Backup descargado correctamente", "success");
-    } catch (err) {
-      console.error("Error al exportar:", err);
-      showToast("❌ Error al crear backup: " + err.message, "error");
-    }
-  };
+// ========== SISTEMA DE BACKUP ==========
+const exportarDatos = async () => {
+try {
+showToast("📦 Preparando backup...", "info");
 
-  const importarDatos = async (file) => {
-    if (!window.confirm("⚠️ ¿Estás seguro? Esto REEMPLAZARÁ todos los datos actuales. Se recomienda hacer un backup primero.")) return;
-    
-    setUploading(true);
-    try {
-      const text = await file.text();
-      const backup = JSON.parse(text);
-      
-      if (!backup.horarios || !backup.docentes || !backup.materias) {
-        throw new Error("El archivo no tiene el formato correcto de backup");
-      }
-      
-      // Limpiar tablas existentes
-      await supabase.from("horarios").delete().neq("id", 0);
-      await supabase.from("docentes").delete().neq("id", 0);
-      await supabase.from("materias").delete().neq("id", 0);
-      
-      // Insertar datos del backup
-      if (backup.horarios.length > 0) {
-        await supabase.from("horarios").insert(backup.horarios);
-      }
-      if (backup.docentes.length > 0) {
-        await supabase.from("docentes").upsert(backup.docentes, { onConflict: "nombre_raw" });
-      }
-      if (backup.materias.length > 0) {
-        await supabase.from("materias").upsert(backup.materias, { onConflict: "nombre_raw" });
-      }
-      
-      showToast(`✅ Backup restaurado: ${backup.horarios.length} clases, ${backup.docentes.length} docentes, ${backup.materias.length} materias`, "success");
-      
-      await fetchHorarios();
-      await fetchProgramas();
-      await fetchDocenteNames();
-      await fetchMateriaNames();
-    } catch (err) {
-      console.error("Error al importar:", err);
-      showToast("❌ Error al restaurar backup: " + err.message, "error");
-    } finally {
-      setUploading(false);
-    }
-  };
+const [horariosRes, docentesRes, materiasRes] = await Promise.all([
+supabase.from("horarios").select("*"),
+supabase.from("docentes").select("*"),
+supabase.from("materias").select("*"),
+]);
+
+const backup = {
+version: "1.0",
+fecha: new Date().toISOString(),
+programa: selectedPrograma,
+horarios: horariosRes.data || [],
+docentes: docentesRes.data || [],
+materias: materiasRes.data || [],
+};
+
+const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+a.download = `backup-horarios-${new Date().toISOString().slice(0, 10)}.json`;
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+URL.revokeObjectURL(url);
+
+showToast("✅ Backup descargado correctamente", "success");
+} catch (err) {
+console.error("Error al exportar:", err);
+showToast("❌ Error al crear backup: " + err.message, "error");
+}
+};
+
+const importarDatos = async (file) => {
+if (!window.confirm("⚠️ ¿Estás seguro? Esto REEMPLAZARÁ todos los datos actuales.")) return;
+
+setUploading(true);
+try {
+const text = await file.text();
+const backup = JSON.parse(text);
+
+if (!backup.horarios || !backup.docentes || !backup.materias) {
+throw new Error("El archivo no tiene el formato correcto de backup");
+}
+
+await supabase.from("horarios").delete().neq("id", 0);
+await supabase.from("docentes").delete().neq("id", 0);
+await supabase.from("materias").delete().neq("id", 0);
+
+if (backup.horarios.length > 0) await supabase.from("horarios").insert(backup.horarios);
+if (backup.docentes.length > 0) await supabase.from("docentes").upsert(backup.docentes, { onConflict: "nombre_raw" });
+if (backup.materias.length > 0) await supabase.from("materias").upsert(backup.materias, { onConflict: "nombre_raw" });
+
+limpiarCache();
+showToast(`✅ Backup restaurado: ${backup.horarios.length} clases`, "success");
+
+await fetchHorarios();
+await fetchProgramas();
+await fetchDocenteNames();
+await fetchMateriaNames();
+} catch (err) {
+console.error("Error al importar:", err);
+showToast("❌ Error al restaurar backup: " + err.message, "error");
+} finally {
+setUploading(false);
+}
+};
 
 const handleFileUpload = async (file) => {
 setUploading(true); setError(null);
@@ -944,7 +1171,17 @@ const newRows = allRows.filter(r => !existingKeys.has(`${r.sheet}|${r.dia}|${r.h
 if (!newRows.length) { showToast("⚠️ Sin registros nuevos.", "warning"); setUploading(false); return; }
 const { error: insertError } = await supabase.from("horarios").insert(newRows);
 if (insertError) showToast("❌ Error al guardar.", "error");
-else { showToast(`✅ ${newRows.length} clases cargadas.`, "success"); await fetchHorarios(); await fetchProgramas(); const docs = new Set(), mats = new Set(); newRows.forEach(r => { const { docente, materia } = parseClase(r.clase); if (docente) docs.add(docente); if (materia) mats.add(materia); }); for (const d of docs) await supabase.from("docentes").upsert({ nombre_raw: d, nombre_display: d }, { onConflict: "nombre_raw" }); for (const m of mats) await supabase.from("materias").upsert({ nombre_raw: m, nombre_display: m }, { onConflict: "nombre_raw" }); await fetchDocenteNames(); await fetchMateriaNames(); }
+else { 
+showToast(`✅ ${newRows.length} clases cargadas.`, "success"); 
+await fetchHorarios(); 
+await fetchProgramas(); 
+const docs = new Set(), mats = new Set(); 
+newRows.forEach(r => { const { docente, materia } = parseClase(r.clase); if (docente) docs.add(docente); if (materia) mats.add(materia); }); 
+for (const d of docs) await supabase.from("docentes").upsert({ nombre_raw: d, nombre_display: d }, { onConflict: "nombre_raw" }); 
+for (const m of mats) await supabase.from("materias").upsert({ nombre_raw: m, nombre_display: m }, { onConflict: "nombre_raw" }); 
+await fetchDocenteNames(); 
+await fetchMateriaNames(); 
+}
 setUploading(false);
 };
 reader.onerror = () => { setError("Error al leer el archivo."); setUploading(false); };
@@ -983,6 +1220,16 @@ return (
 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontSize: 12, color: "#9CA3AF" }}>Secciones</span><span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{stats.secciones}</span></div>
 <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: "#9CA3AF" }}>Docentes</span><span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{stats.docentes}</span></div>
 </div>
+{/* Indicador de estado de conexión */}
+<div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 6, background: isOffline ? "#FEF2F2" : "#F0FDF4", display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+<span style={{ width: 8, height: 8, borderRadius: "50%", background: isOffline ? "#DC2626" : "#16A34A", flexShrink: 0 }}></span>
+<span style={{ color: isOffline ? "#991B1B" : "#065F46", fontWeight: 600 }}>
+{isOffline ? "Modo offline" : "En línea"}
+</span>
+</div>
+<div style={{ marginTop: 4, fontSize: 9, color: "#6B7280", textAlign: "center" }}>
+Última sinc: {lastSync}
+</div>
 </div>
 <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto" }}>
 {nav.map(item => (
@@ -993,20 +1240,19 @@ return (
 ))}
 </nav>
 <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
-          {/* Botones de backup */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <button onClick={exportarDatos} disabled={uploading || !data.length} style={{ flex: 1, cursor: data.length ? "pointer" : "not-allowed", background: "#059669", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", opacity: data.length ? 1 : 0.5 }}>💾 Backup</button>
-            <label htmlFor="import-backup" style={{ flex: 1, cursor: "pointer", background: "#D97706", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 0 }}>📥 Restaurar</label>
-            <input id="import-backup" type="file" accept=".json" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importarDatos(e.target.files[0]); e.target.value = ""; }} disabled={uploading} />
-          </div>
-          {/* Carga de Excel y borrado */}
+{/* Botones de backup */}
+<div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+<button onClick={exportarDatos} disabled={uploading || !data.length} style={{ flex: 1, cursor: data.length ? "pointer" : "not-allowed", background: "#059669", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", opacity: data.length ? 1 : 0.5 }}>💾 Backup</button>
+<label htmlFor="import-backup" style={{ flex: 1, cursor: "pointer", background: "#D97706", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 0 }}>📥 Restaurar</label>
+<input id="import-backup" type="file" accept=".json" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importarDatos(e.target.files[0]); e.target.value = ""; }} disabled={uploading} />
+</div>
+{/* Carga de Excel y borrado */}
 <label htmlFor="upload-excel" style={{ display: "block", cursor: "pointer", background: "#2563EB", color: "#fff", textAlign: "center", padding: "7px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📂 Cargar Excel</label>
 <input id="upload-excel" type="file" accept=".xlsx, .xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) handleFileUpload(e.target.files[0]); e.target.value = ""; }} disabled={uploading} />
 <button onClick={clearAllData} disabled={loading || !data.length} style={{ display: "block", width: "100%", cursor: data.length ? "pointer" : "not-allowed", background: "#DC2626", color: "#fff", textAlign: "center", padding: "7px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, border: "none", opacity: data.length ? 1 : 0.5 }}>🗑️ Borrar datos</button>
-          {uploading && <div style={{ fontSize: 11, marginTop: 6, color: "#9CA3AF" }}>Subiendo...</div>}
-          {uploading && <div style={{ fontSize: 11, marginTop: 6, color: "#9CA3AF" }}>Procesando...</div>}
+{uploading && <div style={{ fontSize: 11, marginTop: 6, color: "#9CA3AF" }}>Procesando...</div>}
 {error && <div style={{ fontSize: 11, marginTop: 6, color: "#EF4444" }}>{error}</div>}
-          {data.length > 0 && !uploading && !loading && <div style={{ fontSize: 11, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{data.length} registros cargados</div>}
+{data.length > 0 && !uploading && !loading && <div style={{ fontSize: 11, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{data.length} registros cargados</div>}
 </div>
 <div style={{ padding: "10px 14px", borderTop: "1px solid #1F2937", display: "flex", alignItems: "center", gap: 8 }}>
 <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{user.email?.[0]?.toUpperCase() ?? "A"}</div>
@@ -1021,6 +1267,7 @@ return (
 <div className="header-stats" style={{ marginLeft: "auto", fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{stats.total} registros · {stats.materias} materias</div>
 </header>
 <main style={{ flex: 1, overflow: "auto" }}>
+{view === "dashboard" && <DashboardView stats={stats} data={data} byDocente={byDocente} byMateria={byMateria} conflicts={conflicts} getDocName={getDocName} getMateriaName={getMateriaName} />}
 {view === "horarios" && <HorariosView filtered={filtered} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} />}
 {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
 {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} getDocName={getDocName} onSaveDocenteName={saveDocenteName} />}
