@@ -632,30 +632,17 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
   const [turno, setTurno] = useState("DIURNO");
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
 
+ 
+      // ...
+
   const docentesDelDia = useMemo(() => {
     const map = {};
-    data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
+  data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
       // DEBUG
       console.log("HORA ORIGINAL:", d.hora);
       console.log("HORA FORMATEADA:", getHoraDisplayDeRegistro(d));
       
       const { docente, materia } = parseClase(d.clase);
-      // ...
-
-  const docentesDelDia = useMemo(() => {
-    const map = {};
-    data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
-      const { docente, materia } = parseClase(d.clase);
-      if (!docente) return;
-      if (!map[docente]) map[docente] = { clases: [] };
-      map[docente].clases.push({
-        materia: getMateriaName(materia),
-        hora: getHoraDisplayDeRegistro(d),
-        horaMin: getHoraMin(d),
-        seccion: d.sheet.trim(),
-        trayecto: d.trayecto,
-        aula: d.aula
-      });
     });
     Object.values(map).forEach(v => { v.clases.sort((a, b) => a.horaMin - b.horaMin); });
     return Object.entries(map).sort((a, b) => getDocName(a[0]).localeCompare(getDocName(b[0])));
