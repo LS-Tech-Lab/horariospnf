@@ -221,7 +221,7 @@ function GlobalSearch({ onNavigate, docenteNames, materiaNames, data }) {
   }, []);
 
   return (
-    <div ref={ref} style={{ position: "relative", width: 280 }}>
+    <div ref={ref} className="global-search" style={{ position: "relative", width: 280 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px 12px" }}>
         <span style={{ fontSize: 16, color: "#9CA3AF" }}>🔍</span>
         <input value={q} onChange={e => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} placeholder="Buscar materia, docente…" style={{ border: "none", background: "transparent", outline: "none", fontSize: 13, color: "#111827", width: "100%" }} />
@@ -281,7 +281,8 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
           {turnoLabel === "DIURNO" ? "7:30 AM – 12:00 PM" : "1:00 PM – 5:30 PM"} · bloques de 45 min
         </span>
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+      <div className="turno-grid-wrapper">
+      <table className="turno-grid-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
         <thead>
           <tr>
             <th style={{ ...S.th, width: 160 }}>Bloque</th>
@@ -344,6 +345,7 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -357,7 +359,7 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "14px 20px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="horarios-filters" style={{ padding: "14px 20px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111827", marginRight: 4 }}>📅 Horarios</h1>
         <select value={selectedTrayecto} onChange={e => { setSelectedTrayecto(e.target.value); setSelectedSeccion("all"); }} style={S.select}>
           <option value="all">Todos los trayectos</option>
@@ -367,13 +369,9 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
           <option value="all">Todas las secciones</option>
           {seccionesByTrayecto.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)} style={S.select}>
-          <option value="all">Todos los turnos</option>
-          {allTurnos.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
         <span style={{ fontSize: 13, color: "#9CA3AF", marginLeft: "auto" }}>{filtered.length} clases</span>
       </div>
-      <div style={{ padding: "10px 20px", background: "#fff", borderBottom: "1px solid #F3F4F6", display: "flex", gap: 6 }}>
+      <div className="day-buttons" style={{ padding: "10px 20px", background: "#fff", borderBottom: "1px solid #F3F4F6", display: "flex", gap: 6 }}>
         {["all", ...DAYS].map(d => (<button key={d} onClick={() => setActiveDay(d)} style={S.btn(activeDay === d)}>{d === "all" ? "Semana completa" : d.charAt(0) + d.slice(1).toLowerCase()}</button>))}
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
@@ -426,8 +424,8 @@ function SeccionesView({ data, getDocName, getMateriaName }) {
   }, {});
 
   return (
-    <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
-      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="secciones-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
+      <div className="secciones-left-panel" style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <select value={filterTray} onChange={e => setFilterTray(e.target.value)} style={{ ...S.select, width: "100%" }}>
           <option value="all">Todos los trayectos</option>
           {ALL_TRAYECTOS.map(t => <option key={t} value={t}>Trayecto {t}</option>)}
@@ -540,9 +538,9 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
   };
 
   return (
-    <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
+    <div className="docentes-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
       {/* Panel izquierdo: lista de docentes */}
-      <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="docentes-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar docente…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
           <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSorted.length} docentes</div>
@@ -726,8 +724,8 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   }, [selEntries]);
 
   return (
-    <div style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
-      <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="materias-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
+      <div className="materias-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar materia…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
           <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSorted.length} materias</div>
@@ -816,6 +814,7 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
   const docentesDelDia = useMemo(() => {
     const map = {};
     data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
+      // turno ya se determina con getTurnoDeRegistro — la hora mostrada es la real del bloque
       const { docente, materia } = parseClase(d.clase);
       if (!docente) return;
       if (!map[docente]) map[docente] = { clases: [] };
@@ -901,7 +900,7 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}><h1 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>🖨️ Asistencias Diarias por Turno</h1></div>
-      <div style={{ ...S.card, padding: "14px 20px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="asistencias-filters" style={{ ...S.card, padding: "14px 20px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <div><div style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", marginBottom: 6, textTransform: "uppercase" }}>Turno</div><div style={{ display: "flex", gap: 6 }}>{["DIURNO", "VESPERTINO"].map(t => (<button key={t} onClick={() => setTurno(t)} style={{ ...S.btn(turno === t), borderRadius: 8 }}>{t === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}</button>))}</div></div>
         <div><div style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", marginBottom: 6, textTransform: "uppercase" }}>Día</div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{DAYS.map(d => (<button key={d} onClick={() => setSelectedDay(d)} style={S.btn(selectedDay === d)}>{d.charAt(0) + d.slice(1).toLowerCase()}</button>))}</div></div>
         <div style={{ marginLeft: "auto" }}><button onClick={handlePrint} style={{ padding: "8px 18px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>🖨️ Imprimir / PDF</button></div>
@@ -1021,13 +1020,13 @@ function EstadisticasView({ stats, byDocente, byMateria, data, getDocName, getMa
   return (
     <div style={{ padding: 20 }}>
       <h1 style={{ margin: "0 0 20px", fontSize: 17, fontWeight: 700 }}>📊 Estadísticas</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
+      <div className="stats-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
         <StatCard label="Total de clases" value={totalClases} icon="📅" color="#2563EB" />
         <StatCard label="Secciones" value={seccionesCount} icon="🏫" color="#059669" />
         <StatCard label="Docentes" value={stats.docentes} icon="👥" color="#7C3AED" />
         <StatCard label="Materias únicas" value={stats.materias} icon="📖" color="#D97706" />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div className="stats-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ ...S.card, padding: "16px 20px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Clases por trayecto</div>
           {Object.entries(trayectoCount).sort().map(([t, c]) => (
@@ -1053,7 +1052,7 @@ function EstadisticasView({ stats, byDocente, byMateria, data, getDocName, getMa
           ))}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="stats-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ ...S.card, padding: "16px 20px" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>Docentes con mayor carga</div>
           {top8Docentes.map(([doc, entries], idx) => (
@@ -1132,6 +1131,44 @@ const NAV_ITEMS = [
   { id: "estadisticas",emoji: "📊", label: "Estadísticas" },
 ];
 
+// ========== RESPONSIVE STYLES ==========
+const responsiveCSS = `
+  @media (max-width: 768px) {
+    .hamburger-btn { display: block !important; }
+    .sidebar-aside { transform: translateX(-100%); position: fixed !important; z-index: 300; height: 100vh; transition: transform 0.25s ease; }
+    .sidebar-aside.open { transform: translateX(0); }
+    .sidebar-overlay { display: block !important; }
+    .main-content { margin-left: 0 !important; }
+    .horarios-filters { flex-wrap: wrap; gap: 6px !important; }
+    .horarios-filters select { font-size: 12px !important; padding: 5px 8px !important; }
+    .day-buttons { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+    .day-buttons button { flex-shrink: 0; }
+    .stats-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
+    .stats-grid-2 { grid-template-columns: 1fr !important; }
+    .docentes-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+    .docentes-left-panel { width: 100% !important; max-height: 220px; }
+    .materias-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+    .materias-left-panel { width: 100% !important; max-height: 220px; }
+    .secciones-layout { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+    .secciones-left-panel { width: 100% !important; max-height: 200px; }
+    .asistencias-filters { flex-direction: column !important; gap: 10px !important; }
+    .global-search { width: 160px !important; }
+    .header-bar { padding: 8px 12px !important; }
+    .turno-grid-table { min-width: 500px; }
+    .turno-grid-wrapper { overflow-x: auto; }
+    .semana-grid { grid-template-columns: repeat(3,1fr) !important; }
+  }
+  @media (max-width: 480px) {
+    .stats-grid-4 { grid-template-columns: 1fr 1fr !important; }
+    .semana-grid { grid-template-columns: repeat(2,1fr) !important; }
+    .header-stats { display: none; }
+  }
+`;
+
+function ResponsiveStyles() {
+  return <style>{responsiveCSS}</style>;
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = cargando, null = sin sesión
   const [data, setData] = useState([]);
@@ -1139,6 +1176,7 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState("horarios");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedPrograma, setSelectedPrograma] = useState("todos");
   const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
   const [selectedTrayecto, setSelectedTrayecto] = useState("all");
@@ -1592,7 +1630,14 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui,-apple-system,sans-serif", background: "#F3F4F6", overflow: "hidden" }}>
-      <aside style={{ width: 220, background: "#111827", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      <ResponsiveStyles />
+      {/* Overlay para cerrar sidebar en móvil */}
+      <div
+        className="sidebar-overlay"
+        onClick={() => setSidebarOpen(false)}
+        style={{ display: "none", position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 299 }}
+      />
+      <aside className={`sidebar-aside${sidebarOpen ? " open" : ""}`} style={{ width: 220, background: "#111827", display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "20px 16px 16px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>PNF</div>
           <select 
@@ -1614,7 +1659,7 @@ export default function App() {
         </div>
         <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto" }}>
           {nav.map(item => (
-            <button key={item.id} onClick={() => setView(item.id)} style={{
+            <button key={item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }} style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px", border: "none", borderRadius: 8,
               background: view === item.id ? "#2563EB" : "transparent", color: view === item.id ? "#fff" : "#9CA3AF",
               cursor: "pointer", fontSize: 13, textAlign: "left", marginBottom: 2, fontWeight: view === item.id ? 600 : 400,
@@ -1625,17 +1670,6 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#6B7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Leyenda</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-            {allTrayectos.map(t => (
-              <div key={t} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: TRAYECTO_COLORS[t], flexShrink: 0 }} />
-                <span style={{ fontSize: 10, color: "#9CA3AF" }}>T.{t}</span>
-              </div>
-            ))}
-          </div>
-        </div>
         <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
           <label htmlFor="upload-excel" style={{ display: "block", cursor: "pointer", background: "#2563EB", color: "#fff", textAlign: "center", padding: "6px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
             📂 Cargar Excel
@@ -1675,10 +1709,17 @@ export default function App() {
           </button>
         </div>
       </aside>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <header style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      <div className="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <header className="header-bar" style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {/* Botón hamburguesa para móvil */}
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            style={{ display: "none", background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 18, color: "#374151", lineHeight: 1, flexShrink: 0 }}
+            className="hamburger-btn"
+            aria-label="Abrir menú"
+          >☰</button>
           <GlobalSearch onNavigate={handleNavigate} docenteNames={docenteNames} materiaNames={materiaNames} data={data} />
-          <div style={{ marginLeft: "auto", fontSize: 12, color: "#9CA3AF" }}>{stats.total} registros · {stats.materias} materias</div>
+          <div className="header-stats" style={{ marginLeft: "auto", fontSize: 12, color: "#9CA3AF" }}>{stats.total} registros · {stats.materias} materias</div>
         </header>
         <main style={{ flex: 1, overflow: "auto" }}>
           {view === "horarios" && <HorariosView filtered={filtered} gridData={gridData} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} selectedTurno={selectedTurno} setSelectedTurno={setSelectedTurno} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} allTurnos={allTurnos} />}
