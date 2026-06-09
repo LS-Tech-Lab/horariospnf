@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabase";
 import LoginScreen from "./components/LoginScreen";
@@ -22,7 +22,6 @@ const TRAYECTO_BG = {
 };
 
 // ========== SISTEMA HORARIO UNIFICADO ==========
-// Bloques fijos de 45 minutos — ÚNICA fuente de verdad
 const BLOQUES_DIURNO = [
   { inicio: "7:30AM",  fin: "8:15AM",  label: "7:30 – 8:15 AM"  },
   { inicio: "8:15AM",  fin: "9:00AM",  label: "8:15 – 9:00 AM"  },
@@ -40,7 +39,6 @@ const BLOQUES_VESPERTINO = [
   { inicio: "4:45PM",  fin: "5:30PM",  label: "4:45 – 5:30 PM"  },
 ];
 
-// Convierte "7:30AM", "1:00PM", etc. a minutos desde medianoche
 function timeToMin(s) {
   if (!s) return 0;
   const m = s.replace(/\s/g, "").match(/^(\d+):(\d+)(AM|PM)$/i);
@@ -52,12 +50,9 @@ function timeToMin(s) {
   return hh * 60 + mi;
 }
 
-// Detecta el turno de una sección por su penúltimo dígito.
-// Ej: "4512121" → penúltimo = '2' → VESPERTINO
-//     "4512111" → penúltimo = '1' → DIURNO
 function getTurnoByCodigo(sheetName) {
   if (!sheetName) return null;
-  const digits = sheetName.replace(/\D/g, ""); // sólo dígitos
+  const digits = sheetName.replace(/\D/g, "");
   if (digits.length < 2) return null;
   const penultimo = digits[digits.length - 2];
   if (penultimo === "1") return "DIURNO";
@@ -65,7 +60,6 @@ function getTurnoByCodigo(sheetName) {
   return null;
 }
 
-// Normaliza el campo turno desde el Excel (matutino → DIURNO, vespetino → VESPERTINO, etc.)
 function normalizeTurno(t) {
   if (!t) return null;
   const u = t.toUpperCase().trim();
@@ -74,7 +68,6 @@ function normalizeTurno(t) {
   return null;
 }
 
-// Detecta turno a partir del texto de hora (fallback cuando no hay código ni campo turno)
 function getTurnoFromHora(horaStr) {
   const raw = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/)[0] : "";
   const min = timeToMin(raw);
@@ -83,19 +76,14 @@ function getTurnoFromHora(horaStr) {
   return null;
 }
 
-// FUNCIÓN PRINCIPAL: obtiene el turno de un registro usando las 3 fuentes en orden de prioridad:
-// 1. Código de sección (penúltimo dígito)  2. Campo turno  3. Hora de inicio
 function getTurnoDeRegistro(d) {
   return getTurnoByCodigo(d.sheet) || normalizeTurno(d.turno) || getTurnoFromHora(d.hora) || "DIURNO";
 }
 
-// Obtiene los bloques correctos según el turno
 function getBloquesForTurno(turno) {
   return turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
 }
 
-// Dado un string de hora del Excel (ej: "7:30AM - 9:45AM" o "7:30AM"),
-// devuelve el índice del bloque de inicio más cercano en los bloques dados
 function findStartBlock(bloques, horaStr) {
   const raw = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/)[0] : "";
   const min = timeToMin(raw);
@@ -107,7 +95,6 @@ function findStartBlock(bloques, horaStr) {
   return best;
 }
 
-// Cuenta cuántos bloques de 45 min abarca una clase dado su string de hora
 function countBlocks(horaStr) {
   const parts = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/) : [];
   if (parts.length < 2) return 1;
@@ -117,8 +104,6 @@ function countBlocks(horaStr) {
   return Math.max(1, Math.round((finMin - inicioMin) / 45));
 }
 
-
-// FUNCIÓN PRINCIPAL para mostrar hora: dado un registro, devuelve string legible del rango
 function getHoraDisplayDeRegistro(d) {
   if (!d || !d.hora) return "—";
   const turno = getTurnoDeRegistro(d);
@@ -130,7 +115,6 @@ function getHoraDisplayDeRegistro(d) {
   return `${bloques[sb].inicio.replace("AM"," AM").replace("PM"," PM")} – ${bloques[endIdx].fin.replace("AM"," AM").replace("PM"," PM")}`;
 }
 
-// Orden numérico de un registro para ordenar por hora
 function getHoraMin(d) {
   const turno = getTurnoDeRegistro(d);
   const bloques = getBloquesForTurno(turno);
@@ -144,7 +128,6 @@ function parseClase(clase) {
   const docente = parts[1] ? parts[1].trim() : "";
   return { materia, docente };
 }
-
 
 const S = {
   card: { background: "#fff", borderRadius: 10, border: "1px solid #E5E7EB", overflow: "hidden" },
@@ -163,8 +146,6 @@ const S = {
   input: { fontSize: 13, padding: "6px 12px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#111827", outline: "none" },
 };
 
-// Normaliza un nombre de programa a Title Case canónico para deduplicar variantes
-// "PNF EN INFORMATICA" → "PNF Informática", etc.
 const PROGRAMA_ALIASES = {
   "informatica": "PNF Informática",
   "informática": "PNF Informática",
@@ -179,15 +160,13 @@ const PROGRAMA_ALIASES = {
 function normalizarPrograma(raw) {
   if (!raw) return null;
   const lower = raw.trim().toLowerCase()
-    .replace(/pnf\s+(en\s+)?/i, "")  // quita "PNF " o "PNF EN "
+    .replace(/pnf\s+(en\s+)?/i, "")
     .trim();
   for (const [key, canonical] of Object.entries(PROGRAMA_ALIASES)) {
     if (lower.includes(key)) return canonical;
   }
-  // Fallback: Title Case
   return raw.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
-
 
 function Avatar({ name, size = 36 }) {
   const safeName = name || "Docente";
@@ -289,12 +268,10 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
     return map;
   }, [bloques, days, filtered, turnoLabel]);
 
-  // Altura base por bloque en px (45 min → 48px compacto)
   const ROW_H = 48;
 
   return (
     <div style={{ ...S.card, marginBottom: 16 }}>
-      {/* Header del turno */}
       <div style={{
         padding: "7px 14px",
         background: turnoLabel === "DIURNO" ? "#EFF6FF" : "#FDF2F8",
@@ -335,12 +312,10 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
                 return { data: cell };
               });
               const rowBg = bi % 2 === 0 ? "#fff" : "#FAFAFA";
-              // Label compacto: solo hora de inicio
               const horaInicio = bloque.inicio.replace("AM", " AM").replace("PM", " PM");
               const horaFin = bloque.fin.replace("AM", " AM").replace("PM", " PM");
               return (
                 <tr key={bi} style={{ height: ROW_H }}>
-                  {/* Columna de hora — muy compacta */}
                   <td style={{
                     padding: "3px 8px", fontSize: 10, fontWeight: 600, color: "#9CA3AF",
                     background: rowBg, verticalAlign: "middle", whiteSpace: "nowrap",
@@ -400,17 +375,14 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
                                 overflow: "hidden",
                               }}
                             >
-                              {/* Materia */}
                               <div style={{ fontSize: 13, fontWeight: 700, color: col, lineHeight: 1.2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                                 {materia}
                               </div>
-                              {/* Docente — nombre completo */}
                               {docente && (
                                 <div style={{ fontSize: 12, color: col, opacity: 0.75, lineHeight: 1.1, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                                   {docente}
                                 </div>
                               )}
-                              {/* Panel expandido */}
                               {isExp && (
                                 <div style={{ marginTop: 5, paddingTop: 5, borderTop: `1px solid ${col}25`, fontSize: 11, display: "flex", flexDirection: "column", gap: 2 }}>
                                   <div style={{ color: col, opacity: 0.9 }}>📂 {e.sheet.trim()} · T.{e.trayecto}</div>
@@ -479,7 +451,6 @@ function SeccionesView({ data, getDocName, getMateriaName }) {
   const [selSheet, setSelSheet] = useState(null);
   const [filterTray, setFilterTray] = useState("all");
 
-  // Sincronizar selección cuando allSecciones cambia (carga inicial o cambio de programa)
   useEffect(() => {
     if (allSecciones.length > 0 && (!selSheet || !allSecciones.includes(selSheet))) {
       setSelSheet(allSecciones[0]);
@@ -535,7 +506,6 @@ function SeccionesView({ data, getDocName, getMateriaName }) {
   );
 }
 
-// ========== DOCENTESVIEW CORREGIDA (sin errores de anidamiento) ==========
 function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteNames, setDocenteNames, getDocName, onSaveDocenteName }) {
   const sorted = Object.keys(byDocente).sort();
   const [sel, setSel] = useState(initialSel || null);
@@ -546,16 +516,6 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
   
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
   useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel, getDocName]);
-
-  useEffect(() => {
-    if (sel && !byDocente[sel]) {
-      const newSel = Object.keys(byDocente).find(k => {
-        const name = getDocName(k);
-        return name && editValue && name.toLowerCase() === editValue.trim().toLowerCase();
-      });
-      setSel(newSel || null);
-    }
-  }, [byDocente, sel, editValue, getDocName]);
 
   const hasConflict = (name) => conflicts.some(c => c.docente === name);
   const selEntries = byDocente[sel] || [];
@@ -576,11 +536,9 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
     return map;
   }, [selEntries]);
 
-  // Bloques únicos usados por este docente (para la vista semanal)
   const usedBloques = useMemo(() => {
     const seen = new Set();
     const result = [];
-    // Diurno primero, luego vespertino
     ["DIURNO", "VESPERTINO"].forEach(turno => {
       const bloques = getBloquesForTurno(turno);
       bloques.forEach((b, bi) => {
@@ -614,7 +572,6 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
 
   return (
     <div className="docentes-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
-      {/* Panel izquierdo: lista de docentes */}
       <div className="docentes-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar docente…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
@@ -628,13 +585,11 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
         </div>
       </div>
 
-      {/* Panel derecho: detalles del docente seleccionado */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {!sel ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona un docente para ver su horario</div>
         ) : (
           <div>
-            {/* Tarjeta de información del docente */}
             <div style={{ ...S.card, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
               <Avatar name={getDocName(sel)} size={48} />
               <div style={{ flex: 1 }}>
@@ -662,7 +617,6 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
               </div>
             </div>
 
-            {/* Conflictos (si los hay) */}
             {selConflicts.map((c, i) => (
               <div key={i} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 10, display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
@@ -673,7 +627,6 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
               </div>
             ))}
 
-            {/* Vista semanal (tabla) */}
             {usedBloques.length > 0 && (
               <div style={{ ...S.card, marginBottom: 16 }}>
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Vista semanal</div>
@@ -718,7 +671,6 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
               </div>
             )}
 
-            {/* Tabla detallada de asignaciones */}
             <div style={S.card}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
@@ -757,7 +709,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
   
-  // Manejar navegación inicial
   useEffect(() => { 
     if (initialSel) { 
       setSel(initialSel);
@@ -765,7 +716,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     } 
   }, [initialSel, onConsumeNav]);
   
-  // Actualizar editValue cuando cambia sel
   useEffect(() => { 
     if (sel) {
       setEditValue(getMateriaName(sel));
@@ -809,7 +759,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     });
   }, [selEntries]);
 
-  // El resto del componente se mantiene igual...
   return (
     <div className="materias-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
       <div className="materias-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -997,7 +946,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   );
 }
 
-
 function AsistenciasView({ data, getDocName, getMateriaName }) {
   const [turno, setTurno] = useState("DIURNO");
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
@@ -1005,7 +953,6 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
   const docentesDelDia = useMemo(() => {
     const map = {};
     data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
-      // turno ya se determina con getTurnoDeRegistro — la hora mostrada es la real del bloque
       const { docente, materia } = parseClase(d.clase);
       if (!docente) return;
       if (!map[docente]) map[docente] = { clases: [] };
@@ -1314,8 +1261,6 @@ function EstadisticasView({ stats, byDocente, byMateria, data, getDocName, getMa
   );
 }
 
-// ========== Componente principal App ==========
-// ========== Constante de navegación (fuera del componente para evitar recreación) ==========
 const NAV_ITEMS = [
   { id: "horarios",     emoji: "📅", label: "Horarios" },
   { id: "secciones",   emoji: "🏫", label: "Secciones" },
@@ -1326,7 +1271,6 @@ const NAV_ITEMS = [
   { id: "estadisticas",emoji: "📊", label: "Estadísticas" },
 ];
 
-// ========== RESPONSIVE STYLES ==========
 const responsiveCSS = `
   @media (max-width: 768px) {
     .hamburger-btn { display: block !important; }
@@ -1365,7 +1309,7 @@ function ResponsiveStyles() {
 }
 
 export default function App() {
-  const [user, setUser] = useState(undefined); // undefined = cargando, null = sin sesión
+  const [user, setUser] = useState(undefined);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1383,13 +1327,10 @@ export default function App() {
   const [docenteNames, setDocenteNames] = useState({});
   const [materiaNames, setMateriaNames] = useState({});
 
-  // ========== AUTH ==========
   useEffect(() => {
-    // Obtener sesión actual
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
-    // Escuchar cambios de sesión
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -1406,8 +1347,7 @@ export default function App() {
       .select("programa")
       .not("programa", "is", null);
     if (!error && programas) {
-      // Normalizar cada programa y deduplicar por nombre canónico
-      const canonicalSet = new Map(); // canonical → true
+      const canonicalSet = new Map();
       programas.forEach(p => {
         if (p.programa && p.programa.trim() !== "") {
           const canon = normalizarPrograma(p.programa);
@@ -1415,7 +1355,6 @@ export default function App() {
         }
       });
       const unique = [...canonicalSet.keys()].sort();
-      // Incluir DEFAULT_PROGRAMAS que no estén ya
       const defaults = DEFAULT_PROGRAMAS.filter(p => !unique.some(u => u.toLowerCase() === p.toLowerCase()));
       setProgramasDisponibles(["todos", ...unique, ...defaults]);
     }
@@ -1465,9 +1404,7 @@ export default function App() {
     fetchHorarios();
   }, [selectedPrograma]);
 
-  // ========== UNIFICACIÓN CORREGIDA ==========
   const unifyName = async (tableName, rawName, newDisplayName) => {
-    // Buscar otro registro con el mismo nombre_display (insensible a mayúsculas y espacios)
     const { data: existing, error: searchError } = await supabase
       .from(tableName)
       .select("nombre_raw, nombre_display")
@@ -1480,7 +1417,6 @@ export default function App() {
       const targetRaw = existing[0].nombre_raw;
       const canonicalDisplay = existing[0].nombre_display;
 
-      // Actualizar todas las filas de horarios que usen rawName → cambiar a targetRaw
       const { data: horarios, error: fetchError } = await supabase
         .from("horarios")
         .select("id, clase");
@@ -1497,7 +1433,6 @@ export default function App() {
           if (updateError) throw updateError;
         }
       }
-      // Eliminar el registro antiguo de la tabla de nombres
       await supabase.from(tableName).delete().eq("nombre_raw", rawName);
       return { targetRaw, canonicalDisplay };
     }
@@ -1548,7 +1483,6 @@ export default function App() {
     }
   };
 
-  // ========== ELIMINACIÓN CORREGIDA ==========
   const clearAllData = async () => {
     if (!window.confirm(`⚠️ ¿Estás seguro? Esto eliminará TODOS los horarios${selectedPrograma !== "todos" ? ` del programa "${selectedPrograma}"` : " de TODOS los programas"}. Esta acción no se puede deshacer.`)) {
       return;
@@ -1573,7 +1507,6 @@ export default function App() {
     setLoading(false);
   };
 
-  // ========== CARGA DE EXCEL MEJORADA (CON LOGS Y DETECCIÓN DE HORA) ==========
   const handleFileUpload = async (file) => {
     setUploading(true);
     setError(null);
@@ -1582,7 +1515,6 @@ export default function App() {
       const binaryStr = e.target.result;
       const workbook = XLSX.read(binaryStr, { type: "binary" });
       const allRows = [];
-      console.log(`📄 Leyendo archivo con ${workbook.SheetNames.length} hojas...`);
       
       for (const sheetName of workbook.SheetNames) {
         const worksheet = workbook.Sheets[sheetName];
@@ -1591,15 +1523,13 @@ export default function App() {
         let horaColIdx = -1;
         let diaCols = { LUNES: -1, MARTES: -1, MIÉRCOLES: -1, JUEVES: -1, VIERNES: -1 };
         
-        // Buscar fila que contenga "HORA" (en cualquier columna)
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
           if (!row) continue;
-          // Buscar "HORA" en cualquier columna de la fila
           const horaIdx = row.findIndex(cell => cell?.toString().trim().toUpperCase() === "HORA");
           if (horaIdx !== -1) {
             headerRowIdx = i;
-            horaColIdx = horaIdx; // La hora está en la columna donde se encontró "HORA"
+            horaColIdx = horaIdx;
             for (let j = 0; j < row.length; j++) {
               const cell = row[j]?.toString().toUpperCase().trim();
               if (cell === "LUNES") diaCols.LUNES = j;
@@ -1611,17 +1541,12 @@ export default function App() {
             break;
           }
         }
-        if (headerRowIdx === -1) {
-          console.warn(`⚠️ Hoja "${sheetName}" no tiene fila "HORA". Se omite.`);
-          continue;
-        }
+        if (headerRowIdx === -1) continue;
         
-        // Extraer metadatos (programa, trayecto, sección, turno, sede, aula)
         let programa = "", trayecto = "", seccion = "", turno = "", sede = "", aula = "";
         for (let i = 0; i < headerRowIdx; i++) {
           const row = json[i];
           if (!row) continue;
-          // Buscar la celda clave en cualquier columna
           for (let j = 0; j < row.length; j++) {
             const cellVal = row[j]?.toString().trim();
             if (!cellVal) continue;
@@ -1631,9 +1556,7 @@ export default function App() {
             else if (cellVal === "AULA" && j === row.findIndex(c => c?.toString().trim() === "AULA") && !aula) {
               aula = row[j+1]?.toString().trim() || "";
             }
-            // Sección y Turno: buscar el valor en la celda a la derecha o en el mismo par
             else if (cellVal === "Sección" && !seccion) {
-              // El valor puede estar una o dos celdas a la derecha
               seccion = row[j+1]?.toString().trim() || row[j+2]?.toString().trim() || "";
             }
             else if (cellVal === "Turno" && !turno) {
@@ -1642,7 +1565,6 @@ export default function App() {
           }
         }
         
-        // Forzar programa según selección
         if (selectedPrograma !== "todos") {
           programa = selectedPrograma;
         } else if (!programa) {
@@ -1650,13 +1572,10 @@ export default function App() {
         } else {
           programa = normalizarPrograma(programa) || programa;
         }
-        // Determinar turno: prioridad código de sección → campo turno del Excel
-        // Se almacena el valor normalizado; getTurnoDeRegistro lo resolverá al mostrar
         const turnoNorm = getTurnoByCodigo(sheetName) || normalizeTurno(turno) || null;
-        turno = turnoNorm || turno; // guardar normalizado si se pudo, sino el raw
+        turno = turnoNorm || turno;
         
         let filasProcesadas = 0;
-        // Recorrer filas desde después del encabezado
         for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row = json[i];
           const hora = row[horaColIdx]?.toString().trim();
@@ -1671,7 +1590,6 @@ export default function App() {
             }
           }
         }
-        console.log(`✅ Hoja "${sheetName}": extraídas ${filasProcesadas} clases.`);
       }
       
       if (allRows.length === 0) {
@@ -1680,9 +1598,6 @@ export default function App() {
         return;
       }
       
-      console.log(`📊 Total de filas extraídas: ${allRows.length}`);
-      
-      // Verificar duplicados contra base de datos actual
       const { data: existingData } = await supabase
         .from("horarios")
         .select("sheet, dia, hora, clase, programa");
@@ -1692,7 +1607,6 @@ export default function App() {
       });
       const newRows = allRows.filter(row => !existingKeys.has(`${row.sheet}|${row.dia}|${row.hora}|${row.clase}|${row.programa}`));
       const duplicateCount = allRows.length - newRows.length;
-      console.log(`🆕 Nuevos registros: ${newRows.length}, duplicados omitidos: ${duplicateCount}`);
       
       if (newRows.length === 0) {
         alert(`⚠️ No se cargaron nuevos registros. ${duplicateCount} duplicados.`);
@@ -1712,7 +1626,6 @@ export default function App() {
         await fetchHorarios();
         await fetchProgramas();
         
-        // Extraer docentes y materias únicos
         const uniqueDocentes = new Set();
         const uniqueMaterias = new Set();
         newRows.forEach(row => {
@@ -1735,7 +1648,6 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
-  // ========== FILTROS Y CÁLCULOS ==========
   const filtered = useMemo(() => {
     return data.filter(d => {
       if (selectedTrayecto !== "all" && d.trayecto !== selectedTrayecto) return false;
@@ -1771,7 +1683,6 @@ export default function App() {
     const issues = [];
     Object.entries(byDocente).forEach(([doc, entries]) => {
       DAYS.forEach(day => {
-        // Normalizar hora para comparación (elimina espacios extra)
         const horasUnicas = [...new Set(entries.map(e => e.hora?.trim()))].filter(Boolean);
         horasUnicas.forEach(hora => {
           const matches = entries.filter(e => e.dia === day && e.hora?.trim() === hora);
@@ -1781,7 +1692,6 @@ export default function App() {
     });
     return issues;
   }, [byDocente]);
-
 
   const allTrayectos = useMemo(() => [...new Set(data.map(d => d.trayecto))].sort(), [data]);
   const allSecciones = useMemo(() => [...new Set(data.map(d => d.sheet.trim()))].sort(), [data]);
@@ -1798,6 +1708,7 @@ export default function App() {
 
   const getDocName = useCallback((raw) => docenteNames[raw] || raw, [docenteNames]);
   const getMateriaName = useCallback((raw) => materiaNames[raw] || raw, [materiaNames]);
+  
   const handleNavigate = (result) => {
     if (result.docente) { setDocenteNav(result.rawDocente || result.docente); setView("docentes"); }
     else if (result.materia) { setMateriaNav(result.rawMateria); setView("materias"); }
@@ -1809,8 +1720,6 @@ export default function App() {
     badge: item.hasBadge ? conflicts.length : 0,
   }));
 
-  // ========== GUARDS ==========
-  // Mientras se verifica la sesión
   if (user === undefined) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0F172A", color: "#94A3B8", fontFamily: "system-ui, sans-serif", fontSize: 14 }}>
@@ -1819,7 +1728,6 @@ export default function App() {
     );
   }
 
-  // Sin sesión → pantalla de login
   if (!user) return <LoginScreen />;
 
   if (loading && data.length === 0) return <div style={{ padding: 20, textAlign: "center" }}>Cargando horarios...</div>;
@@ -1827,7 +1735,6 @@ export default function App() {
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui,-apple-system,sans-serif", background: "#F3F4F6", overflow: "hidden" }}>
       <ResponsiveStyles />
-      {/* Overlay para cerrar sidebar en móvil */}
       <div
         className="sidebar-overlay"
         onClick={() => setSidebarOpen(false)}
@@ -1887,7 +1794,6 @@ export default function App() {
             <div style={{ fontSize: 10, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{data.length} registros cargados</div>
           )}
         </div>
-        {/* Usuario admin + Logout */}
         <div style={{ padding: "10px 14px", borderTop: "1px solid #1F2937", display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
             {user.email?.[0]?.toUpperCase() ?? "A"}
@@ -1907,7 +1813,6 @@ export default function App() {
       </aside>
       <div className="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header className="header-bar" style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          {/* Botón hamburguesa para móvil */}
           <button
             onClick={() => setSidebarOpen(o => !o)}
             style={{ display: "none", background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 18, color: "#374151", lineHeight: 1, flexShrink: 0 }}
