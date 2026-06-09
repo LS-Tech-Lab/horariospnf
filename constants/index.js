@@ -1,0 +1,9 @@
+export const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
+export const ALL_TRAYECTOS = [...];
+export const DEFAULT_PROGRAMAS = [...];
+export const TRAYECTO_COLORS = {...};
+export const TRAYECTO_BG = {...};
+export const BLOQUES_DIURNO = [...];
+export const BLOQUES_VESPERTINO = [...];
+export const NAV_ITEMS = [...];  // Si quieres, también aquí
+export const responsiveCSS = `...`;  // O en un archivo CSS aparte
