@@ -825,13 +825,92 @@ export default function App() {
   };
 
   const clearAllData = async () => {
-    if (!window.confirm("⚠️ ¿Eliminar TODOS los horarios?")) return;
+    if (!window.confirm("⚠️ ¿Eliminar TODOS los horarios? Se recomienda hacer un backup primero.")) return;
     setLoading(true);
     let query = supabase.from("horarios").delete();
     if (selectedPrograma !== "todos") query = query.eq("programa", selectedPrograma); else query = query.neq("id", 0);
     const { error } = await query;
     if (error) showToast("❌ Error al borrar.", "error"); else { showToast("✅ Datos eliminados.", "success"); await fetchHorarios(); await fetchProgramas(); }
     setLoading(false);
+  };
+
+  // ========== SISTEMA DE BACKUP ==========
+  const exportarDatos = async () => {
+    try {
+      showToast("📦 Preparando backup...", "info");
+      
+      const [horariosRes, docentesRes, materiasRes] = await Promise.all([
+        supabase.from("horarios").select("*"),
+        supabase.from("docentes").select("*"),
+        supabase.from("materias").select("*"),
+      ]);
+      
+      const backup = {
+        version: "1.0",
+        fecha: new Date().toISOString(),
+        programa: selectedPrograma,
+        horarios: horariosRes.data || [],
+        docentes: docentesRes.data || [],
+        materias: materiasRes.data || [],
+      };
+      
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup-horarios-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showToast("✅ Backup descargado correctamente", "success");
+    } catch (err) {
+      console.error("Error al exportar:", err);
+      showToast("❌ Error al crear backup: " + err.message, "error");
+    }
+  };
+
+  const importarDatos = async (file) => {
+    if (!window.confirm("⚠️ ¿Estás seguro? Esto REEMPLAZARÁ todos los datos actuales. Se recomienda hacer un backup primero.")) return;
+    
+    setUploading(true);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      
+      if (!backup.horarios || !backup.docentes || !backup.materias) {
+        throw new Error("El archivo no tiene el formato correcto de backup");
+      }
+      
+      // Limpiar tablas existentes
+      await supabase.from("horarios").delete().neq("id", 0);
+      await supabase.from("docentes").delete().neq("id", 0);
+      await supabase.from("materias").delete().neq("id", 0);
+      
+      // Insertar datos del backup
+      if (backup.horarios.length > 0) {
+        await supabase.from("horarios").insert(backup.horarios);
+      }
+      if (backup.docentes.length > 0) {
+        await supabase.from("docentes").upsert(backup.docentes, { onConflict: "nombre_raw" });
+      }
+      if (backup.materias.length > 0) {
+        await supabase.from("materias").upsert(backup.materias, { onConflict: "nombre_raw" });
+      }
+      
+      showToast(`✅ Backup restaurado: ${backup.horarios.length} clases, ${backup.docentes.length} docentes, ${backup.materias.length} materias`, "success");
+      
+      await fetchHorarios();
+      await fetchProgramas();
+      await fetchDocenteNames();
+      await fetchMateriaNames();
+    } catch (err) {
+      console.error("Error al importar:", err);
+      showToast("❌ Error al restaurar backup: " + err.message, "error");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleFileUpload = async (file) => {
@@ -913,11 +992,19 @@ export default function App() {
           ))}
         </nav>
         <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
+          {/* Botones de backup */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <button onClick={exportarDatos} disabled={uploading || !data.length} style={{ flex: 1, cursor: data.length ? "pointer" : "not-allowed", background: "#059669", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", opacity: data.length ? 1 : 0.5 }}>💾 Backup</button>
+            <label htmlFor="import-backup" style={{ flex: 1, cursor: "pointer", background: "#D97706", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 0 }}>📥 Restaurar</label>
+            <input id="import-backup" type="file" accept=".json" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importarDatos(e.target.files[0]); e.target.value = ""; }} disabled={uploading} />
+          </div>
+          {/* Carga de Excel y borrado */}
           <label htmlFor="upload-excel" style={{ display: "block", cursor: "pointer", background: "#2563EB", color: "#fff", textAlign: "center", padding: "7px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📂 Cargar Excel</label>
           <input id="upload-excel" type="file" accept=".xlsx, .xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) handleFileUpload(e.target.files[0]); e.target.value = ""; }} disabled={uploading} />
           <button onClick={clearAllData} disabled={loading || !data.length} style={{ display: "block", width: "100%", cursor: data.length ? "pointer" : "not-allowed", background: "#DC2626", color: "#fff", textAlign: "center", padding: "7px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, border: "none", opacity: data.length ? 1 : 0.5 }}>🗑️ Borrar datos</button>
-          {uploading && <div style={{ fontSize: 11, marginTop: 6, color: "#9CA3AF" }}>Subiendo...</div>}
+          {uploading && <div style={{ fontSize: 11, marginTop: 6, color: "#9CA3AF" }}>Procesando...</div>}
           {error && <div style={{ fontSize: 11, marginTop: 6, color: "#EF4444" }}>{error}</div>}
+          {data.length > 0 && !uploading && !loading && <div style={{ fontSize: 11, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{data.length} registros cargados</div>}
         </div>
         <div style={{ padding: "10px 14px", borderTop: "1px solid #1F2937", display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{user.email?.[0]?.toUpperCase() ?? "A"}</div>
