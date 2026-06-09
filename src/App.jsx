@@ -756,47 +756,79 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   const [editingName, setEditingName] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const prevSelRef = useRef(sel);
   
+  // Manejar navegación inicial
   useEffect(() => { 
     if (initialSel) { 
-      setSel(initialSel); 
+      setSel(initialSel);
+      setEditingName(false);
+      setEditValue(getMateriaName(initialSel));
       onConsumeNav(); 
     } 
-  }, [initialSel, onConsumeNav]);
+  }, [initialSel]); // eslint-disable-line react-hooks/exhaustive-deps
   
+  // Actualizar editValue solo cuando sel cambia
   useEffect(() => { 
-    if (sel) {
+    if (sel && sel !== prevSelRef.current) {
+      prevSelRef.current = sel;
       setEditValue(getMateriaName(sel));
+      setEditingName(false);
     }
-  }, [sel, getMateriaName]);
+  }, [sel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Si la materia seleccionada ya no existe en byMateria, resetear selección
-  if (sel && !byMateria[sel]) {
-    // Usar setTimeout para evitar actualizar estado durante el render
-    setTimeout(() => setSel(null), 0);
-  }
+  // Verificar si la materia seleccionada existe
+  const materiaExists = !sel || byMateria[sel];
+  
+  useEffect(() => {
+    if (sel && !byMateria[sel]) {
+      setSel(null);
+      setEditingName(false);
+    }
+  }, [sel, byMateria]);
 
   const selEntries = sel && byMateria[sel] ? byMateria[sel] : [];
-  const filteredSorted = search ? sorted.filter(m => getMateriaName(m).toLowerCase().includes(search.toLowerCase())) : sorted;
+  const filteredSorted = search 
+    ? sorted.filter(m => getMateriaName(m).toLowerCase().includes(search.toLowerCase())) 
+    : sorted;
+
+  const handleSelectMateria = (m) => {
+    if (m !== sel) {
+      setSel(m);
+      setEditingName(false);
+      setEditValue(getMateriaName(m));
+    }
+  };
 
   const saveEdit = async () => { 
     const trimmed = editValue.trim(); 
     if (trimmed && sel) {
       setSaving(true);
-      const res = await onSaveMateriaName(sel, trimmed);
-      setSaving(false);
-      if (res.success) {
-        setEditingName(false);
-        if (res.targetRaw) {
-          setSel(res.targetRaw);
+      try {
+        const res = await onSaveMateriaName(sel, trimmed);
+        setSaving(false);
+        if (res.success) {
+          setEditingName(false);
+          if (res.targetRaw) {
+            setSel(res.targetRaw);
+          }
         }
+      } catch (err) {
+        setSaving(false);
+        console.error("Error saving materia name:", err);
       }
     } else {
       setEditingName(false);
     }
   };
 
+  const handleStartEdit = () => {
+    setEditValue(getMateriaName(sel));
+    setEditingName(true);
+  };
+
   const asignaciones = useMemo(() => {
+    if (!selEntries.length) return [];
     return selEntries.slice().sort((a, b) => {
       const idxA = DAYS.indexOf(a.dia);
       const idxB = DAYS.indexOf(b.dia);
@@ -804,23 +836,57 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     });
   }, [selEntries]);
 
+  if (!materiaExists) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>
+        La materia seleccionada ya no existe.
+      </div>
+    );
+  }
+
   return (
     <div className="materias-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
       <div className="materias-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar materia…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
+        <input 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+          placeholder="Filtrar materia…" 
+          style={{ ...S.input, width: "100%", boxSizing: "border-box" }} 
+        />
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
-          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSorted.length} materias</div>
+          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>
+            {filteredSorted.length} materias
+          </div>
           {filteredSorted.map(m => (
-            <div key={m} onClick={() => { setSel(m); setEditingName(false); }} style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, background: sel === m ? "#EFF6FF" : "transparent", color: sel === m ? "#1D4ED8" : "#374151", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: sel === m ? 600 : 400 }}>
+            <div 
+              key={m} 
+              onClick={() => handleSelectMateria(m)} 
+              style={{ 
+                padding: "9px 12px", 
+                cursor: "pointer", 
+                fontSize: 13, 
+                background: sel === m ? "#EFF6FF" : "transparent", 
+                color: sel === m ? "#1D4ED8" : "#374151", 
+                borderBottom: "1px solid #F3F4F6", 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center", 
+                fontWeight: sel === m ? 600 : 400 
+              }}
+            >
               <span>{getMateriaName(m)}</span>
-              <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600 }}>{byMateria[m].length}</span>
+              <span style={{ fontSize: 11, background: "#F3F4F6", borderRadius: 10, padding: "1px 7px", color: "#6B7280", fontWeight: 600 }}>
+                {byMateria[m].length}
+              </span>
             </div>
           ))}
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {!sel ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>Selecciona una materia para ver detalles</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#9CA3AF", fontSize: 14 }}>
+            Selecciona una materia para ver detalles
+          </div>
         ) : (
           <>
             <div style={{ ...S.card, padding: "16px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
@@ -828,16 +894,77 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
               <div style={{ flex: 1 }}>
                 {editingName ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input value={editValue} onChange={e => setEditValue(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingName(false); }} autoFocus style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} />
-                    <button onClick={saveEdit} disabled={saving} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: saving ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600, opacity: saving ? 0.6 : 1 }}>
+                    <input 
+                      value={editValue} 
+                      onChange={e => setEditValue(e.target.value)} 
+                      onKeyDown={e => { 
+                        if (e.key === "Enter") saveEdit(); 
+                        if (e.key === "Escape") {
+                          setEditingName(false);
+                          setEditValue(getMateriaName(sel));
+                        }
+                      }} 
+                      autoFocus 
+                      style={{ ...S.input, fontSize: 15, fontWeight: 600, flex: 1 }} 
+                    />
+                    <button 
+                      onClick={saveEdit} 
+                      disabled={saving} 
+                      style={{ 
+                        padding: "5px 12px", 
+                        background: "#2563EB", 
+                        color: "#fff", 
+                        border: "none", 
+                        borderRadius: 6, 
+                        cursor: saving ? "not-allowed" : "pointer", 
+                        fontSize: 12, 
+                        fontWeight: 600, 
+                        opacity: saving ? 0.6 : 1 
+                      }}
+                    >
                       {saving ? "Guardando..." : "Guardar"}
                     </button>
-                    <button onClick={() => setEditingName(false)} style={{ padding: "5px 10px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Cancelar</button>
+                    <button 
+                      onClick={() => {
+                        setEditingName(false);
+                        setEditValue(getMateriaName(sel));
+                      }} 
+                      style={{ 
+                        padding: "5px 10px", 
+                        background: "#F3F4F6", 
+                        color: "#6B7280", 
+                        border: "none", 
+                        borderRadius: 6, 
+                        cursor: "pointer", 
+                        fontSize: 12 
+                      }}
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 ) : (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: "#111827" }}>{getMateriaName(sel)}</div>
-                    <button onClick={() => { setEditValue(getMateriaName(sel)); setEditingName(true); }} title="Editar nombre" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: "#6B7280", display: "flex", alignItems: "center", gap: 4 }}>✏️ Editar</button>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#111827" }}>
+                      {getMateriaName(sel)}
+                    </div>
+                    <button 
+                      onClick={handleStartEdit} 
+                      title="Editar nombre" 
+                      style={{ 
+                        background: "none", 
+                        border: "1px solid #E5E7EB", 
+                        borderRadius: 6, 
+                        padding: "2px 8px", 
+                        cursor: "pointer", 
+                        fontSize: 11, 
+                        color: "#6B7280", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 4 
+                      }}
+                    >
+                      ✏️ Editar
+                    </button>
                   </div>
                 )}
                 <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
@@ -852,7 +979,9 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
             </div>
             
             <div style={S.card}>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>📋 Asignaciones</div>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                📋 Asignaciones
+              </div>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -871,10 +1000,26 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                     return (
                       <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                         <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
-                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap", fontSize: 11 }}>{getHoraDisplayDeRegistro(e)}</td>
-                        <td style={S.td}><span style={S.badge(turnoReal === "DIURNO" ? "#EFF6FF" : "#FDF2F8", turnoReal === "DIURNO" ? "#2563EB" : "#DB2777")}>{turnoReal === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}</span></td>
+                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap", fontSize: 11 }}>
+                          {getHoraDisplayDeRegistro(e)}
+                        </td>
+                        <td style={S.td}>
+                          <span style={S.badge(
+                            turnoReal === "DIURNO" ? "#EFF6FF" : "#FDF2F8", 
+                            turnoReal === "DIURNO" ? "#2563EB" : "#DB2777"
+                          )}>
+                            {turnoReal === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}
+                          </span>
+                        </td>
                         <td style={S.td}>{e.sheet ? e.sheet.trim() : ""}</td>
-                        <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
+                        <td style={S.td}>
+                          <span style={S.badge(
+                            TRAYECTO_BG[e.trayecto] || "#f3f4f6", 
+                            TRAYECTO_COLORS[e.trayecto] || "#555"
+                          )}>
+                            {e.trayecto}
+                          </span>
+                        </td>
                         <td style={S.td}>{rawDoc ? getDocName(rawDoc) : "—"}</td>
                       </tr>
                     );
@@ -888,7 +1033,6 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
     </div>
   );
 }
-
 
 function AsistenciasView({ data, getDocName, getMateriaName }) {
   const [turno, setTurno] = useState("DIURNO");
