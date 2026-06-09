@@ -117,19 +117,16 @@ function countBlocks(horaStr) {
   return Math.max(1, Math.round((finMin - inicioMin) / 45));
 }
 
-// Devuelve el rango formateado "7:30 – 9:45 AM" para N bloques a partir del índice dado
-function getHoraRango(bloques, startIdx, count) {
-  const endIdx = Math.min(startIdx + count - 1, bloques.length - 1);
-  return `${bloques[startIdx].label.split("–")[0].trim()} – ${bloques[endIdx].fin.replace("AM","").replace("PM","").trim()} ${bloques[endIdx].fin.slice(-2)}`;
-}
 
 // FUNCIÓN PRINCIPAL para mostrar hora: dado un registro, devuelve string legible del rango
 function getHoraDisplayDeRegistro(d) {
+  if (!d || !d.hora) return "—";
   const turno = getTurnoDeRegistro(d);
   const bloques = getBloquesForTurno(turno);
   const sb = findStartBlock(bloques, d.hora);
   const span = countBlocks(d.hora);
   const endIdx = Math.min(sb + span - 1, bloques.length - 1);
+  if (!bloques[sb] || !bloques[endIdx]) return d.hora;
   return `${bloques[sb].inicio.replace("AM"," AM").replace("PM"," PM")} – ${bloques[endIdx].fin.replace("AM"," AM").replace("PM"," PM")}`;
 }
 
@@ -170,7 +167,7 @@ const S = {
 function Avatar({ name, size = 36 }) {
   const safeName = name || "Docente";
   const initials = typeof safeName === "string"
-    ? safeName.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+    ? safeName.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?"
     : "??";
   const hue = typeof safeName === "string"
     ? [...safeName].reduce((a, c) => a + c.charCodeAt(0), 0) % 360
@@ -350,10 +347,9 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
   );
 }
 
-function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayecto, selectedSeccion, setSelectedSeccion, selectedTurno, setSelectedTurno, activeDay, setActiveDay, seccionesByTrayecto, expandedCell, setExpandedCell, getDocName, getMateriaName, allTrayectos, allTurnos }) {
+function HorariosView({ filtered, selectedTrayecto, setSelectedTrayecto, selectedSeccion, setSelectedSeccion, activeDay, setActiveDay, seccionesByTrayecto, expandedCell, setExpandedCell, getDocName, getMateriaName, allTrayectos }) {
   const days = activeDay === "all" ? DAYS : [activeDay];
 
-  // Filtrar entradas por turno para cada grid usando la función unificada
   const filteredDiurno = filtered.filter(d => getTurnoDeRegistro(d) === "DIURNO");
   const filteredVesp   = filtered.filter(d => getTurnoDeRegistro(d) === "VESPERTINO");
 
@@ -375,29 +371,11 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
         {["all", ...DAYS].map(d => (<button key={d} onClick={() => setActiveDay(d)} style={S.btn(activeDay === d)}>{d === "all" ? "Semana completa" : d.charAt(0) + d.slice(1).toLowerCase()}</button>))}
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
-        {(selectedTurno === "all" || selectedTurno === "DIURNO") && filteredDiurno.length > 0 && (
-          <TurnoGrid
-            bloques={BLOQUES_DIURNO}
-            turnoLabel="DIURNO"
-            filtered={filteredDiurno}
-            days={days}
-            expandedCell={expandedCell}
-            setExpandedCell={setExpandedCell}
-            getDocName={getDocName}
-            getMateriaName={getMateriaName}
-          />
+        {filteredDiurno.length > 0 && (
+          <TurnoGrid bloques={BLOQUES_DIURNO} turnoLabel="DIURNO" filtered={filteredDiurno} days={days} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} />
         )}
-        {(selectedTurno === "all" || selectedTurno === "VESPERTINO") && filteredVesp.length > 0 && (
-          <TurnoGrid
-            bloques={BLOQUES_VESPERTINO}
-            turnoLabel="VESPERTINO"
-            filtered={filteredVesp}
-            days={days}
-            expandedCell={expandedCell}
-            setExpandedCell={setExpandedCell}
-            getDocName={getDocName}
-            getMateriaName={getMateriaName}
-          />
+        {filteredVesp.length > 0 && (
+          <TurnoGrid bloques={BLOQUES_VESPERTINO} turnoLabel="VESPERTINO" filtered={filteredVesp} days={days} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} />
         )}
         {filtered.length === 0 && (
           <div style={{ ...S.card, padding: "60px 20px", textAlign: "center", color: "#9CA3AF", fontSize: 14 }}>
@@ -411,17 +389,27 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
 
 function SeccionesView({ data, getDocName, getMateriaName }) {
   const allSecciones = useMemo(() => [...new Set(data.map(d => d.sheet.trim()))].sort(), [data]);
-  const [selSheet, setSelSheet] = useState(allSecciones[0]);
+  const [selSheet, setSelSheet] = useState(null);
   const [filterTray, setFilterTray] = useState("all");
-  const entries = data.filter(d => d.sheet.trim() === selSheet);
+
+  // Sincronizar selección cuando allSecciones cambia (carga inicial o cambio de programa)
+  useEffect(() => {
+    if (allSecciones.length > 0 && (!selSheet || !allSecciones.includes(selSheet))) {
+      setSelSheet(allSecciones[0]);
+    }
+  }, [allSecciones]);
+
+  const filteredSecciones = useMemo(() =>
+    filterTray === "all" ? allSecciones : allSecciones.filter(s => data.find(d => d.sheet.trim() === s)?.trayecto === filterTray),
+    [filterTray, allSecciones, data]);
+
+  const entries = useMemo(() => data.filter(d => d.sheet.trim() === selSheet), [data, selSheet]);
   const info = entries[0];
 
-  const filteredSecciones = filterTray === "all" ? allSecciones : allSecciones.filter(s => data.find(d => d.sheet.trim() === s)?.trayecto === filterTray);
-
-  const byDay = DAYS.reduce((acc, day) => {
+  const byDay = useMemo(() => DAYS.reduce((acc, day) => {
     acc[day] = entries.filter(e => e.dia === day).sort((a, b) => getHoraMin(a) - getHoraMin(b));
     return acc;
-  }, {});
+  }, {}), [entries]);
 
   return (
     <div className="secciones-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
@@ -652,7 +640,7 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                   </tr>
                 </thead>
                 <tbody>
-                  {selEntries.sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || getHoraMin(a) - getHoraMin(b)).map((e, i) => {
+                  {[...selEntries].sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || getHoraMin(a) - getHoraMin(b)).map((e, i) => {
                     const { materia } = parseClase(e.clase);
                     return (
                       <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
@@ -786,6 +774,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                 <tbody>
                   {asignaciones.map((e, i) => {
                     const turnoReal = getTurnoDeRegistro(e);
+                    const { docente: rawDoc } = parseClase(e.clase);
                     return (
                       <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                         <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
@@ -793,7 +782,7 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                         <td style={S.td}><span style={S.badge(turnoReal === "DIURNO" ? "#EFF6FF" : "#FDF2F8", turnoReal === "DIURNO" ? "#2563EB" : "#DB2777")}>{turnoReal === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}</span></td>
                         <td style={S.td}>{e.sheet ? e.sheet.trim() : ""}</td>
                         <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
-                        <td style={S.td}>{e.docente || "—"}</td>
+                        <td style={S.td}>{rawDoc ? getDocName(rawDoc) : "—"}</td>
                       </tr>
                     );
                   })}
@@ -833,6 +822,10 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
 
   const handlePrint = () => {
     const win = window.open("", "_blank");
+    if (!win) {
+      alert("⚠️ El navegador bloqueó la ventana emergente. Permite popups para esta página e intenta de nuevo.");
+      return;
+    }
     const htmlContent = `
       <html>
         <head>
@@ -1181,7 +1174,6 @@ export default function App() {
   const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
   const [selectedTrayecto, setSelectedTrayecto] = useState("all");
   const [selectedSeccion, setSelectedSeccion] = useState("all");
-  const [selectedTurno, setSelectedTurno] = useState("all");
   const [activeDay, setActiveDay] = useState("all");
   const [expandedCell, setExpandedCell] = useState(null);
   const [docenteNav, setDocenteNav] = useState(null);
@@ -1534,11 +1526,10 @@ export default function App() {
     return data.filter(d => {
       if (selectedTrayecto !== "all" && d.trayecto !== selectedTrayecto) return false;
       if (selectedSeccion !== "all" && d.sheet.trim() !== selectedSeccion) return false;
-      if (selectedTurno !== "all" && d.turno !== selectedTurno) return false;
       if (activeDay !== "all" && d.dia !== activeDay) return false;
       return true;
     });
-  }, [data, selectedTrayecto, selectedSeccion, selectedTurno, activeDay]);
+  }, [data, selectedTrayecto, selectedSeccion, activeDay]);
 
   const byDocente = useMemo(() => {
     const map = {};
@@ -1566,9 +1557,10 @@ export default function App() {
     const issues = [];
     Object.entries(byDocente).forEach(([doc, entries]) => {
       DAYS.forEach(day => {
-        const horasUnicas = [...new Set(entries.map(e => e.hora))];
+        // Normalizar hora para comparación (elimina espacios extra)
+        const horasUnicas = [...new Set(entries.map(e => e.hora?.trim()))].filter(Boolean);
         horasUnicas.forEach(hora => {
-          const matches = entries.filter(e => e.dia === day && e.hora === hora);
+          const matches = entries.filter(e => e.dia === day && e.hora?.trim() === hora);
           if (matches.length > 1) issues.push({ docente: doc, dia: day, hora, entries: matches });
         });
       });
@@ -1576,18 +1568,8 @@ export default function App() {
     return issues;
   }, [byDocente]);
 
-  const gridData = useMemo(() => {
-    const map = {};
-    filtered.forEach(d => {
-      const key = `${d.hora}__${d.dia}`;
-      if (!map[key]) map[key] = [];
-      map[key].push(d);
-    });
-    return map;
-  }, [filtered]);
 
   const allTrayectos = useMemo(() => [...new Set(data.map(d => d.trayecto))].sort(), [data]);
-  const allTurnos = useMemo(() => [...new Set(data.map(d => d.turno))].sort(), [data]);
   const allSecciones = useMemo(() => [...new Set(data.map(d => d.sheet.trim()))].sort(), [data]);
   const seccionesByTrayecto = useMemo(() =>
     allSecciones.filter(s => selectedTrayecto === "all" || data.some(d => d.sheet.trim() === s && d.trayecto === selectedTrayecto)),
@@ -1722,7 +1704,7 @@ export default function App() {
           <div className="header-stats" style={{ marginLeft: "auto", fontSize: 12, color: "#9CA3AF" }}>{stats.total} registros · {stats.materias} materias</div>
         </header>
         <main style={{ flex: 1, overflow: "auto" }}>
-          {view === "horarios" && <HorariosView filtered={filtered} gridData={gridData} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} selectedTurno={selectedTurno} setSelectedTurno={setSelectedTurno} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} allTurnos={allTurnos} />}
+          {view === "horarios" && <HorariosView filtered={filtered} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} />}
           {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
           {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} docenteNames={docenteNames} setDocenteNames={setDocenteNames} getDocName={getDocName} onSaveDocenteName={saveDocenteName} />}
           {view === "materias" && <MateriasView byMateria={byMateria} initialSel={materiaNav} onConsumeNav={() => setMateriaNav(null)} materiaNames={materiaNames} setMateriaNames={setMateriaNames} getMateriaName={getMateriaName} onSaveMateriaName={saveMateriaName} data={data} />}
