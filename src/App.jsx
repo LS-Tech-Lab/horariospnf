@@ -99,21 +99,44 @@ function findStartBlock(bloques, horaStr) {
 function countBlocks(horaStr) {
   const parts = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/) : [];
   if (parts.length < 2) return 1;
+  
   const inicioMin = timeToMin(parts[0]);
   const finMin = timeToMin(parts[1]);
+  
   if (!finMin || finMin <= inicioMin) return 1;
-  return Math.max(1, Math.round((finMin - inicioMin) / 45));
+  
+  // Calcular diferencia exacta en minutos y dividir por 45
+  const diffMin = finMin - inicioMin;
+  return Math.max(1, Math.round(diffMin / 45));
 }
 
 function getHoraDisplayDeRegistro(d) {
   if (!d || !d.hora) return "—";
+  
+  // Si la hora ya viene en formato "inicio – fin", extraer ambas partes
+  const parts = d.hora.replace(/\s/g, "").split(/[-–]/);
+  
+  if (parts.length >= 2) {
+    const horaInicio = parts[0];
+    const horaFin = parts[1];
+    
+    // Formatear para mostrar
+    const inicioFormateado = horaInicio.replace("AM", " AM").replace("PM", " PM");
+    const finFormateado = horaFin.replace("AM", " AM").replace("PM", " PM");
+    
+    return `${inicioFormateado} – ${finFormateado}`;
+  }
+  
+  // Si solo tiene hora de inicio, usar el sistema de bloques
   const turno = getTurnoDeRegistro(d);
   const bloques = getBloquesForTurno(turno);
   const sb = findStartBlock(bloques, d.hora);
-  const span = countBlocks(d.hora);
-  const endIdx = Math.min(sb + span - 1, bloques.length - 1);
-  if (!bloques[sb] || !bloques[endIdx]) return d.hora;
-  return `${bloques[sb].inicio.replace("AM"," AM").replace("PM"," PM")} – ${bloques[endIdx].fin.replace("AM"," AM").replace("PM"," PM")}`;
+  
+  if (bloques[sb]) {
+    return bloques[sb].inicio.replace("AM", " AM").replace("PM", " PM");
+  }
+  
+  return d.hora;
 }
 
 function getHoraMin(d) {
