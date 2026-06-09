@@ -423,8 +423,7 @@ return (
 <div style={{ fontSize: 15, fontWeight: 700, color: "#991B1B", marginBottom: 8 }}>⚠️ Conflictos detectados</div>
 <div style={{ fontSize: 13, color: "#B91C1C", marginBottom: 10, fontWeight: 500 }}>Hay {conflicts.length} conflicto(s) de horario que requieren atención.</div>
 <button onClick={() => setShowConflicts(!showConflicts)} style={{ padding: "6px 14px", background: "#DC2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>{showConflicts ? "Ocultar detalles" : "Ver detalles"}</button>
-            {showConflicts && <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>{conflicts.slice(0, 5).map((c, i) => <div key={i} style={{ fontSize: 12, color: "#991B1B", fontWeight: 500 }}>{getDocName(c.docente)} — {c.dia.charAt(0)+c.dia.slice(1).toLowerCase()} · {getHoraDisplayDeRegistro(c.entries[0])}</div>)}</div>}
-            {showConflicts && <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>{conflicts.slice(0, 5).map((c, i) => <div key={i} style={{ fontSize: 12, color: "#991B1B", fontWeight: 500 }}>{getDocName(c.docente)} — {c.dia.charAt(0)+c.dia.slice(1).toLowerCase()} · {c.hora || "—"}</div>)}</div>}
+{showConflicts && <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>{conflicts.slice(0, 5).map((c, i) => <div key={i} style={{ fontSize: 12, color: "#991B1B", fontWeight: 500 }}>{getDocName(c.docente)} — {c.dia.charAt(0)+c.dia.slice(1).toLowerCase()} · {getHoraDisplayDeRegistro(c.entries[0])}</div>)}</div>}
 </div>
 )}
 {metricas && (
@@ -854,7 +853,7 @@ return (
 
 // ========== NAVEGACIÓN Y ESTILOS ==========
 const NAV_ITEMS = [
-{ id: "dashboard", emoji: "🏠", label: "Dashboard" }, // NUEVO - Primera opción
+  { id: "dashboard", emoji: "🏠", label: "Dashboard" }, // NUEVO - Primera opción
 { id: "horarios", emoji: "📅", label: "Horarios" },
 { id: "secciones", emoji: "🏫", label: "Secciones" },
 { id: "docentes", emoji: "👥", label: "Docentes", hasBadge: true },
@@ -879,7 +878,8 @@ const [data, setData] = useState([]);
 const [loading, setLoading] = useState(true);
 const [uploading, setUploading] = useState(false);
 const [error, setError] = useState(null);
-const [view, setView] = useState("dashboard");
+  const [view, setView] = useState("horarios");
+  const [view, setView] = useState("dashboard");
 const [sidebarOpen, setSidebarOpen] = useState(false);
 const [selectedPrograma, setSelectedPrograma] = useState("todos");
 const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
@@ -1267,7 +1267,7 @@ return (
 <div className="header-stats" style={{ marginLeft: "auto", fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{stats.total} registros · {stats.materias} materias</div>
 </header>
 <main style={{ flex: 1, overflow: "auto" }}>
-{view === "dashboard" && <DashboardView stats={stats} data={data} byDocente={byDocente} byMateria={byMateria} conflicts={conflicts} getDocName={getDocName} getMateriaName={getMateriaName} />}
+          {view === "dashboard" && <DashboardView stats={stats} data={data} byDocente={byDocente} byMateria={byMateria} conflicts={conflicts} getDocName={getDocName} getMateriaName={getMateriaName} />}
 {view === "horarios" && <HorariosView filtered={filtered} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={getDocName} getMateriaName={getMateriaName} allTrayectos={allTrayectos} />}
 {view === "secciones" && <SeccionesView data={data} getDocName={getDocName} getMateriaName={getMateriaName} />}
 {view === "docentes" && <DocentesView byDocente={byDocente} conflicts={conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} getDocName={getDocName} onSaveDocenteName={saveDocenteName} />}
