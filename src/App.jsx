@@ -21,32 +21,26 @@ const TRAYECTO_BG = {
   "4-1": "#F5F3FF", "4-2": "#EEF2FF",
 };
 
-function normalizeTurno(t) {
-  if (!t) return t;
-  const u = t.toUpperCase().trim();
-  if (u === "MATUTINO") return "DIURNO";
-  if (u === "VESPETINO") return "VESPERTINO";
-  return u;
-}
-
-// ========== Bloques horarios fijos de 45 minutos ==========
+// ========== SISTEMA HORARIO UNIFICADO ==========
+// Bloques fijos de 45 minutos — ÚNICA fuente de verdad
 const BLOQUES_DIURNO = [
-  { inicio: "7:30AM",  fin: "8:15AM"  },
-  { inicio: "8:15AM",  fin: "9:00AM"  },
-  { inicio: "9:00AM",  fin: "9:45AM"  },
-  { inicio: "9:45AM",  fin: "10:30AM" },
-  { inicio: "10:30AM", fin: "11:15AM" },
-  { inicio: "11:15AM", fin: "12:00PM" },
+  { inicio: "7:30AM",  fin: "8:15AM",  label: "7:30 – 8:15 AM"  },
+  { inicio: "8:15AM",  fin: "9:00AM",  label: "8:15 – 9:00 AM"  },
+  { inicio: "9:00AM",  fin: "9:45AM",  label: "9:00 – 9:45 AM"  },
+  { inicio: "9:45AM",  fin: "10:30AM", label: "9:45 – 10:30 AM" },
+  { inicio: "10:30AM", fin: "11:15AM", label: "10:30 – 11:15 AM"},
+  { inicio: "11:15AM", fin: "12:00PM", label: "11:15 AM – 12:00 PM"},
 ];
 const BLOQUES_VESPERTINO = [
-  { inicio: "1:00PM",  fin: "1:45PM"  },
-  { inicio: "1:45PM",  fin: "2:30PM"  },
-  { inicio: "2:30PM",  fin: "3:15PM"  },
-  { inicio: "3:15PM",  fin: "4:00PM"  },
-  { inicio: "4:00PM",  fin: "4:45PM"  },
-  { inicio: "4:45PM",  fin: "5:30PM"  },
+  { inicio: "1:00PM",  fin: "1:45PM",  label: "1:00 – 1:45 PM"  },
+  { inicio: "1:45PM",  fin: "2:30PM",  label: "1:45 – 2:30 PM"  },
+  { inicio: "2:30PM",  fin: "3:15PM",  label: "2:30 – 3:15 PM"  },
+  { inicio: "3:15PM",  fin: "4:00PM",  label: "3:15 – 4:00 PM"  },
+  { inicio: "4:00PM",  fin: "4:45PM",  label: "4:00 – 4:45 PM"  },
+  { inicio: "4:45PM",  fin: "5:30PM",  label: "4:45 – 5:30 PM"  },
 ];
 
+// Convierte "7:30AM", "1:00PM", etc. a minutos desde medianoche
 function timeToMin(s) {
   if (!s) return 0;
   const m = s.replace(/\s/g, "").match(/^(\d+):(\d+)(AM|PM)$/i);
@@ -58,23 +52,54 @@ function timeToMin(s) {
   return hh * 60 + mi;
 }
 
-// Detecta qué turno corresponde a una hora de inicio dada
-function detectTurnoFromHora(horaStr) {
-  // horaStr puede ser "7:30AM - 9:45AM" o "7:30AM" etc.
-  const raw = horaStr ? horaStr.split(/[-–]/)[0].trim() : "";
-  const min = timeToMin(raw);
-  if (min >= timeToMin("7:00AM") && min < timeToMin("12:30PM")) return "DIURNO";
-  if (min >= timeToMin("12:30PM")) return "VESPERTINO";
+// Detecta el turno de una sección por su penúltimo dígito.
+// Ej: "4512121" → penúltimo = '2' → VESPERTINO
+//     "4512111" → penúltimo = '1' → DIURNO
+function getTurnoByCodigo(sheetName) {
+  if (!sheetName) return null;
+  const digits = sheetName.replace(/\D/g, ""); // sólo dígitos
+  if (digits.length < 2) return null;
+  const penultimo = digits[digits.length - 2];
+  if (penultimo === "1") return "DIURNO";
+  if (penultimo === "2") return "VESPERTINO";
   return null;
 }
 
-// Dados los bloques del turno, detecta cuál bloque de inicio corresponde a una hora
-function findStartBlock(bloques, horaStr) {
-  const raw = horaStr ? horaStr.split(/[-–]/)[0].trim() : "";
+// Normaliza el campo turno desde el Excel (matutino → DIURNO, vespetino → VESPERTINO, etc.)
+function normalizeTurno(t) {
+  if (!t) return null;
+  const u = t.toUpperCase().trim();
+  if (u === "MATUTINO" || u === "DIURNO") return "DIURNO";
+  if (u === "VESPETINO" || u === "VESPERTINO") return "VESPERTINO";
+  return null;
+}
+
+// Detecta turno a partir del texto de hora (fallback cuando no hay código ni campo turno)
+function getTurnoFromHora(horaStr) {
+  const raw = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/)[0] : "";
   const min = timeToMin(raw);
-  // Buscar el bloque cuyo inicio coincide exactamente, o el más cercano
-  let best = 0;
-  let bestDiff = Infinity;
+  if (min >= timeToMin("7:00AM") && min <= timeToMin("12:00PM")) return "DIURNO";
+  if (min >= timeToMin("1:00PM") && min <= timeToMin("5:30PM")) return "VESPERTINO";
+  return null;
+}
+
+// FUNCIÓN PRINCIPAL: obtiene el turno de un registro usando las 3 fuentes en orden de prioridad:
+// 1. Código de sección (penúltimo dígito)  2. Campo turno  3. Hora de inicio
+function getTurnoDeRegistro(d) {
+  return getTurnoByCodigo(d.sheet) || normalizeTurno(d.turno) || getTurnoFromHora(d.hora) || "DIURNO";
+}
+
+// Obtiene los bloques correctos según el turno
+function getBloquesForTurno(turno) {
+  return turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
+}
+
+// Dado un string de hora del Excel (ej: "7:30AM - 9:45AM" o "7:30AM"),
+// devuelve el índice del bloque de inicio más cercano en los bloques dados
+function findStartBlock(bloques, horaStr) {
+  const raw = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/)[0] : "";
+  const min = timeToMin(raw);
+  let best = 0, bestDiff = Infinity;
   bloques.forEach((b, i) => {
     const diff = Math.abs(timeToMin(b.inicio) - min);
     if (diff < bestDiff) { bestDiff = diff; best = i; }
@@ -82,22 +107,38 @@ function findStartBlock(bloques, horaStr) {
   return best;
 }
 
-// Dados los bloques del turno, detecta cuántos bloques abarca la clase
-function countBlocks(bloques, horaStr) {
+// Cuenta cuántos bloques de 45 min abarca una clase dado su string de hora
+function countBlocks(horaStr) {
   const parts = horaStr ? horaStr.replace(/\s/g, "").split(/[-–]/) : [];
   if (parts.length < 2) return 1;
   const inicioMin = timeToMin(parts[0]);
   const finMin = timeToMin(parts[1]);
   if (!finMin || finMin <= inicioMin) return 1;
-  // Contar cuántos bloques de 45 min caben
-  const n = Math.round((finMin - inicioMin) / 45);
-  return Math.max(1, n);
+  return Math.max(1, Math.round((finMin - inicioMin) / 45));
 }
 
-// Obtener el label de rango completo para un conjunto de bloques
+// Devuelve el rango formateado "7:30 – 9:45 AM" para N bloques a partir del índice dado
 function getHoraRango(bloques, startIdx, count) {
   const endIdx = Math.min(startIdx + count - 1, bloques.length - 1);
-  return `${bloques[startIdx].inicio} – ${bloques[endIdx].fin}`;
+  return `${bloques[startIdx].label.split("–")[0].trim()} – ${bloques[endIdx].fin.replace("AM","").replace("PM","").trim()} ${bloques[endIdx].fin.slice(-2)}`;
+}
+
+// FUNCIÓN PRINCIPAL para mostrar hora: dado un registro, devuelve string legible del rango
+function getHoraDisplayDeRegistro(d) {
+  const turno = getTurnoDeRegistro(d);
+  const bloques = getBloquesForTurno(turno);
+  const sb = findStartBlock(bloques, d.hora);
+  const span = countBlocks(d.hora);
+  const endIdx = Math.min(sb + span - 1, bloques.length - 1);
+  return `${bloques[sb].inicio.replace("AM"," AM").replace("PM"," PM")} – ${bloques[endIdx].fin.replace("AM"," AM").replace("PM"," PM")}`;
+}
+
+// Orden numérico de un registro para ordenar por hora
+function getHoraMin(d) {
+  const turno = getTurnoDeRegistro(d);
+  const bloques = getBloquesForTurno(turno);
+  const sb = findStartBlock(bloques, d.hora);
+  return timeToMin(bloques[sb].inicio);
 }
 
 function parseClase(clase) {
@@ -107,18 +148,6 @@ function parseClase(clase) {
   return { materia, docente };
 }
 
-function getUniqueHoras(data) {
-  const h = [...new Set(data.map(d => d.hora))];
-  const toMin = (s) => {
-    const m = s.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!m) return 0;
-    let hh = parseInt(m[1]), mi = parseInt(m[2]);
-    if (m[3].toUpperCase() === "PM" && hh !== 12) hh += 12;
-    if (m[3].toUpperCase() === "AM" && hh === 12) hh = 0;
-    return hh * 60 + mi;
-  };
-  return h.sort((a, b) => toMin(a) - toMin(b));
-}
 
 const S = {
   card: { background: "#fff", borderRadius: 10, border: "1px solid #E5E7EB", overflow: "hidden" },
@@ -215,29 +244,24 @@ function GlobalSearch({ onNavigate, docenteNames, materiaNames, data }) {
 // ========== Vistas principales ==========
 function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpandedCell, getDocName, getMateriaName }) {
   // Para cada día y cada bloque, calcular qué clase empieza ahí y cuántos bloques ocupa
-  // También rastrear bloques "ocupados" por rowSpan de filas anteriores
   const cellMap = useMemo(() => {
-    // cellMap[dia][bloqueIdx] = { entry, span } | "skip" | null
     const map = {};
     days.forEach(day => {
       map[day] = {};
-      const occupied = {}; // bloqueIdx -> true si ya está cubierto por un rowSpan anterior
+      const occupied = {};
       bloques.forEach((bloque, bi) => {
         if (occupied[bi]) { map[day][bi] = "skip"; return; }
-        // Buscar entradas cuya hora de inicio corresponde a este bloque
         const entries = filtered.filter(d => {
           if (d.dia !== day) return false;
-          const t = d.turno || detectTurnoFromHora(d.hora);
-          if (turnoLabel === "DIURNO" && t !== "DIURNO") return false;
-          if (turnoLabel === "VESPERTINO" && t !== "VESPERTINO") return false;
+          const turno = getTurnoDeRegistro(d);
+          if (turno !== turnoLabel) return false;
           const sb = findStartBlock(bloques, d.hora);
           return sb === bi;
         });
         if (entries.length === 0) { map[day][bi] = null; return; }
-        // Calcular el span máximo (según la primera entrada, o el mayor)
         let span = 1;
         entries.forEach(e => {
-          const s = countBlocks(bloques, e.hora);
+          const s = countBlocks(e.hora);
           if (s > span) span = s;
         });
         span = Math.min(span, bloques.length - bi);
@@ -254,32 +278,29 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
         <span style={{ fontSize: 14 }}>{turnoLabel === "DIURNO" ? "☀️" : "🌙"}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: turnoLabel === "DIURNO" ? "#1D4ED8" : "#BE185D" }}>{turnoLabel === "DIURNO" ? "Turno Diurno" : "Turno Vespertino"}</span>
         <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 4 }}>
-          {turnoLabel === "DIURNO" ? "7:30AM – 12:00PM" : "1:00PM – 5:30PM"} · bloques de 45 min
+          {turnoLabel === "DIURNO" ? "7:30 AM – 12:00 PM" : "1:00 PM – 5:30 PM"} · bloques de 45 min
         </span>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
         <thead>
           <tr>
-            <th style={{ ...S.th, width: 140 }}>Bloque</th>
+            <th style={{ ...S.th, width: 160 }}>Bloque</th>
             {days.map(d => (<th key={d} style={{ ...S.th, borderLeft: "1px solid #E5E7EB" }}>{d.charAt(0) + d.slice(1).toLowerCase()}</th>))}
           </tr>
         </thead>
         <tbody>
           {bloques.map((bloque, bi) => {
-            // Construir las celdas del día para este bloque
             const cells = days.map(day => {
               const cell = cellMap[day]?.[bi];
               if (cell === "skip") return { skip: true };
               if (!cell) return { empty: true };
               return { data: cell };
             });
-            const isAltRow = bi % 2 === 0;
-            const rowBg = isAltRow ? "#fff" : "#FAFAFA";
+            const rowBg = bi % 2 === 0 ? "#fff" : "#FAFAFA";
             return (
               <tr key={bi}>
                 <td style={{ ...S.td, fontSize: 11, fontWeight: 600, color: "#9CA3AF", whiteSpace: "nowrap", background: rowBg, verticalAlign: "middle" }}>
-                  <div style={{ lineHeight: 1.4 }}>{bloque.inicio}</div>
-                  <div style={{ color: "#D1D5DB", fontSize: 10 }}>↓ {bloque.fin}</div>
+                  <div style={{ lineHeight: 1.5 }}>{bloque.label}</div>
                 </td>
                 {cells.map((cell, ci) => {
                   const day = days[ci];
@@ -287,9 +308,7 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
                   const cellKey = `${turnoLabel}__${bi}__${day}`;
                   const isExp = expandedCell === cellKey;
                   if (cell.empty) {
-                    return (
-                      <td key={day} style={{ padding: "4px 6px", borderTop: "1px solid #F3F4F6", borderLeft: "1px solid #F3F4F6", background: rowBg }} />
-                    );
+                    return <td key={day} style={{ padding: "4px 6px", borderTop: "1px solid #F3F4F6", borderLeft: "1px solid #F3F4F6", background: rowBg }} />;
                   }
                   const { entries, span } = cell.data;
                   return (
@@ -300,19 +319,19 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
                         const docente = getDocName(rawDoc);
                         const bg = TRAYECTO_BG[e.trayecto] || "#f0f0f0";
                         const col = TRAYECTO_COLORS[e.trayecto] || "#555";
-                        const eSpan = countBlocks(bloques, e.hora);
-                        const horaRango = getHoraRango(bloques, findStartBlock(bloques, e.hora), eSpan);
+                        const eSpan = countBlocks(e.hora);
+                        const horaDisplay = getHoraDisplayDeRegistro(e);
                         return (
                           <div key={i} onClick={() => setExpandedCell(isExp ? null : cellKey)}
                             style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 6, padding: "5px 8px", marginBottom: i < entries.length - 1 ? 3 : 0, cursor: "pointer", transition: "box-shadow 0.15s", boxShadow: isExp ? `0 0 0 1.5px ${col}40` : "none", minHeight: span > 1 ? `${span * 44 - 12}px` : undefined, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: col, lineHeight: 1.3 }}>{materia.length > 28 ? materia.slice(0, 26) + "…" : materia}</div>
                             {docente && <div style={{ fontSize: 11, color: col, opacity: 0.7, marginTop: 1 }}>{docente}</div>}
-                            {span > 1 && <div style={{ fontSize: 10, color: col, opacity: 0.55, marginTop: 2 }}>{horaRango}</div>}
+                            {eSpan > 1 && <div style={{ fontSize: 10, color: col, opacity: 0.55, marginTop: 2 }}>{horaDisplay}</div>}
                             {isExp && (<div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${col}25`, fontSize: 11 }}>
                               <div style={{ color: col, opacity: 0.85 }}>📂 {e.sheet.trim()}</div>
                               <div style={{ color: col, opacity: 0.85 }}>🏫 {e.aula || "Sin aula"}</div>
-                              <div style={{ color: col, opacity: 0.85 }}>⏰ {horaRango}</div>
-                              <div style={{ color: col, opacity: 0.85 }}>📐 {eSpan} bloque{eSpan > 1 ? "s" : ""}</div>
+                              <div style={{ color: col, opacity: 0.85 }}>⏰ {horaDisplay}</div>
+                              <div style={{ color: col, opacity: 0.85 }}>📐 {eSpan} bloque{eSpan > 1 ? "s" : ""} · 45 min c/u</div>
                             </div>)}
                           </div>
                         );
@@ -332,19 +351,9 @@ function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpan
 function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayecto, selectedSeccion, setSelectedSeccion, selectedTurno, setSelectedTurno, activeDay, setActiveDay, seccionesByTrayecto, expandedCell, setExpandedCell, getDocName, getMateriaName, allTrayectos, allTurnos }) {
   const days = activeDay === "all" ? DAYS : [activeDay];
 
-  // Determinar qué turnos mostrar
-  const showDiurno  = selectedTurno === "all" || selectedTurno === "DIURNO";
-  const showVesp    = selectedTurno === "all" || selectedTurno === "VESPERTINO";
-
-  // Filtrar entradas por turno para cada grid
-  const filteredDiurno = filtered.filter(d => {
-    const t = d.turno || detectTurnoFromHora(d.hora);
-    return t === "DIURNO";
-  });
-  const filteredVesp = filtered.filter(d => {
-    const t = d.turno || detectTurnoFromHora(d.hora);
-    return t === "VESPERTINO";
-  });
+  // Filtrar entradas por turno para cada grid usando la función unificada
+  const filteredDiurno = filtered.filter(d => getTurnoDeRegistro(d) === "DIURNO");
+  const filteredVesp   = filtered.filter(d => getTurnoDeRegistro(d) === "VESPERTINO");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -368,7 +377,7 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
         {["all", ...DAYS].map(d => (<button key={d} onClick={() => setActiveDay(d)} style={S.btn(activeDay === d)}>{d === "all" ? "Semana completa" : d.charAt(0) + d.slice(1).toLowerCase()}</button>))}
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
-        {showDiurno && filteredDiurno.length > 0 && (
+        {(selectedTurno === "all" || selectedTurno === "DIURNO") && filteredDiurno.length > 0 && (
           <TurnoGrid
             bloques={BLOQUES_DIURNO}
             turnoLabel="DIURNO"
@@ -380,7 +389,7 @@ function HorariosView({ filtered, gridData, selectedTrayecto, setSelectedTrayect
             getMateriaName={getMateriaName}
           />
         )}
-        {showVesp && filteredVesp.length > 0 && (
+        {(selectedTurno === "all" || selectedTurno === "VESPERTINO") && filteredVesp.length > 0 && (
           <TurnoGrid
             bloques={BLOQUES_VESPERTINO}
             turnoLabel="VESPERTINO"
@@ -412,10 +421,7 @@ function SeccionesView({ data, getDocName, getMateriaName }) {
   const filteredSecciones = filterTray === "all" ? allSecciones : allSecciones.filter(s => data.find(d => d.sheet.trim() === s)?.trayecto === filterTray);
 
   const byDay = DAYS.reduce((acc, day) => {
-    acc[day] = entries.filter(e => e.dia === day).sort((a, b) => {
-      const toM = s => { const m = s.match(/(\d+):(\d+)\s*(AM|PM)/i); if (!m) return 0; let h = +m[1], mi = +m[2]; if (m[3].toUpperCase() === "PM" && h !== 12) h += 12; if (m[3].toUpperCase() === "AM" && h === 12) h = 0; return h * 60 + mi; };
-      return toM(a.hora) - toM(b.hora);
-    });
+    acc[day] = entries.filter(e => e.dia === day).sort((a, b) => getHoraMin(a) - getHoraMin(b));
     return acc;
   }, {});
 
@@ -447,7 +453,7 @@ function SeccionesView({ data, getDocName, getMateriaName }) {
             </div>
             <div style={S.card}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", borderBottom: "1px solid #E5E7EB" }}>{DAYS.map(day => (<div key={day} style={{ padding: "10px 12px", borderRight: "1px solid #E5E7EB", fontWeight: 600, fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", background: "#F9FAFB" }}>{day.slice(0, 3)}</div>))}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)" }}>{DAYS.map(day => (<div key={day} style={{ padding: "10px 10px", borderRight: "1px solid #F3F4F6", minHeight: 120, verticalAlign: "top" }}>{(byDay[day] || []).map((e, i) => { const { materia: rawMateria, docente: rawDoc } = parseClase(e.clase); const materia = getMateriaName(rawMateria); const docente = getDocName(rawDoc); const col = TRAYECTO_COLORS[e.trayecto] || "#555"; const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5"; return (<div key={i} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 5, padding: "5px 8px", marginBottom: 5 }}><div style={{ fontSize: 11, fontWeight: 600, color: col, lineHeight: 1.3 }}>{materia.length > 22 ? materia.slice(0, 20) + "…" : materia}</div><div style={{ fontSize: 10, color: col, opacity: 0.7, marginTop: 2 }}>{e.hora.split(" ")[0]}</div>{docente && <div style={{ fontSize: 10, color: col, opacity: 0.65, marginTop: 1 }}>{docente.split(" ")[0]}</div>}</div>); })}{byDay[day].length === 0 && (<div style={{ fontSize: 11, color: "#D1D5DB", textAlign: "center", marginTop: 20 }}>—</div>)}</div>))}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)" }}>{DAYS.map(day => (<div key={day} style={{ padding: "10px 10px", borderRight: "1px solid #F3F4F6", minHeight: 120, verticalAlign: "top" }}>{(byDay[day] || []).map((e, i) => { const { materia: rawMateria, docente: rawDoc } = parseClase(e.clase); const materia = getMateriaName(rawMateria); const docente = getDocName(rawDoc); const col = TRAYECTO_COLORS[e.trayecto] || "#555"; const bg = TRAYECTO_BG[e.trayecto] || "#f5f5f5"; return (<div key={i} style={{ background: bg, borderLeft: `3px solid ${col}`, borderRadius: 5, padding: "5px 8px", marginBottom: 5 }}><div style={{ fontSize: 11, fontWeight: 600, color: col, lineHeight: 1.3 }}>{materia.length > 22 ? materia.slice(0, 20) + "…" : materia}</div><div style={{ fontSize: 10, color: col, opacity: 0.7, marginTop: 2 }}>{getHoraDisplayDeRegistro(e)}</div>{docente && <div style={{ fontSize: 10, color: col, opacity: 0.65, marginTop: 1 }}>{docente.split(" ")[0]}</div>}</div>); })}{byDay[day].length === 0 && (<div style={{ fontSize: 11, color: "#D1D5DB", textAlign: "center", marginTop: 20 }}>—</div>)}</div>))}</div>
             </div>
           </>
         )}
@@ -486,11 +492,35 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
 
   const docGrid = useMemo(() => {
     const map = {};
-    selEntries.forEach(e => { const key = `${e.hora}__${e.dia}`; if (!map[key]) map[key] = []; map[key].push(e); });
+    selEntries.forEach(e => {
+      const turno = getTurnoDeRegistro(e);
+      const bloques = getBloquesForTurno(turno);
+      const sb = findStartBlock(bloques, e.hora);
+      const key = `${turno}__${sb}__${e.dia}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    });
     return map;
   }, [selEntries]);
 
-  const usedHoras = getUniqueHoras(selEntries);
+  // Bloques únicos usados por este docente (para la vista semanal)
+  const usedBloques = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+    // Diurno primero, luego vespertino
+    ["DIURNO", "VESPERTINO"].forEach(turno => {
+      const bloques = getBloquesForTurno(turno);
+      bloques.forEach((b, bi) => {
+        const hasEntry = selEntries.some(e => {
+          const t = getTurnoDeRegistro(e);
+          return t === turno && findStartBlock(bloques, e.hora) === bi;
+        });
+        const key = `${turno}__${bi}`;
+        if (hasEntry && !seen.has(key)) { seen.add(key); result.push({ turno, bi, bloque: b }); }
+      });
+    });
+    return result;
+  }, [selEntries]);
   
   const saveEdit = async () => { 
     const trimmed = editValue.trim(); 
@@ -564,30 +594,33 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
               <div key={i} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 10, display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#991B1B" }}>Conflicto: {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.hora}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#991B1B" }}>Conflicto: {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.entries[0] ? getHoraDisplayDeRegistro(c.entries[0]) : c.hora}</div>
                   <div style={{ fontSize: 12, color: "#B91C1C", marginTop: 4 }}>{c.entries.map(e => parseClase(e.clase).materia).join(" · ")}</div>
                 </div>
               </div>
             ))}
 
             {/* Vista semanal (tabla) */}
-            {usedHoras.length > 0 && (
+            {usedBloques.length > 0 && (
               <div style={{ ...S.card, marginBottom: 16 }}>
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 13, fontWeight: 600, color: "#374151" }}>Vista semanal</div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
                     <thead>
                       <tr>
-                        <th style={{ ...S.th, width: 120 }}>Hora</th>
+                        <th style={{ ...S.th, width: 160 }}>Bloque</th>
                         {DAYS.map(d => <th key={d} style={{ ...S.th, borderLeft: "1px solid #E5E7EB" }}>{d.slice(0, 3)}</th>)}
                       </tr>
                     </thead>
                     <tbody>
-                      {usedHoras.map((hora, ri) => (
-                        <tr key={hora}>
-                          <td style={{ ...S.td, fontSize: 11, color: "#9CA3AF", fontWeight: 600, background: ri % 2 === 0 ? "#fff" : "#FAFAFA" }}>{hora}</td>
+                      {usedBloques.map(({ turno, bi, bloque }, ri) => (
+                        <tr key={`${turno}-${bi}`}>
+                          <td style={{ ...S.td, fontSize: 11, color: "#9CA3AF", fontWeight: 600, background: ri % 2 === 0 ? "#fff" : "#FAFAFA", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: turno === "DIURNO" ? "#2563EB" : "#BE185D", marginRight: 4 }}>{turno === "DIURNO" ? "☀️" : "🌙"}</span>
+                            {bloque.label}
+                          </td>
                           {DAYS.map(day => {
-                            const es = docGrid[`${hora}__${day}`] || [];
+                            const es = docGrid[`${turno}__${bi}__${day}`] || [];
                             return (
                               <td key={day} style={{ padding: "4px 6px", borderTop: "1px solid #F3F4F6", borderLeft: "1px solid #F3F4F6", background: ri % 2 === 0 ? "#fff" : "#FAFAFA", verticalAlign: "top" }}>
                                 {es.map((e, i) => {
@@ -621,12 +654,12 @@ function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, docenteN
                   </tr>
                 </thead>
                 <tbody>
-                  {selEntries.sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia)).map((e, i) => {
+                  {selEntries.sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || getHoraMin(a) - getHoraMin(b)).map((e, i) => {
                     const { materia } = parseClase(e.clase);
                     return (
                       <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
                         <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
-                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td>
+                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap", fontSize: 11 }}>{getHoraDisplayDeRegistro(e)}</td>
                         <td style={{ ...S.td, fontWeight: 500 }}>{materia}</td>
                         <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
                         <td style={{ ...S.td, color: "#6B7280" }}>{e.sheet.trim()}</td>
@@ -685,21 +718,10 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
   };
 
   const asignaciones = useMemo(() => {
-    const map = [];
-    selEntries.forEach(e => {
-      map.push({
-        dia: e.dia,
-        hora: e.hora,
-        turno: e.turno,
-        seccion: e.sheet ? e.sheet.trim() : "",
-        trayecto: e.trayecto,
-        docente: e.docente
-      });
-    });
-    return map.sort((a, b) => {
+    return selEntries.slice().sort((a, b) => {
       const idxA = DAYS.indexOf(a.dia);
       const idxB = DAYS.indexOf(b.dia);
-      return (idxA !== -1 ? idxA : 9) - (idxB !== -1 ? idxB : 9) || (a.hora || "").localeCompare(b.hora || "");
+      return (idxA !== -1 ? idxA : 9) - (idxB !== -1 ? idxB : 9) || getHoraMin(a) - getHoraMin(b);
     });
   }, [selEntries]);
 
@@ -764,16 +786,19 @@ function MateriasView({ byMateria, initialSel, onConsumeNav, materiaNames, setMa
                   </tr>
                 </thead>
                 <tbody>
-                  {asignaciones.map((e, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
-                      <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
-                      <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap" }}>{e.hora}</td>
-                      <td style={S.td}><span style={S.badge(e.turno === "DIURNO" ? "#EFF6FF" : "#FDF2F8", e.turno === "DIURNO" ? "#2563EB" : "#DB2777")}>{e.turno}</span></td>
-                      <td style={S.td}>{e.seccion}</td>
-                      <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
-                      <td style={S.td}>{e.docente || "—"}</td>
-                    </tr>
-                  ))}
+                  {asignaciones.map((e, i) => {
+                    const turnoReal = getTurnoDeRegistro(e);
+                    return (
+                      <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                        <td style={S.td}>{e.dia.charAt(0) + e.dia.slice(1).toLowerCase()}</td>
+                        <td style={{ ...S.td, color: "#9CA3AF", whiteSpace: "nowrap", fontSize: 11 }}>{getHoraDisplayDeRegistro(e)}</td>
+                        <td style={S.td}><span style={S.badge(turnoReal === "DIURNO" ? "#EFF6FF" : "#FDF2F8", turnoReal === "DIURNO" ? "#2563EB" : "#DB2777")}>{turnoReal === "DIURNO" ? "☀️ Diurno" : "🌙 Vespertino"}</span></td>
+                        <td style={S.td}>{e.sheet ? e.sheet.trim() : ""}</td>
+                        <td style={S.td}><span style={S.badge(TRAYECTO_BG[e.trayecto] || "#f3f4f6", TRAYECTO_COLORS[e.trayecto] || "#555")}>{e.trayecto}</span></td>
+                        <td style={S.td}>{e.docente || "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -788,37 +813,22 @@ function AsistenciasView({ data, getDocName, getMateriaName }) {
   const [turno, setTurno] = useState("DIURNO");
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
 
-  // Helper: dado un registro, devuelve el rango horario formateado
-  const getHoraDisplay = (d) => {
-    const bloques = d.turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
-    const sb = findStartBlock(bloques, d.hora);
-    const span = countBlocks(bloques, d.hora);
-    return getHoraRango(bloques, sb, span);
-  };
-
   const docentesDelDia = useMemo(() => {
     const map = {};
-    data.filter(d => d.turno === turno && d.dia === selectedDay).forEach(d => {
+    data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
       const { docente, materia } = parseClase(d.clase);
       if (!docente) return;
       if (!map[docente]) map[docente] = { clases: [] };
-      const bloques = turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
-      const sb = findStartBlock(bloques, d.hora);
-      const span = countBlocks(bloques, d.hora);
-      const horaRango = getHoraRango(bloques, sb, span);
-      map[docente].clases.push({ 
-        materia: getMateriaName(materia), 
-        hora: horaRango,
-        horaMin: timeToMin(bloques[sb].inicio),
-        seccion: d.sheet.trim(), 
-        trayecto: d.trayecto, 
-        aula: d.aula 
+      map[docente].clases.push({
+        materia: getMateriaName(materia),
+        hora: getHoraDisplayDeRegistro(d),
+        horaMin: getHoraMin(d),
+        seccion: d.sheet.trim(),
+        trayecto: d.trayecto,
+        aula: d.aula
       });
     });
-    // Ordenar clases de cada docente por hora
-    Object.values(map).forEach(v => {
-      v.clases.sort((a, b) => a.horaMin - b.horaMin);
-    });
+    Object.values(map).forEach(v => { v.clases.sort((a, b) => a.horaMin - b.horaMin); });
     return Object.entries(map).sort((a, b) => getDocName(a[0]).localeCompare(getDocName(b[0])));
   }, [data, turno, selectedDay, getDocName, getMateriaName]);
 
@@ -967,7 +977,7 @@ function ConflictosView({ conflicts, onGoDocente, getDocName }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                       <button onClick={() => onGoDocente(c.docente)} style={{ fontSize: 14, fontWeight: 700, color: "#DC2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>{getDocName(c.docente)}</button>
-                      <span style={{ fontSize: 13, color: "#6B7280" }}>— {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.hora}</span>
+                      <span style={{ fontSize: 13, color: "#6B7280" }}>— {c.dia.charAt(0) + c.dia.slice(1).toLowerCase()} · {c.entries[0] ? getHoraDisplayDeRegistro(c.entries[0]) : c.hora}</span>
                     </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {c.entries.map((e, j) => {
@@ -1396,7 +1406,10 @@ export default function App() {
         } else if (!programa) {
           programa = "Sin programa";
         }
-        turno = normalizeTurno(turno);
+        // Determinar turno: prioridad código de sección → campo turno del Excel
+        // Se almacena el valor normalizado; getTurnoDeRegistro lo resolverá al mostrar
+        const turnoNorm = getTurnoByCodigo(sheetName) || normalizeTurno(turno) || null;
+        turno = turnoNorm || turno; // guardar normalizado si se pudo, sino el raw
         
         let filasProcesadas = 0;
         // Recorrer filas desde después del encabezado
