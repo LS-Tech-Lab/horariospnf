@@ -78,7 +78,7 @@ export default function DashboardView({ stats, data, byDocente, byMateria, confl
               <Avatar name={getDocName(metricas.topDocente[0])} size={44} />
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>{getDocName(metricas.topDocente[0])}</div>
-                <div style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{metricas.topDocente[1]} clases asignadas</div>
+                <div style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{metricas.topDocente[1].length} clases asignadas</div>
               </div>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function DashboardView({ stats, data, byDocente, byMateria, confl
           <div style={{ ...S.card, padding: "16px 20px" }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#374151", marginBottom: 8 }}>📖 Materia más frecuente</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>{getMateriaName(metricas.topMateria[0])}</div>
-            <div style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{metricas.topMateria[1]} clases</div>
+            <div style={{ fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{metricas.topMateria[1].length} clases</div>
           </div>
         )}
       </div>
