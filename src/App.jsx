@@ -88,17 +88,20 @@ export default function App() {
         </div>
 
         {/* ── ESTADÍSTICAS COMPACTAS ── */}
-        <div style={{ padding: "10px 16px", borderBottom: "1px solid #1E293B", display: "flex", gap: 0 }}>
-          {[
-            { label: "Clases", val: appData.stats.total },
-            { label: "Secciones", val: appData.stats.secciones },
-            { label: "Docentes", val: appData.stats.docentes },
-          ].map((s, i) => (
-            <div key={s.label} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid #1E293B" : "none", padding: "2px 0" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#F1F5F9", lineHeight: 1 }}>{s.val}</div>
-              <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{s.label}</div>
-            </div>
-          ))}
+        <div style={{ padding: "10px 14px 12px", borderBottom: "1px solid #1E293B" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 0" }}>
+            {[
+              { label: "Clases", val: appData.stats.total, color: "#60A5FA" },
+              { label: "Secciones", val: appData.stats.secciones, color: "#34D399" },
+              { label: "Docentes", val: appData.stats.docentes, color: "#A78BFA" },
+              { label: "Materias", val: appData.stats.materias, color: "#FBBF24" },
+            ].map((s, i) => (
+              <div key={s.label} style={{ padding: "6px 8px", borderRadius: 7, background: "#1E293B" , margin: i % 2 === 0 ? "0 4px 0 0" : "0 0 0 4px" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</div>
+                <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ── NAVEGACIÓN PRINCIPAL ── */}
@@ -170,7 +173,7 @@ export default function App() {
         <header className="header-bar" style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <button onClick={() => setSidebarOpen(o => !o)} className="hamburger-btn" style={{ display: "none", background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 18, color: "#374151", flexShrink: 0 }}>☰</button>
           <GlobalSearch onNavigate={handleNavigate} docenteNames={appData.docenteNames} materiaNames={appData.materiaNames} data={appData.data} />
-          <div className="header-stats" style={{ marginLeft: "auto", fontSize: 13, color: "#6B7280", fontWeight: 500 }}>{appData.stats.total} registros · {appData.stats.materias} materias</div>
+
         </header>
         <main style={{ flex: 1, overflow: "auto" }}>
           {view === "resumen" && <ResumenView stats={appData.stats} data={appData.data} byDocente={appData.byDocente} byMateria={appData.byMateria} conflicts={appData.conflicts} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} />}
