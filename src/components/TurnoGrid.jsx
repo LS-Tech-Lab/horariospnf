@@ -7,6 +7,8 @@ import { parseClase } from '../utils/parsing';
 export default function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpandedCell, getDocName, getMateriaName }) {
   const cellMap = useMemo(() => {
     const map = {};
+        if (!filtered || filtered.length === 0) return map;
+
     days.forEach(day => {
       map[day] = {};
       const occupied = {};
