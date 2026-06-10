@@ -31,7 +31,7 @@ export function getTurnoDeRegistro(d) {
 }
 
 export function getBloquesForTurno(turno) {
-  const { BLOQUES_DIURNO, BLOQUES_VESPERTINO } = require('../constants'); // o import
+  const { BLOQUES_DIURNO, BLOQUES_VESPERTINO } = import('../constants'); // o import
   return turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
 }
 
