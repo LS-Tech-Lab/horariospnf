@@ -64,14 +64,6 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
         </div>
       </div>
 
-      {/* StatCards compartidos */}
-      <div className="stats-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
-        <StatCard label="Total de clases" value={stats.total} icon="📅" color="#2563EB" />
-        <StatCard label="Secciones activas" value={stats.secciones} icon="🏫" color="#059669" />
-        <StatCard label="Docentes" value={stats.docentes} icon="👥" color="#7C3AED" />
-        <StatCard label="Materias" value={stats.materias} icon="📖" color="#D97706" />
-      </div>
-
       {/* ── TAB: VISTA GENERAL ── */}
       {tab === 'general' && (
         <>
