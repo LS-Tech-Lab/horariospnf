@@ -9,8 +9,6 @@ import {
   guardarEnCache, cargarDeCache,
   CACHE_KEYS, limpiarCache, obtenerUltimaSincronizacion
 } from "../utils/cache";
-import { normalizarPrograma, parseClase } from "../utils/parsing";
-import { DEFAULT_PROGRAMAS } from "../constants";
 
 export default function useAppData() {
   const [user, setUser] = useState(undefined);
