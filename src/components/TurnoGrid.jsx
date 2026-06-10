@@ -9,8 +9,6 @@ export default function TurnoGrid({ bloques, turnoLabel, filtered, days, expande
     const map = {};
     if (!days || !bloques || !filtered) return map;
     days.forEach(day => {
-
-    days.forEach(day => {
       map[day] = {};
       const occupied = {};
       bloques.forEach((bloque, bi) => {
