@@ -276,9 +276,8 @@ export default function useAppData() {
           }
         }
         programa = selectedPrograma !== "todos" ? selectedPrograma : (programa ? normalizarPrograma(programa) || programa : "Sin programa");
-        const { getTurnoByCodigo } = ("../utils/turno");
-        const { normalizeTurno } = ("../utils/turno");
-        turno = getTurnoByCodigo(sheetName) || normalizeTurno(turno) || turno;
+        const turnoFromCodigo = getTurnoByCodigo(sheetName) || normalizeTurno(turno) || turno;
+        turno = turnoFromCodigo;
         const processedMerges = new Set();
         for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row = json[i]; if (!row) continue;
@@ -342,7 +341,6 @@ export default function useAppData() {
   const conflicts = useMemo(() => {
     const issues = [];
     Object.entries(byDocente).forEach(([doc, entries]) => {
-      const { DAYS } = ("../constants");
       DAYS.forEach(day => {
         [...new Set(entries.map(e => e.hora?.trim()))].filter(Boolean).forEach(hora => {
           const matches = entries.filter(e => e.dia === day && e.hora?.trim() === hora);
