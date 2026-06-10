@@ -9,7 +9,8 @@ export default function DashboardView({ stats, data, byDocente, byMateria, confl
   const [showConflicts, setShowConflicts] = useState(false);
 
   const metricas = useMemo(() => {
-    if (!data.length) return null;
+    if (!data || data.length === 0) return null; // ← Añade esta línea
+    //if (!data.length) return null;
     const docentesConConflicto = new Set(conflicts.map(c => c.docente)).size;
     const clasesPorDia = {}; DAYS.forEach(d => { clasesPorDia[d] = data.filter(r => r.dia === d).length; });
     const promedioClasesDia = Math.round(Object.values(clasesPorDia).reduce((a, b) => a + b, 0) / 5);
