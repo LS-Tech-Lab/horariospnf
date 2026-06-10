@@ -327,6 +327,8 @@ export default function useAppData() {
   // Computed values
   const byDocente = useMemo(() => {
     const m = {};
+      if (!data) return m;  // ← Añade esta línea
+
     data.forEach(d => { const { docente } = parseClase(d.clase); if (docente) { if (!m[docente]) m[docente] = []; m[docente].push(d); } });
     return m;
   }, [data]);
