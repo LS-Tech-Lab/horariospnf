@@ -44,60 +44,126 @@ export default function App() {
 
   const nav = NAV_ITEMS.map(item => ({ ...item, badge: item.hasBadge ? appData.conflicts.length : 0 }));
 
+  const NavBtn = ({ item, active, onClick }) => (
+    <button onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "8px 10px",
+        border: "none", borderRadius: 7,
+        background: active ? "#1E3A8A" : "transparent",
+        color: active ? "#93C5FD" : "#64748B",
+        cursor: "pointer", fontSize: 13, textAlign: "left", marginBottom: 1,
+        fontWeight: active ? 600 : 400,
+        borderLeft: active ? "2px solid #3B82F6" : "2px solid transparent",
+        transition: "background 0.15s, color 0.15s",
+      }}
+    >
+      <span style={{ fontSize: 14, opacity: active ? 1 : 0.7 }}>{item.emoji}</span>
+      <span style={{ flex: 1 }}>{item.label}</span>
+      {item.badge > 0 && (
+        <span style={{ background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 6px", fontWeight: 700 }}>{item.badge}</span>
+      )}
+    </button>
+  );
+
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui,-apple-system,sans-serif", background: "#F3F4F6", overflow: "hidden" }}>
       <ResponsiveStyles />
       {appData.toast && <Toast message={appData.toast.message} type={appData.toast.type} onClose={() => appData.showToast(null)} />}
       <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} style={{ display: "none", position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 299 }} />
-      <aside className={`sidebar-aside${sidebarOpen ? " open" : ""}`} style={{ width: 220, background: "#111827", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <div style={{ padding: "20px 16px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7280", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>PNF</div>
-          <select value={appData.selectedPrograma} onChange={e => appData.setSelectedPrograma(e.target.value)} style={{ ...S.select, width: "100%", background: "#1F2937", color: "#fff", borderColor: "#374151", marginBottom: 12 }}>
-            {appData.programasDisponibles.map(p => <option key={p} value={p}>{p === "todos" ? "📋 Todos los programas" : p}</option>)}
+      <aside className={`sidebar-aside${sidebarOpen ? " open" : ""}`} style={{ width: 228, background: "#0F172A", display: "flex", flexDirection: "column", flexShrink: 0, borderRight: "1px solid #1E293B" }}>
+
+        {/* ── MARCA / PROGRAMA ── */}
+        <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid #1E293B" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🎓</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#F1F5F9", lineHeight: 1 }}>Horarios PNF</div>
+              <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>Sistema de gestión</div>
+            </div>
+          </div>
+          <select value={appData.selectedPrograma} onChange={e => appData.setSelectedPrograma(e.target.value)}
+            style={{ ...S.select, width: "100%", background: "#1E293B", color: "#CBD5E1", borderColor: "#334155", fontSize: 12, padding: "6px 10px" }}>
+            {appData.programasDisponibles.map(p => <option key={p} value={p}>{p === "todos" ? "Todos los programas" : p}</option>)}
           </select>
-          <div style={{ marginTop: 12, padding: "10px 12px", background: "#1F2937", borderRadius: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontSize: 12, color: "#9CA3AF" }}>Clases</span><span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{appData.stats.total}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span style={{ fontSize: 12, color: "#9CA3AF" }}>Secciones</span><span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{appData.stats.secciones}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 12, color: "#9CA3AF" }}>Docentes</span><span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{appData.stats.docentes}</span></div>
-          </div>
-          <div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 6, background: appData.isOffline ? "#FEF2F2" : "#F0FDF4", display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: appData.isOffline ? "#DC2626" : "#16A34A", flexShrink: 0 }}></span>
-            <span style={{ color: appData.isOffline ? "#991B1B" : "#065F46", fontWeight: 600 }}>{appData.isOffline ? "Modo offline" : "En línea"}</span>
-          </div>
-          <div style={{ marginTop: 4, fontSize: 9, color: "#6B7280", textAlign: "center" }}>Última sinc: {appData.lastSync}</div>
         </div>
-        <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto" }}>
-          {nav.map(item => (
-            <button key={item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }}
-              style={{
-                display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px",
-                border: "none", borderRadius: 8, background: view === item.id ? "#2563EB" : "transparent",
-                color: view === item.id ? "#fff" : "#9CA3AF", cursor: "pointer", fontSize: 14,
-                textAlign: "left", marginBottom: 2, fontWeight: view === item.id ? 600 : 400
-              }}
-            >
-              <span style={{ fontSize: 15 }}>{item.emoji}</span><span style={{ flex: 1 }}>{item.label}</span>
-              {item.badge > 0 && <span style={{ background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 11, padding: "2px 7px", fontWeight: 700 }}>{item.badge}</span>}
-            </button>
+
+        {/* ── ESTADÍSTICAS COMPACTAS ── */}
+        <div style={{ padding: "10px 16px", borderBottom: "1px solid #1E293B", display: "flex", gap: 0 }}>
+          {[
+            { label: "Clases", val: appData.stats.total },
+            { label: "Secciones", val: appData.stats.secciones },
+            { label: "Docentes", val: appData.stats.docentes },
+          ].map((s, i) => (
+            <div key={s.label} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid #1E293B" : "none", padding: "2px 0" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#F1F5F9", lineHeight: 1 }}>{s.val}</div>
+              <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── NAVEGACIÓN PRINCIPAL ── */}
+        <nav style={{ flex: 1, padding: "10px 10px 6px", overflowY: "auto" }}>
+          {/* Grupo: Vistas */}
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 6px", marginBottom: 4 }}>Vistas</div>
+          {nav.filter(i => ["resumen","horarios","secciones"].includes(i.id)).map(item => (
+            <NavBtn key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }} />
+          ))}
+
+          <div style={{ height: 1, background: "#1E293B", margin: "8px 6px" }} />
+
+          {/* Grupo: Gestión */}
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 6px", marginBottom: 4 }}>Gestión</div>
+          {nav.filter(i => ["docentes","materias","asistencias"].includes(i.id)).map(item => (
+            <NavBtn key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }} />
+          ))}
+
+          <div style={{ height: 1, background: "#1E293B", margin: "8px 6px" }} />
+
+          {/* Grupo: Sistema */}
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 6px", marginBottom: 4 }}>Sistema</div>
+          {nav.filter(i => ["conflictos"].includes(i.id)).map(item => (
+            <NavBtn key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }} />
           ))}
         </nav>
-        <div style={{ padding: "12px 14px", borderTop: "1px solid #1F2937" }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <button onClick={appData.exportarDatos} disabled={appData.uploading || !appData.data.length} style={{ flex: 1, cursor: appData.data.length ? "pointer" : "not-allowed", background: "#059669", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", opacity: appData.data.length ? 1 : 0.5 }}>💾 Backup</button>
-            <label htmlFor="import-backup" style={{ flex: 1, cursor: "pointer", background: "#D97706", color: "#fff", textAlign: "center", padding: "7px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, marginBottom: 0 }}>📥 Restaurar</label>
-            <input id="import-backup" type="file" accept=".json" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) appData.importarDatos(e.target.files[0]); e.target.value = ""; }} disabled={appData.uploading} />
-          </div>
-          <label htmlFor="upload-excel" style={{ display: "block", cursor: "pointer", background: "#2563EB", color: "#fff", textAlign: "center", padding: "7px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📂 Cargar Excel</label>
+
+        {/* ── ACCIONES DE DATOS ── */}
+        <div style={{ padding: "10px 12px", borderTop: "1px solid #1E293B" }}>
+          {/* Acción primaria */}
+          <label htmlFor="upload-excel" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, cursor: "pointer", background: "#2563EB", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            <span>📂</span> Cargar Excel
+          </label>
           <input id="upload-excel" type="file" accept=".xlsx, .xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) appData.handleFileUpload(e.target.files[0]); e.target.value = ""; }} disabled={appData.uploading} />
-          <button onClick={appData.clearAllData} disabled={appData.loading || !appData.data.length} style={{ display: "block", width: "100%", cursor: appData.data.length ? "pointer" : "not-allowed", background: "#DC2626", color: "#fff", textAlign: "center", padding: "7px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, border: "none", opacity: appData.data.length ? 1 : 0.5 }}>🗑️ Borrar datos</button>
-          {appData.uploading && <div style={{ fontSize: 11, marginTop: 6, color: "#9CA3AF" }}>Procesando...</div>}
-          {appData.error && <div style={{ fontSize: 11, marginTop: 6, color: "#EF4444" }}>{appData.error}</div>}
-          {appData.data.length > 0 && !appData.uploading && !appData.loading && <div style={{ fontSize: 11, marginTop: 6, color: "#6B7280", textAlign: "center" }}>{appData.data.length} registros cargados</div>}
+
+          {/* Acciones secundarias en fila */}
+          <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
+            <button onClick={appData.exportarDatos} disabled={appData.uploading || !appData.data.length} title="Exportar backup" style={{ flex: 1, cursor: appData.data.length ? "pointer" : "not-allowed", background: "#1E293B", color: appData.data.length ? "#94A3B8" : "#334155", border: "1px solid #334155", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600 }}>💾 Backup</button>
+            <label htmlFor="import-backup" title="Restaurar backup" style={{ flex: 1, cursor: "pointer", background: "#1E293B", color: "#94A3B8", border: "1px solid #334155", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600, textAlign: "center" }}>📥 Restaurar</label>
+            <input id="import-backup" type="file" accept=".json" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) appData.importarDatos(e.target.files[0]); e.target.value = ""; }} disabled={appData.uploading} />
+            <button onClick={appData.clearAllData} disabled={appData.loading || !appData.data.length} title="Borrar todos los datos" style={{ flex: 1, cursor: appData.data.length ? "pointer" : "not-allowed", background: "#1E293B", color: appData.data.length ? "#F87171" : "#334155", border: "1px solid #334155", padding: "6px 0", borderRadius: 7, fontSize: 11, fontWeight: 600 }}>🗑️ Borrar</button>
+          </div>
+
+          {/* Estado / feedback */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: appData.isOffline ? "#EF4444" : "#22C55E", flexShrink: 0 }}></span>
+              <span style={{ color: appData.isOffline ? "#FCA5A5" : "#4ADE80", fontWeight: 600 }}>{appData.isOffline ? "Offline" : "En línea"}</span>
+            </div>
+            {appData.data.length > 0 && !appData.uploading && (
+              <span style={{ fontSize: 10, color: "#334155" }}>{appData.data.length} registros</span>
+            )}
+            {appData.uploading && <span style={{ fontSize: 10, color: "#60A5FA" }}>Procesando…</span>}
+          </div>
+          {appData.error && <div style={{ fontSize: 10, marginTop: 4, color: "#F87171" }}>{appData.error}</div>}
         </div>
-        <div style={{ padding: "10px 14px", borderTop: "1px solid #1F2937", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{appData.user.email?.[0]?.toUpperCase() ?? "A"}</div>
-          <div style={{ flex: 1, overflow: "hidden" }}><div style={{ fontSize: 12, color: "#D1D5DB", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{appData.user.email}</div></div>
-          <button onClick={appData.handleLogout} title="Cerrar sesión" style={{ background: "none", border: "1px solid #374151", borderRadius: 6, cursor: "pointer", color: "#6B7280", fontSize: 14, padding: "3px 7px", flexShrink: 0 }}>⏏</button>
+
+        {/* ── USUARIO ── */}
+        <div style={{ padding: "10px 12px", borderTop: "1px solid #1E293B", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{appData.user.email?.[0]?.toUpperCase() ?? "A"}</div>
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <div style={{ fontSize: 11, color: "#94A3B8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{appData.user.email}</div>
+            <div style={{ fontSize: 9, color: "#334155", marginTop: 1 }}>Sinc: {appData.lastSync}</div>
+          </div>
+          <button onClick={appData.handleLogout} title="Cerrar sesión" style={{ background: "none", border: "1px solid #1E293B", borderRadius: 6, cursor: "pointer", color: "#475569", fontSize: 13, padding: "3px 7px", flexShrink: 0 }}>⏏</button>
         </div>
       </aside>
       <div className="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
