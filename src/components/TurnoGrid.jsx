@@ -5,9 +5,12 @@ import { countBlocks, getHoraDisplayDeRegistro } from '../utils/time';
 import { parseClase } from '../utils/parsing';
 
 export default function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpandedCell, getDocName, getMateriaName }) {
- const cellMap = useMemo(() => {
+  if (!days || !bloques || !filtered) {
+    return <div style={{ padding: 20, textAlign: "center", color: "#9CA3AF" }}>Cargando grilla...</div>;
+  }
+  
+  const cellMap = useMemo(() => {
     const map = {};
-    if (!days || !bloques || !filtered) return map;
     days.forEach(day => {
       map[day] = {};
       const occupied = {};
