@@ -5,11 +5,8 @@ import { countBlocks, getHoraDisplayDeRegistro } from '../utils/time';
 import { parseClase } from '../utils/parsing';
 
 export default function TurnoGrid({ bloques, turnoLabel, filtered, days, expandedCell, setExpandedCell, getDocName, getMateriaName }) {
-  if (!days || !bloques || !filtered) {
-    return <div style={{ padding: 20, textAlign: "center", color: "#9CA3AF" }}>Cargando grilla...</div>;
-  }
-  
   const cellMap = useMemo(() => {
+    if (!days || !bloques || !filtered) return {};
     const map = {};
     days.forEach(day => {
       map[day] = {};
@@ -27,6 +24,10 @@ export default function TurnoGrid({ bloques, turnoLabel, filtered, days, expande
     });
     return map;
   }, [bloques, days, filtered, turnoLabel]);
+
+  if (!days || !bloques || !filtered) {
+    return <div style={{ padding: 20, textAlign: "center", color: "#9CA3AF" }}>Cargando grilla...</div>;
+  }
 
   const ROW_H = 52;
 
