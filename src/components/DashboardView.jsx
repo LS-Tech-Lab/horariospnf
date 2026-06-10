@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { DAYS, S, TRAYECTO_BG, TRAYECTO_COLORS } from '../constants';
-import { getTurnoDeRegistro, getHoraDisplayDeRegistro } from '../utils/turno';
+import { getTurnoDeRegistro } from '../utils/turno';
+import { getHoraDisplayDeRegistro } from '../utils/time';
 import StatCard from './StatCard';
 import Avatar from './Avatar';
 
