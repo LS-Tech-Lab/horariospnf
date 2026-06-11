@@ -66,9 +66,9 @@ export default function useAppData() {
       setLoading(false);
     }
     try {
-      let query = supabase.from("horarios").select("*");
+      let query = supabase.from("horarios").select("*", { count: "exact" });
       if (selectedPrograma !== "todos") query = query.eq("programa", selectedPrograma);
-      const { data: horarios, error } = await query.order("id", { ascending: true });
+      const { data: horarios, count, error } = await query.order("id", { ascending: true }).limit(1000);
       if (error) {
         console.error(error);
         if (cachedHorarios?.length > 0) {
@@ -81,6 +81,9 @@ export default function useAppData() {
         guardarEnCache(CACHE_KEYS.horarios, nuevosDatos);
         localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
         setLastSync(obtenerUltimaSincronizacion());
+        if (count > nuevosDatos.length) {
+  showToast(`⚠️ Hay ${count} registros en total pero solo se cargaron ${nuevosDatos.length}. Filtra por programa para ver todos.`, "warning");
+}
       }
     } catch (err) {
       console.error(err);
@@ -319,8 +322,14 @@ export default function useAppData() {
         await fetchProgramas();
         const docs = new Set(), mats = new Set();
         newRows.forEach(r => { const { docente, materia } = parseClase(r.clase); if (docente) docs.add(docente); if (materia) mats.add(materia); });
-        for (const d of docs) await supabase.from("docentes").upsert({ nombre_raw: d, nombre_display: d }, { onConflict: "nombre_raw" });
-        for (const m of mats) await supabase.from("materias").upsert({ nombre_raw: m, nombre_display: m }, { onConflict: "nombre_raw" });
+        if (docs.size > 0) {
+  const docsArray = [...docs].map(d => ({ nombre_raw: d, nombre_display: d }));
+  await supabase.from("docentes").upsert(docsArray, { onConflict: "nombre_raw" });
+}
+if (mats.size > 0) {
+  const matsArray = [...mats].map(m => ({ nombre_raw: m, nombre_display: m }));
+  await supabase.from("materias").upsert(matsArray, { onConflict: "nombre_raw" });
+}
         await fetchDocenteNames();
         await fetchMateriaNames();
       }
