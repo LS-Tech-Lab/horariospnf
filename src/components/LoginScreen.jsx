@@ -40,8 +40,7 @@ export default function LoginScreen() {
         boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
       }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>📅</div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#111827" }}>Gestión de Horarios Académicos y Asistencias Docentes</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#111827" }}>Gestión de Horarios Académicos y Asistencias Docentes</h1>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6B7280", fontWeight: 500 }}>
             Inicia sesión para continuar
           </p>
