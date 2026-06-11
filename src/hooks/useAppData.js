@@ -133,8 +133,15 @@ export default function useAppData() {
     const { data: existing } = await supabase.from(tableName).select("nombre_raw, nombre_display").ilike("nombre_display", newDisplayName.trim()).neq("nombre_raw", rawName).limit(1);
     if (existing?.length > 0) {
       const { nombre_raw: targetRaw, nombre_display: canonicalDisplay } = existing[0];
-      const { data: horarios } = await supabase.from("horarios").select("id, clase");
-      if (horarios) for (const row of horarios) { if (!row.clase?.includes(rawName)) continue; const nc = row.clase.split(rawName).join(targetRaw); if (nc !== row.clase) await supabase.from("horarios").update({ clase: nc }).eq("id", row.id); }
+
+      // Un solo UPDATE masivo en PostgreSQL en lugar de N updates individuales.
+      // Requiere la RPC `replace_nombre_en_clases` creada en Supabase (ver instrucciones).
+      const { error: rpcError } = await supabase.rpc("replace_nombre_en_clases", {
+        old_raw: rawName,
+        new_raw: targetRaw,
+      });
+      if (rpcError) throw new Error(`Error al unificar en horarios: ${rpcError.message}`);
+
       await supabase.from(tableName).delete().eq("nombre_raw", rawName);
       return { targetRaw, canonicalDisplay };
     }
