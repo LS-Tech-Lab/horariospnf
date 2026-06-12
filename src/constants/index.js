@@ -56,12 +56,11 @@ export const BLOQUES_VESPERTINO = [
 
 export const NAV_ITEMS = [
   { id: "resumen", emoji: "📊", label: "Resumen" },
-  { id: "horarios", emoji: "📅", label: "Horarios" },
+  { id: "horarios", emoji: "📅", label: "Horarios", hasBadge: true },
   { id: "secciones", emoji: "🏫", label: "Secciones" },
-  { id: "docentes", emoji: "👥", label: "Docentes", hasBadge: true },
+  { id: "docentes", emoji: "👥", label: "Docentes" },
   { id: "materias", emoji: "📖", label: "Materias" },
   { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
-  { id: "conflictos", emoji: "⚠️", label: "Conflictos", hasBadge: true },
 ];
 
 export const S = {
