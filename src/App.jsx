@@ -10,7 +10,6 @@ import SeccionesView from "./components/SeccionesView";
 import DocentesView from "./components/DocentesView";
 import MateriasView from "./components/MateriasView";
 import AsistenciasView from "./components/AsistenciasView";
-import ConflictosView from "./components/ConflictosView";
 import ConfirmModal from "./components/ConfirmModal";
 import { NAV_ITEMS, S } from "./constants";
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "./utils/lapso";
@@ -100,16 +99,6 @@ export default function App() {
             style={{ ...S.select, width: "100%", background: "#1E293B", color: "#CBD5E1", borderColor: "#334155", fontSize: 12, padding: "6px 10px" }}>
             {appData.programasDisponibles.map(p => <option key={p} value={p}>{p === "todos" ? "Todos los programas" : p}</option>)}
           </select>
-          {/* ── SELECTOR DE TRIMESTRE ── */}
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 10, color: "#475569", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Trimestre académico</div>
-            <select value={lapso} onChange={e => setLapso(e.target.value)}
-              style={{ ...S.select, width: "100%", background: "#1E293B", color: "#93C5FD", borderColor: "#334155", fontSize: 12, padding: "6px 10px", fontWeight: 600 }}>
-              {lapsosDisponibles.map(l => (
-                <option key={l} value={l}>{formatLapso(l)}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* ── ESTADÍSTICAS COMPACTAS ── */}
@@ -145,13 +134,22 @@ export default function App() {
             <NavBtn key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }} />
           ))}
 
-          <div style={{ height: 1, background: "#1E293B", margin: "8px 6px" }} />
-
-          {/* Grupo: Sistema */}
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 6px", marginBottom: 4 }}>Sistema</div>
-          {nav.filter(i => ["conflictos"].includes(i.id)).map(item => (
-            <NavBtn key={item.id} item={item} active={view === item.id} onClick={() => { setView(item.id); setSidebarOpen(false); }} />
-          ))}
+          {/* ── Opciones contextuales según vista ── */}
+          {view === "asistencias" && (
+            <>
+              <div style={{ height: 1, background: "#1E293B", margin: "8px 6px" }} />
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase", padding: "0 6px", marginBottom: 6 }}>Opciones</div>
+              <div style={{ padding: "0 6px" }}>
+                <div style={{ fontSize: 10, color: "#475569", marginBottom: 4, fontWeight: 600 }}>Trimestre académico</div>
+                <select value={lapso} onChange={e => setLapso(e.target.value)}
+                  style={{ ...S.select, width: "100%", background: "#1E293B", color: "#93C5FD", borderColor: "#334155", fontSize: 12, padding: "6px 10px", fontWeight: 600 }}>
+                  {lapsosDisponibles.map(l => (
+                    <option key={l} value={l}>{formatLapso(l)}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </nav>
 
         {/* ── ACCIONES DE DATOS ── */}
@@ -207,12 +205,11 @@ export default function App() {
         </header>
         <main style={{ flex: 1, overflow: "auto" }}>
           {view === "resumen" && <ResumenView stats={appData.stats} data={appData.data} byDocente={appData.byDocente} byMateria={appData.byMateria} conflicts={appData.conflicts} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} />}
-          {view === "horarios" && <HorariosView filtered={appData.data.filter(d => (selectedTrayecto === "all" || d.trayecto === selectedTrayecto) && (selectedSeccion === "all" || d.sheet.trim() === selectedSeccion) && (activeDay === "all" || d.dia === activeDay))} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} allTrayectos={appData.allTrayectos} />}
+          {view === "horarios" && <HorariosView filtered={appData.data.filter(d => (selectedTrayecto === "all" || d.trayecto === selectedTrayecto) && (selectedSeccion === "all" || d.sheet.trim() === selectedSeccion) && (activeDay === "all" || d.dia === activeDay))} selectedTrayecto={selectedTrayecto} setSelectedTrayecto={setSelectedTrayecto} selectedSeccion={selectedSeccion} setSelectedSeccion={setSelectedSeccion} activeDay={activeDay} setActiveDay={setActiveDay} seccionesByTrayecto={seccionesByTrayecto} expandedCell={expandedCell} setExpandedCell={setExpandedCell} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} allTrayectos={appData.allTrayectos} conflicts={appData.conflicts} onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }} />}
           {view === "secciones" && <SeccionesView data={appData.data} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} />}
           {view === "docentes" && <DocentesView byDocente={appData.byDocente} conflicts={appData.conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} getDocName={appData.getDocName} onSaveDocenteName={appData.saveDocenteName} />}
           {view === "materias" && <MateriasView byMateria={appData.byMateria} initialSel={materiaNav} onConsumeNav={() => setMateriaNav(null)} getMateriaName={appData.getMateriaName} onSaveMateriaName={appData.saveMateriaName} data={appData.data} getDocName={appData.getDocName} />}
           {view === "asistencias" && <AsistenciasView data={appData.data} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} lapso={lapso} />}
-          {view === "conflictos" && <ConflictosView conflicts={appData.conflicts} onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }} getDocName={appData.getDocName} />}
         </main>
       </div>
     </div>
