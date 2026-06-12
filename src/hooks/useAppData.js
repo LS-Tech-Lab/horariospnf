@@ -395,44 +395,44 @@ export default function useAppData() {
     return m;
 }, [data]);
 
-  // Mejora 9: detección de solapamientos parciales.
-  // Dos clases solapan si sus rangos horarios se intersectan, no solo si son idénticos.
+  // Detección de conflictos: solapamientos de rango cuando el formato es parseable,
+  // y fallback a comparación exacta de string (comportamiento original) cuando no lo es.
+  // Esto garantiza que los conflictos que detectaba la versión anterior siguen detectándose.
   const conflicts = useMemo(() => {
     const issues = [];
 
-    // Extrae inicio y fin en minutos desde un string de hora tipo "7:30AM - 9:00AM"
+    // Extrae inicio/fin en minutos. Devuelve null si el formato no es reconocible.
     const parseRango = (hora) => {
       if (!hora) return null;
       const parts = hora.trim().split(/[-–]/);
       const inicio = timeToMin(parts[0]?.trim());
-      const fin = parts[1] ? timeToMin(parts[1]?.trim()) : inicio + 45; // bloque mínimo 45 min
-      return inicio > 0 ? { inicio, fin: fin > inicio ? fin : inicio + 45 } : null;
+      if (inicio === 0) return null; // formato no reconocido — usaremos fallback
+      const fin = parts[1] ? timeToMin(parts[1]?.trim()) : inicio + 45;
+      return { inicio, fin: fin > inicio ? fin : inicio + 45 };
     };
 
-    // Dos rangos solapan si uno empieza antes de que el otro termine (y viceversa)
     const solapan = (a, b) => a.inicio < b.fin && b.inicio < a.fin;
+
+    // Determina si dos entradas tienen conflicto horario.
+    // Preferimos comparación de rangos; si no se puede parsear,
+    // caemos al match de string exacto (igual que la lógica original).
+    const tienenConflicto = (entA, entB) => {
+      const ra = parseRango(entA.hora);
+      const rb = parseRango(entB.hora);
+      if (ra && rb) return solapan(ra, rb);
+      return entA.hora?.trim() === entB.hora?.trim(); // fallback original
+    };
 
     Object.entries(byDocente).forEach(([doc, entries]) => {
       DAYS.forEach(day => {
         const enDia = entries.filter(e => e.dia === day);
         if (enDia.length < 2) return;
 
-        // Comparar cada par de clases en el mismo día
         for (let i = 0; i < enDia.length; i++) {
           for (let j = i + 1; j < enDia.length; j++) {
             const a = enDia[i], b = enDia[j];
-            const ra = parseRango(a.hora), rb = parseRango(b.hora);
-            if (!ra || !rb) continue;
-            if (!solapan(ra, rb)) continue;
+            if (!tienenConflicto(a, b)) continue;
 
-            // Verificar que este conflicto no fue registrado ya (evitar duplicados)
-            const yaRegistrado = issues.some(c =>
-              c.docente === doc && c.dia === day &&
-              c.entries.includes(a) && c.entries.includes(b)
-            );
-            if (yaRegistrado) continue;
-
-            // Buscar si ya existe un grupo para este docente/día que incluya alguna de estas entradas
             const grupoExistente = issues.find(c =>
               c.docente === doc && c.dia === day &&
               (c.entries.includes(a) || c.entries.includes(b))
