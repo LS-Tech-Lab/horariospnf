@@ -13,6 +13,7 @@ import AsistenciasView from "./components/AsistenciasView";
 import ConflictosView from "./components/ConflictosView";
 import ConfirmModal from "./components/ConfirmModal";
 import { NAV_ITEMS, S } from "./constants";
+import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "./utils/lapso";
 
 export default function App() {
   const [view, setView] = useState("resumen");
@@ -23,6 +24,8 @@ export default function App() {
   const [expandedCell, setExpandedCell] = useState(null);
   const [docenteNav, setDocenteNav] = useState(null);
   const [materiaNav, setMateriaNav] = useState(null);
+  const [lapso, setLapso] = useState(() => getCurrentLapso());
+  const lapsosDisponibles = React.useMemo(() => getLapsosDisponibles(lapso), [lapso]);
 
   const appData = useAppData();
 
@@ -97,6 +100,16 @@ export default function App() {
             style={{ ...S.select, width: "100%", background: "#1E293B", color: "#CBD5E1", borderColor: "#334155", fontSize: 12, padding: "6px 10px" }}>
             {appData.programasDisponibles.map(p => <option key={p} value={p}>{p === "todos" ? "Todos los programas" : p}</option>)}
           </select>
+          {/* ── SELECTOR DE TRIMESTRE ── */}
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 10, color: "#475569", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>Trimestre académico</div>
+            <select value={lapso} onChange={e => setLapso(e.target.value)}
+              style={{ ...S.select, width: "100%", background: "#1E293B", color: "#93C5FD", borderColor: "#334155", fontSize: 12, padding: "6px 10px", fontWeight: 600 }}>
+              {lapsosDisponibles.map(l => (
+                <option key={l} value={l}>{formatLapso(l)}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* ── ESTADÍSTICAS COMPACTAS ── */}
@@ -198,7 +211,7 @@ export default function App() {
           {view === "secciones" && <SeccionesView data={appData.data} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} />}
           {view === "docentes" && <DocentesView byDocente={appData.byDocente} conflicts={appData.conflicts} initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)} getDocName={appData.getDocName} onSaveDocenteName={appData.saveDocenteName} />}
           {view === "materias" && <MateriasView byMateria={appData.byMateria} initialSel={materiaNav} onConsumeNav={() => setMateriaNav(null)} getMateriaName={appData.getMateriaName} onSaveMateriaName={appData.saveMateriaName} data={appData.data} getDocName={appData.getDocName} />}
-          {view === "asistencias" && <AsistenciasView data={appData.data} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} />}
+          {view === "asistencias" && <AsistenciasView data={appData.data} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} lapso={lapso} />}
           {view === "conflictos" && <ConflictosView conflicts={appData.conflicts} onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }} getDocName={appData.getDocName} />}
         </main>
       </div>
