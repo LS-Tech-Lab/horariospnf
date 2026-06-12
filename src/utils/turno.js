@@ -31,8 +31,9 @@ export function getTurnoDeRegistro(d) {
   return getTurnoByCodigo(d.sheet) || normalizeTurno(d.turno) || getTurnoFromHora(d.hora) || "DIURNO";
 }
 
+// Mejora 4: eliminado el import() dinámico (devolvía una Promise, nunca funcionó).
+// BLOQUES_DIURNO y BLOQUES_VESPERTINO ya están importados estáticamente al tope del archivo.
 export function getBloquesForTurno(turno) {
-  const { BLOQUES_DIURNO, BLOQUES_VESPERTINO } = import('../constants'); // o import
   return turno === "VESPERTINO" ? BLOQUES_VESPERTINO : BLOQUES_DIURNO;
 }
 
