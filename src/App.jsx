@@ -34,7 +34,13 @@ export default function App() {
   if (!appData.user) return <LoginScreen />;
   // Mejora 10: solo bloqueamos con pantalla de carga si no hay absolutamente ningún dato.
   // Si hay caché, la app se renderiza de inmediato y isSyncing muestra un indicador sutil.
-  if (appData.loading && !appData.data.length) return <div style={{ padding: 20, textAlign: "center", fontSize: 15, fontWeight: 500 }}>Cargando horarios...</div>;
+  if (appData.loading && !appData.data.length) return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0F172A", gap: 16, fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ width: 36, height: 36, border: "3px solid #1E3A5F", borderTop: "3px solid #3B82F6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <span style={{ color: "#94A3B8", fontSize: 14, fontWeight: 500 }}>Cargando horarios…</span>
+    </div>
+  );
 
   const handleNavigate = (r) => {
     if (r.docente) { setDocenteNav(r.rawDocente || r.docente); setView("docentes"); }
