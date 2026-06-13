@@ -48,7 +48,7 @@ export default function GlobalSearch({ onNavigate, docenteNames, materiaNames, d
         {q && <button onClick={() => setQ("")} style={{ border: "none", background: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 16 }}>×</button>}
       </div>
       {open && results.length > 0 && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "#fff", borderRadius: 10, border: "1px solid #E5E7EB", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 200, overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, minWidth: 280, background: "#fff", borderRadius: 10, border: "1px solid #E5E7EB", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 200, overflow: "hidden" }}>
           {results.map((r, i) => (
             <div
               key={i}
