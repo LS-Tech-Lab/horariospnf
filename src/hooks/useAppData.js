@@ -1,483 +1,86 @@
-import { DAYS, ALL_TRAYECTOS, DEFAULT_PROGRAMAS } from "../constants";
-import { timeToMin } from "../utils/time";
-import { getTurnoByCodigo, normalizeTurno } from "../utils/turno";
-import { normalizarPrograma, parseClase } from "../utils/parsing";
+// ========== Constantes globales ==========
+export const DAYS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import * as XLSX from "xlsx";
-import { supabase } from "../lib/supabase";
-import {
-  guardarEnCache, cargarDeCache,
-  CACHE_KEYS, limpiarCache, obtenerUltimaSincronizacion
-} from "../utils/cache";
+// Trimestres académicos: 3 por año (1-YYYY, 2-YYYY, 3-YYYY).
+// Las fechas exactas las define la programación académica aprobada.
+// La lógica de cálculo dinámico está en src/utils/lapso.js
 
-export default function useAppData() {
-  const [user, setUser] = useState(undefined);
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  // Mejora 10: isSyncing indica refresco en background sin bloquear la UI.
-  // loading=true solo cuando no hay ningún dato aún (primera carga real).
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedPrograma, setSelectedPrograma] = useState("todos");
-  const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
-  const [docenteNames, setDocenteNames] = useState({});
-  const [materiaNames, setMateriaNames] = useState({});
-  const [toast, setToast] = useState(null);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [lastSync, setLastSync] = useState(obtenerUltimaSincronizacion());
+export const ALL_TRAYECTOS = [
+  "INICIAL",
+  "1-1", "1-2", "1-3",
+  "2-1", "2-2", "2-3",
+  "3-1", "3-2", "3-3",
+  "4-1", "4-2", "4-3"
+];
 
-  // Mejora 8: estado del modal de confirmación (reemplaza window.confirm)
-  const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
+export const DEFAULT_PROGRAMAS = [
+  "PNF Informática",
+  "PNF Contaduría Pública",
+  "PNF Agroalimentación",
+  "PNF Educación Especial"
+];
 
-  const openConfirm = useCallback(({ title, message, confirmLabel, danger, onConfirm }) => {
-    setConfirmModal({ title, message, confirmLabel, danger, onConfirm });
-  }, []);
+export const TRAYECTO_COLORS = {
+  "INICIAL": "#8B5CF6",
+  "1-1": "#2563EB", "1-2": "#1D4ED8", "1-3": "#1E40AF",
+  "2-1": "#DC2626", "2-2": "#B91C1C", "2-3": "#991B1B",
+  "3-1": "#D97706", "3-2": "#B45309", "3-3": "#92400E",
+  "4-1": "#059669", "4-2": "#047857", "4-3": "#065F46",
+};
 
-  const closeConfirm = useCallback(() => setConfirmModal(null), []);
+export const TRAYECTO_BG = {
+  "INICIAL": "#F5F3FF",
+  "1-1": "#EFF6FF", "1-2": "#DBEAFE", "1-3": "#BFDBFE",
+  "2-1": "#FEF2F2", "2-2": "#FEE2E2", "2-3": "#FECACA",
+  "3-1": "#FFFBEB", "3-2": "#FEF3C7", "3-3": "#FDE68A",
+  "4-1": "#ECFDF5", "4-2": "#D1FAE5", "4-3": "#A7F3D0",
+};
 
-  // Conexión
-  useEffect(() => {
-    const handleOnline = () => { setIsOffline(false); showToast("✅ Conexión restablecida.", "success"); fetchHorarios(selectedPrograma); fetchDocenteNames(); fetchMateriaNames(); };
-    const handleOffline = () => { setIsOffline(true); showToast("⚠️ Sin conexión. Usando caché.", "warning"); };
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => { window.removeEventListener("online", handleOnline); window.removeEventListener("offline", handleOffline); };
-  }, []);
+export const BLOQUES_DIURNO = [
+  { inicio: "7:30AM", fin: "8:15AM", label: "7:30 – 8:15 AM" },
+  { inicio: "8:15AM", fin: "9:00AM", label: "8:15 – 9:00 AM" },
+  { inicio: "9:00AM", fin: "9:45AM", label: "9:00 – 9:45 AM" },
+  { inicio: "9:45AM", fin: "10:30AM", label: "9:45 – 10:30 AM" },
+  { inicio: "10:30AM", fin: "11:15AM", label: "10:30 – 11:15 AM" },
+  { inicio: "11:15AM", fin: "12:00PM", label: "11:15 AM – 12:00 PM" },
+];
 
-  // Auth
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
-    return () => subscription.unsubscribe();
-  }, []);
+export const BLOQUES_VESPERTINO = [
+  { inicio: "1:00PM", fin: "1:45PM", label: "1:00 – 1:45 PM" },
+  { inicio: "1:45PM", fin: "2:30PM", label: "1:45 – 2:30 PM" },
+  { inicio: "2:30PM", fin: "3:15PM", label: "2:30 – 3:15 PM" },
+  { inicio: "3:15PM", fin: "4:00PM", label: "3:15 – 4:00 PM" },
+  { inicio: "4:00PM", fin: "4:45PM", label: "4:00 – 4:45 PM" },
+  { inicio: "4:45PM", fin: "5:30PM", label: "4:45 – 5:30 PM" },
+];
 
-  const handleLogout = async () => { await supabase.auth.signOut(); };
+export const NAV_ITEMS = [
+  { id: "resumen",    emoji: "📊", label: "Resumen" },
+  { id: "horarios",  emoji: "📅", label: "Horarios" },
+  { id: "secciones", emoji: "🏫", label: "Secciones" },
+  { id: "docentes",  emoji: "👥", label: "Docentes" },
+  { id: "materias",  emoji: "📖", label: "Materias" },
+  { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
+  { id: "conflictos", emoji: "⚠️", label: "Conflictos", hasBadge: true }, // badge = nº de conflictos detectados
+];
 
-  const showToast = useCallback((message, type = "success") => {
-    setToast(null);
-    setTimeout(() => setToast({ message, type }), 50);
-  }, []);
+export const S = {
+  card: { background: "#fff", borderRadius: 10, border: "1px solid #E5E7EB", overflow: "hidden" },
+  th: { padding: "10px 14px", fontSize: 12, fontWeight: 700, color: "#374151", textAlign: "left", borderBottom: "2px solid #E5E7EB", background: "#F9FAFB", textTransform: "uppercase", letterSpacing: "0.05em" },
+  td: { padding: "10px 14px", fontSize: 13, borderTop: "1px solid #F3F4F6", color: "#374151" },
+  badge: (bg, col) => ({ background: bg, color: col, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }),
+  btn: (active) => ({
+    padding: "7px 16px", borderRadius: 20, border: "1px solid",
+    borderColor: active ? "#2563EB" : "#E5E7EB", background: active ? "#EFF6FF" : "#fff",
+    color: active ? "#1D4ED8" : "#374151", cursor: "pointer", fontSize: 13,
+    fontWeight: active ? 600 : 500, transition: "all 0.15s",
+  }),
+  select: { fontSize: 13, padding: "7px 12px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#111827", cursor: "pointer", fontWeight: 500 },
+  input: { fontSize: 13, padding: "7px 12px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#111827", outline: "none", fontWeight: 500 },
+};
 
-  const fetchProgramas = async () => {
-    const { data: programas } = await supabase.from("horarios").select("programa").not("programa", "is", null);
-    if (programas) {
-      const canonicalSet = new Map();
-      programas.forEach(p => { if (p.programa?.trim()) { const canon = normalizarPrograma(p.programa); if (canon) canonicalSet.set(canon, true); } });
-      const unique = [...canonicalSet.keys()].sort();
-      const defaults = DEFAULT_PROGRAMAS.filter(p => !unique.some(u => u.toLowerCase() === p.toLowerCase()));
-      setProgramasDisponibles(["todos", ...unique, ...defaults]);
-    }
-  };
-
-  const fetchHorarios = useCallback(async (programa = selectedPrograma) => {
-    const cachedHorarios = cargarDeCache(CACHE_KEYS.horarios);
-
-    // Mejora 10: si ya hay datos en caché los mostramos de inmediato y
-    // hacemos el refresh en background (isSyncing) sin bloquear la UI.
-    if (cachedHorarios?.length > 0) {
-      setData(cachedHorarios);
-      setLoading(false);
-      setIsSyncing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      // Mejora 3: usamos count:"exact" para detectar si Supabase cortó resultados
-      // al límite por defecto de 1 000 filas sin avisarnos.
-      const PAGE_LIMIT = 1000;
-      let query = supabase.from("horarios").select("*", { count: "exact" });
-      if (programa !== "todos") query = query.eq("programa", programa);
-      const { data: horarios, error, count } = await query.order("id", { ascending: true }).limit(PAGE_LIMIT);
-      if (error) {
-        console.error(error);
-        if (cachedHorarios?.length > 0) {
-          setData(cachedHorarios);
-          showToast("⚠️ Error de conexión. Usando caché.", "warning");
-        } else setError(error.message);
-      } else {
-        const nuevosDatos = horarios || [];
-        setData(nuevosDatos);
-        guardarEnCache(CACHE_KEYS.horarios, nuevosDatos);
-        localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
-        setLastSync(obtenerUltimaSincronizacion());
-        // Mejora 3: avisar si el total real supera el límite de la página.
-        if (count !== null && count > PAGE_LIMIT) {
-          showToast(`⚠️ Hay ${count} registros pero solo se muestran los primeros ${PAGE_LIMIT}. Contacte al administrador.`, "warning");
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      if (cachedHorarios?.length > 0) {
-        setData(cachedHorarios);
-        showToast("⚠️ Modo offline: usando caché.", "warning");
-      }
-    }
-    setLoading(false);
-    setIsSyncing(false);
-  }, [selectedPrograma, showToast]);
-
-  const fetchDocenteNames = async () => {
-    const cachedDocentes = cargarDeCache(CACHE_KEYS.docentes);
-    if (cachedDocentes) setDocenteNames(cachedDocentes);
-    try {
-      const { data: docentes } = await supabase.from("docentes").select("*");
-      if (docentes) {
-        const m = {};
-        docentes.forEach(d => { m[d.nombre_raw] = d.nombre_display; });
-        setDocenteNames(m);
-        guardarEnCache(CACHE_KEYS.docentes, m);
-      }
-    } catch (err) {
-      console.warn("Error fetching docentes:", err);
-      if (cachedDocentes) setDocenteNames(cachedDocentes);
-    }
-  };
-
-  const fetchMateriaNames = async () => {
-    const cachedMaterias = cargarDeCache(CACHE_KEYS.materias);
-    if (cachedMaterias) setMateriaNames(cachedMaterias);
-    try {
-      const { data: materias } = await supabase.from("materias").select("*");
-      if (materias) {
-        const m = {};
-        materias.forEach(d => { m[d.nombre_raw] = d.nombre_display; });
-        setMateriaNames(m);
-        guardarEnCache(CACHE_KEYS.materias, m);
-      }
-    } catch (err) {
-      console.warn("Error fetching materias:", err);
-      if (cachedMaterias) setMateriaNames(cachedMaterias);
-    }
-  };
-
-  useEffect(() => { fetchProgramas(); fetchDocenteNames(); fetchMateriaNames(); }, []);
-  // Mejora 7: pasamos selectedPrograma explícitamente para que fetchHorarios
-  // use siempre el valor actualizado, no el closure del render anterior.
-  useEffect(() => { fetchHorarios(selectedPrograma); }, [selectedPrograma]);
-
-  const unifyName = async (tableName, rawName, newDisplayName) => {
-    const { data: existing } = await supabase.from(tableName).select("nombre_raw, nombre_display").ilike("nombre_display", newDisplayName.trim()).neq("nombre_raw", rawName).limit(1);
-    if (existing?.length > 0) {
-      const { nombre_raw: targetRaw, nombre_display: canonicalDisplay } = existing[0];
-
-      // Un solo UPDATE masivo en PostgreSQL en lugar de N updates individuales.
-      // Requiere la RPC `replace_nombre_en_clases` creada en Supabase (ver instrucciones).
-      const { error: rpcError } = await supabase.rpc("replace_nombre_en_clases", {
-        old_raw: rawName,
-        new_raw: targetRaw,
-      });
-      if (rpcError) throw new Error(`Error al unificar en horarios: ${rpcError.message}`);
-
-      await supabase.from(tableName).delete().eq("nombre_raw", rawName);
-      return { targetRaw, canonicalDisplay };
-    }
-    return null;
-  };
-
-  const saveDocenteName = async (rawName, displayName) => {
-    try {
-      const unified = await unifyName("docentes", rawName, displayName);
-      if (unified) { showToast("✅ Docente unificado.", "success"); await fetchDocenteNames(); await fetchHorarios(); return { success: true, targetRaw: unified.targetRaw }; }
-      await supabase.from("docentes").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
-      setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
-      showToast("✅ Docente actualizado.", "success"); return { success: true };
-    } catch (err) { showToast("❌ Error: " + err.message, "error"); return { success: false }; }
-  };
-
-  const saveMateriaName = async (rawName, displayName) => {
-    try {
-      const unified = await unifyName("materias", rawName, displayName);
-      if (unified) { showToast("✅ Materia unificada.", "success"); await fetchMateriaNames(); await fetchHorarios(); return { success: true, targetRaw: unified.targetRaw }; }
-      await supabase.from("materias").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
-      setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
-      showToast("✅ Materia actualizada.", "success"); return { success: true };
-    } catch (err) { showToast("❌ Error: " + err.message, "error"); return { success: false }; }
-  };
-
-  const clearAllData = () => {
-    const scope = selectedPrograma !== "todos" ? `el programa "${selectedPrograma}"` : "TODOS los programas";
-    openConfirm({
-      title: "Borrar datos",
-      message: `Se eliminarán los horarios de ${scope}. Se recomienda hacer un backup antes. Esta acción no se puede deshacer.`,
-      confirmLabel: "Sí, borrar",
-      danger: true,
-      onConfirm: async () => {
-        closeConfirm();
-        setLoading(true);
-        let query = supabase.from("horarios").delete();
-        if (selectedPrograma !== "todos") query = query.eq("programa", selectedPrograma);
-        else query = query.neq("id", 0);
-        const { error } = await query;
-        if (error) showToast("❌ Error al borrar.", "error");
-        else { showToast("✅ Datos eliminados.", "success"); limpiarCache(); await fetchHorarios(); await fetchProgramas(); }
-        setLoading(false);
-      },
-    });
-  };
-
-  const exportarDatos = async () => {
-    try {
-      showToast("📦 Preparando backup...", "info");
-      const [horariosRes, docentesRes, materiasRes] = await Promise.all([
-        supabase.from("horarios").select("*"),
-        supabase.from("docentes").select("*"),
-        supabase.from("materias").select("*"),
-      ]);
-      const backup = {
-        version: "1.0",
-        fecha: new Date().toISOString(),
-        programa: selectedPrograma,
-        horarios: horariosRes.data || [],
-        docentes: docentesRes.data || [],
-        materias: materiasRes.data || [],
-      };
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `backup-horarios-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast("✅ Backup descargado correctamente", "success");
-    } catch (err) {
-      console.error("Error al exportar:", err);
-      showToast("❌ Error al crear backup: " + err.message, "error");
-    }
-  };
-
-  const importarDatos = (file) => {
-    openConfirm({
-      title: "Restaurar backup",
-      message: "Esto REEMPLAZARÁ todos los datos actuales con el contenido del archivo. ¿Continuar?",
-      confirmLabel: "Sí, restaurar",
-      danger: true,
-      onConfirm: async () => {
-        closeConfirm();
-        setUploading(true);
-        try {
-          const text = await file.text();
-          const backup = JSON.parse(text);
-          if (!backup.horarios || !backup.docentes || !backup.materias) throw new Error("El archivo no tiene el formato correcto de backup");
-          await supabase.from("horarios").delete().neq("id", 0);
-          await supabase.from("docentes").delete().neq("id", 0);
-          await supabase.from("materias").delete().neq("id", 0);
-          if (backup.horarios.length > 0) await supabase.from("horarios").insert(backup.horarios);
-          if (backup.docentes.length > 0) await supabase.from("docentes").upsert(backup.docentes, { onConflict: "nombre_raw" });
-          if (backup.materias.length > 0) await supabase.from("materias").upsert(backup.materias, { onConflict: "nombre_raw" });
-          limpiarCache();
-          showToast(`✅ Backup restaurado: ${backup.horarios.length} clases`, "success");
-          await fetchHorarios();
-          await fetchProgramas();
-          await fetchDocenteNames();
-          await fetchMateriaNames();
-        } catch (err) {
-          console.error("Error al importar:", err);
-          showToast("❌ Error al restaurar backup: " + err.message, "error");
-        } finally {
-          setUploading(false);
-        }
-      },
-    });
-  };
-
-  const handleFileUpload = async (file) => {
-    setUploading(true); setError(null);
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const workbook = XLSX.read(e.target.result, { type: "binary" });
-      const allRows = [];
-      for (const sheetName of workbook.SheetNames) {
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        let headerRowIdx = -1, horaColIdx = -1;
-        let diaCols = { LUNES: -1, MARTES: -1, MIÉRCOLES: -1, JUEVES: -1, VIERNES: -1 };
-        for (let i = 0; i < json.length; i++) {
-          const row = json[i]; if (!row) continue;
-          const horaIdx = row.findIndex(cell => cell?.toString().trim().toUpperCase() === "HORA");
-          if (horaIdx !== -1) {
-            headerRowIdx = i; horaColIdx = horaIdx;
-            for (let j = 0; j < row.length; j++) {
-              const cell = row[j]?.toString().toUpperCase().trim();
-              if (cell === "LUNES") diaCols.LUNES = j;
-              else if (cell === "MARTES") diaCols.MARTES = j;
-              else if (cell === "MIÉRCOLES") diaCols.MIÉRCOLES = j;
-              else if (cell === "JUEVES") diaCols.JUEVES = j;
-              else if (cell === "VIERNES") diaCols.VIERNES = j;
-            }
-            break;
-          }
-        }
-        if (headerRowIdx === -1) continue;
-        const merges = worksheet['!merges'] || [];
-        const mergeMap = {};
-        merges.forEach(merge => { for (let r = merge.s.r; r <= merge.e.r; r++) for (let c = merge.s.c; c <= merge.e.c; c++) mergeMap[`${r}-${c}`] = { sr: merge.s.r, er: merge.e.r, sc: merge.s.c, ec: merge.e.c }; });
-        let programa = "", trayecto = "", seccion = "", turno = "", sede = "", aula = "";
-        for (let i = 0; i < headerRowIdx; i++) {
-          const row = json[i]; if (!row) continue;
-          for (let j = 0; j < row.length; j++) {
-            const cv = row[j]?.toString().trim(); if (!cv) continue;
-            if (cv === "PROGRAMA" && !programa) programa = row[j+1]?.toString().trim() || "";
-            else if (cv === "TRAYECTO" && !trayecto) trayecto = row[j+1]?.toString().trim() || "";
-            else if (cv === "Sede:" && !sede) sede = row[j+1]?.toString().trim() || "";
-            else if (cv === "AULA" && !aula) aula = row[j+1]?.toString().trim() || "";
-            else if (cv === "Sección" && !seccion) seccion = row[j+1]?.toString().trim() || row[j+2]?.toString().trim() || "";
-            else if (cv === "Turno" && !turno) turno = row[j+1]?.toString().trim() || row[j+2]?.toString().trim() || "";
-          }
-        }
-        programa = selectedPrograma !== "todos" ? selectedPrograma : (programa ? normalizarPrograma(programa) || programa : "Sin programa");
-        const turnoFromCodigo = getTurnoByCodigo(sheetName) || normalizeTurno(turno) || turno;
-        turno = turnoFromCodigo;
-        const processedMerges = new Set();
-        for (let i = headerRowIdx + 1; i < json.length; i++) {
-          const row = json[i]; if (!row) continue;
-          for (const [dia, colIdx] of Object.entries(diaCols)) {
-            if (colIdx === -1) continue;
-            const clase = row[colIdx]?.toString().trim(); if (!clase) continue;
-            const merge = mergeMap[`${i}-${colIdx}`];
-            if (merge && processedMerges.has(`${merge.sr}-${merge.sc}`)) continue;
-            let horaCompleta = "";
-            if (merge) {
-              processedMerges.add(`${merge.sr}-${merge.sc}`);
-              const fr = json[merge.sr], lr = json[merge.er];
-              const hi = fr[horaColIdx]?.toString().trim().split(/[-–]/)[0]?.trim();
-              const hf = lr[horaColIdx]?.toString().trim().split(/[-–]/)[1]?.trim() || lr[horaColIdx]?.toString().trim().split(/[-–]/)[0]?.trim();
-              horaCompleta = hf ? `${hi} - ${hf}` : hi;
-            } else horaCompleta = row[horaColIdx]?.toString().trim() || "";
-            if (!horaCompleta) continue;
-            allRows.push({ sheet: sheetName, programa, trayecto, seccion, turno, sede, aula: aula || null, dia, hora: horaCompleta, clase });
-          }
-        }
-      }
-      if (!allRows.length) { setError("No se encontraron datos válidos."); setUploading(false); return; }
-      const { data: existingData } = await supabase.from("horarios").select("sheet, dia, hora, clase, programa");
-      const existingKeys = new Set(existingData?.map(r => `${r.sheet}|${r.dia}|${r.hora}|${r.clase}|${r.programa}`) || []);
-      const newRows = allRows.filter(r => !existingKeys.has(`${r.sheet}|${r.dia}|${r.hora}|${r.clase}|${r.programa}`));
-      if (!newRows.length) { showToast("⚠️ Sin registros nuevos.", "warning"); setUploading(false); return; }
-      const { error: insertError } = await supabase.from("horarios").insert(newRows);
-      if (insertError) showToast("❌ Error al guardar.", "error");
-      else {
-        showToast(`✅ ${newRows.length} clases cargadas.`, "success");
-        await fetchHorarios();
-        await fetchProgramas();
-        const docs = new Set(), mats = new Set();
-        newRows.forEach(r => { const { docente, materia } = parseClase(r.clase); if (docente) docs.add(docente); if (materia) mats.add(materia); });
-        // Mejora 2: un solo upsert en batch por tabla en lugar de N llamadas secuenciales.
-        const docsArray = [...docs].map(d => ({ nombre_raw: d, nombre_display: d }));
-        const matsArray = [...mats].map(m => ({ nombre_raw: m, nombre_display: m }));
-        if (docsArray.length) await supabase.from("docentes").upsert(docsArray, { onConflict: "nombre_raw" });
-        if (matsArray.length) await supabase.from("materias").upsert(matsArray, { onConflict: "nombre_raw" });
-        await fetchDocenteNames();
-        await fetchMateriaNames();
-      }
-      setUploading(false);
-    };
-    reader.onerror = () => { setError("Error al leer el archivo."); setUploading(false); };
-    reader.readAsBinaryString(file);
-  };
-
-  // Computed values
-  const byDocente = useMemo(() => {
-    const m = {};
-    if (!data) return m;  // ← Añade esta línea
-    data.forEach(d => { const { docente } = parseClase(d.clase); if (docente) { if (!m[docente]) m[docente] = []; m[docente].push(d); } });
-    return m;
-}, [data]);
-
-  const byMateria = useMemo(() => {
-    const m = {};
-    if (!data) return m;  // ← Añade esta línea
-    data.forEach(d => { const { materia } = parseClase(d.clase); if (materia) { if (!m[materia]) m[materia] = []; m[materia].push(d); } });
-    return m;
-}, [data]);
-
-  // Detección de conflictos: solapamientos de rango cuando el formato es parseable,
-  // y fallback a comparación exacta de string (comportamiento original) cuando no lo es.
-  // Esto garantiza que los conflictos que detectaba la versión anterior siguen detectándose.
-  const conflicts = useMemo(() => {
-    const issues = [];
-
-    // Extrae inicio/fin en minutos. Devuelve null si el formato no es reconocible.
-    const parseRango = (hora) => {
-      if (!hora) return null;
-      const parts = hora.trim().split(/[-–]/);
-      const inicio = timeToMin(parts[0]?.trim());
-      if (inicio === 0) return null; // formato no reconocido — usaremos fallback
-      const fin = parts[1] ? timeToMin(parts[1]?.trim()) : inicio + 45;
-      return { inicio, fin: fin > inicio ? fin : inicio + 45 };
-    };
-
-    const solapan = (a, b) => a.inicio < b.fin && b.inicio < a.fin;
-
-    // Determina si dos entradas tienen conflicto horario.
-    // Preferimos comparación de rangos; si no se puede parsear,
-    // caemos al match de string exacto (igual que la lógica original).
-    const tienenConflicto = (entA, entB) => {
-      const ra = parseRango(entA.hora);
-      const rb = parseRango(entB.hora);
-      if (ra && rb) return solapan(ra, rb);
-      return entA.hora?.trim() === entB.hora?.trim(); // fallback original
-    };
-
-    Object.entries(byDocente).forEach(([doc, entries]) => {
-      DAYS.forEach(day => {
-        const enDia = entries.filter(e => e.dia === day);
-        if (enDia.length < 2) return;
-
-        for (let i = 0; i < enDia.length; i++) {
-          for (let j = i + 1; j < enDia.length; j++) {
-            const a = enDia[i], b = enDia[j];
-            if (!tienenConflicto(a, b)) continue;
-
-            const grupoExistente = issues.find(c =>
-              c.docente === doc && c.dia === day &&
-              (c.entries.includes(a) || c.entries.includes(b))
-            );
-            if (grupoExistente) {
-              if (!grupoExistente.entries.includes(a)) grupoExistente.entries.push(a);
-              if (!grupoExistente.entries.includes(b)) grupoExistente.entries.push(b);
-            } else {
-              issues.push({ docente: doc, dia: day, hora: a.hora, entries: [a, b] });
-            }
-          }
-        }
-      });
-    });
-
-    return issues;
-  }, [byDocente]);
-
-  const allTrayectos = useMemo(() => {
-    if (!data || data.length === 0) return [];  // ← Añade esta línea
-    return [...new Set(data.map(d => d.trayecto))].sort((a, b) => {
-        return ALL_TRAYECTOS.indexOf(a) - ALL_TRAYECTOS.indexOf(b);
-    });
-}, [data]);
-
-  const stats = useMemo(() => {
-    if (!data) return { total: 0, secciones: 0, docentes: 0, materias: 0 };  // ← Añade esta línea
-    return {
-        total: data.length,
-        secciones: new Set(data.map(d => d.sheet?.trim())).size,
-        docentes: Object.keys(byDocente).length,
-        materias: Object.keys(byMateria).length,
-    };
-}, [data, byDocente, byMateria]);
-
-  const getDocName = useCallback((raw) => docenteNames[raw] || raw, [docenteNames]);
-  const getMateriaName = useCallback((raw) => materiaNames[raw] || raw, [materiaNames]);
-
-  return {
-    user, loading, isSyncing, uploading, error, selectedPrograma, setSelectedPrograma,
-    programasDisponibles, data, docenteNames, materiaNames,
-    byDocente, byMateria, conflicts, stats, allTrayectos,
-    isOffline, lastSync, toast, showToast,
-    confirmModal, closeConfirm,
-    handleLogout, handleFileUpload, exportarDatos, importarDatos, clearAllData,
-    saveDocenteName, saveMateriaName, getDocName, getMateriaName,
-  };
-}
+export const responsiveCSS = `
+ @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+ @media(max-width:768px){.hamburger-btn{display:block!important}.sidebar-aside{transform:translateX(-100%);position:fixed!important;z-index:300;height:100vh;transition:transform .25s}.sidebar-aside.open{transform:translateX(0)}.sidebar-overlay{display:block!important}.main-content{margin-left:0!important}.stats-grid-4{grid-template-columns:repeat(2,1fr)!important}.stats-grid-2{grid-template-columns:1fr!important}.docentes-layout,.materias-layout,.secciones-layout{flex-direction:column!important;height:auto!important}.docentes-left-panel,.materias-left-panel,.secciones-left-panel{width:100%!important;max-height:220px}.global-search{width:160px!important}}
+ @media(max-width:480px){.stats-grid-4{grid-template-columns:1fr 1fr!important}.header-stats{display:none}}
+`;
