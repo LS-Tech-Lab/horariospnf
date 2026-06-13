@@ -9,7 +9,7 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
   
   useEffect(() => { if (allSecciones.length && (!selSheet || !allSecciones.includes(selSheet))) setSelSheet(allSecciones[0]); }, [allSecciones, selSheet]);
   
-  const filteredSecciones = useMemo(() => filterTray === "all" ? allSecciones : allSecciones.filter(s => data.find(d => d.sheet.trim() === s)?.trayecto === filterTray), [filterTray, allSecciones, data]);
+  const filteredSecciones = useMemo(() => filterTray === "all" ? allSecciones : allSecciones.filter(s => data.some(d => d.sheet.trim() === s && d.trayecto === filterTray)), [filterTray, allSecciones, data]);
   const entries = useMemo(() => data.filter(d => d.sheet.trim() === selSheet), [data, selSheet]);
   const info = entries[0];
   const byDay = useMemo(() => DAYS.reduce((acc, day) => { acc[day] = entries.filter(e => e.dia === day).sort((a, b) => getHoraMin(a) - getHoraMin(b)); return acc; }, {}), [entries]);
