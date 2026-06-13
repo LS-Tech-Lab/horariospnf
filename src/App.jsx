@@ -15,6 +15,7 @@ import ConfirmModal from "./components/ConfirmModal";
 import ConflictosView from "./components/ConflictosView";
 import { NAV_ITEMS, S } from "./constants";
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "./utils/lapso";
+import { supabaseConfigError } from "./lib/supabase";
 
 export default function App() {
   const [view, setView] = useState("resumen");
@@ -29,6 +30,14 @@ export default function App() {
   const appData = useAppData();
   // Mejora 11: filtros y secciones encapsulados en el hook dedicado
   const horariosFilters = useHorariosFilters(appData.data);
+
+  if (supabaseConfigError) return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0F172A", color: "#E2E8F0", gap: 16, padding: 32, textAlign: "center", fontFamily: "system-ui, sans-serif" }}>
+      <span style={{ fontSize: 48 }}>⚠️</span>
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#F1F5F9" }}>Configuración incompleta</h2>
+      <p style={{ margin: 0, fontSize: 14, color: "#94A3B8", maxWidth: 460, lineHeight: 1.6 }}>{supabaseConfigError}</p>
+    </div>
+  );
 
   if (appData.user === undefined) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0F172A", color: "#94A3B8", fontFamily: "system-ui, sans-serif", fontSize: 15 }}>Verificando sesión…</div>;
   if (!appData.user) return <LoginScreen />;
