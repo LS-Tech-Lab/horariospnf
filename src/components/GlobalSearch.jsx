@@ -4,10 +4,16 @@ import { parseClase } from '../utils/parsing';
 
 export default function GlobalSearch({ onNavigate, docenteNames, materiaNames, data }) {
   const [q, setQ] = useState(""), [open, setOpen] = useState(false), ref = useRef();
+  const [debouncedQ, setDebouncedQ] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 180);
+    return () => clearTimeout(t);
+  }, [q]);
 
   const results = useMemo(() => {
-    if (q.length < 2) return [];
-    const lo = q.toLowerCase(), seen = new Set(), out = [];
+    if (debouncedQ.length < 2) return [];
+    const lo = debouncedQ.toLowerCase(), seen = new Set(), out = [];
     data.forEach(d => {
       const { materia, docente: rawDocente } = parseClase(d.clase);
       const docente = docenteNames[rawDocente] || rawDocente, materiaDisplay = materiaNames[materia] || materia;
@@ -26,7 +32,7 @@ export default function GlobalSearch({ onNavigate, docenteNames, materiaNames, d
       }
     });
     return out.slice(0, 8);
-  }, [q, docenteNames, materiaNames, data]);
+  }, [debouncedQ, docenteNames, materiaNames, data]);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
