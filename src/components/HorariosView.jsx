@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { S, DAYS, BLOQUES_DIURNO, BLOQUES_VESPERTINO } from '../constants';
 import { getTurnoDeRegistro } from '../utils/turno';
 import TurnoGrid from './TurnoGrid';
@@ -14,8 +14,17 @@ export default function HorariosView({
   getDocName, getMateriaName,
   allTrayectos,
   conflicts, onGoDocente,
+  initialTab, onConsumeInitialTab,
 }) {
   const [tab, setTab] = useState('horarios');
+
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+      onConsumeInitialTab?.();
+    }
+  }, [initialTab, onConsumeInitialTab]);
+
   const days = activeDay === "all" ? DAYS : [activeDay];
   const fd = filtered.filter(d => getTurnoDeRegistro(d) === "DIURNO");
   const fv = filtered.filter(d => getTurnoDeRegistro(d) === "VESPERTINO");
