@@ -17,6 +17,13 @@ export default function DocentesView({ byDocente, conflicts, initialSel, onConsu
   const selEntries = byDocente[sel] || [], selConflicts = sel ? conflicts.filter(c => c.docente === sel) : [];
   const filteredSorted = search ? sorted.filter(d => getDocName(d).toLowerCase().includes(search.toLowerCase())) : sorted;
 
+  // Fix rendimiento: el array ordenado de asignaciones se calcula una sola vez
+  // aquí, en vez de hacer [...selEntries].sort(...) en cada fila del .map().
+  const sortedEntries = useMemo(
+    () => [...selEntries].sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || getHoraMin(a) - getHoraMin(b)),
+    [selEntries]
+  );
+
   const docenteStats = useMemo(() => {
     if (!selEntries.length) return null;
     const dias = new Set(selEntries.map(e => e.dia)), trayectos = new Set(selEntries.map(e => e.trayecto));
@@ -130,9 +137,9 @@ export default function DocentesView({ byDocente, conflicts, initialSel, onConsu
                     </tr>
                   </thead>
                   <tbody>
-                    {[...selEntries].sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || getHoraMin(a) - getHoraMin(b)).map((e, i) => {
+                    {sortedEntries.map((e, i) => {
                       const { materia } = parseClase(e.clase);
-                      const prevEntry = i > 0 ? [...selEntries].sort((a, b) => DAYS.indexOf(a.dia) - DAYS.indexOf(b.dia) || getHoraMin(a) - getHoraMin(b))[i-1] : null;
+                      const prevEntry = i > 0 ? sortedEntries[i-1] : null;
                       return (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFB" }}>
                           <td style={{ ...S.td, fontWeight: 600, color: "#111827", borderTop: prevEntry && prevEntry.dia !== e.dia ? "2px solid #E5E7EB" : "1px solid #F3F4F6" }}>{e.dia.charAt(0)+e.dia.slice(1).toLowerCase()}</td>
