@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 /**
  * Modal de confirmación propio para operaciones destructivas.
@@ -22,6 +22,18 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }) {
+  const cancelBtnRef = useRef(null);
+
+  // Accesibilidad: cerrar con Escape y enfocar el botón "Cancelar" al abrir
+  // (acción más segura por defecto para operaciones destructivas).
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e) => { if (e.key === "Escape") onCancel?.(); };
+    document.addEventListener("keydown", handleKeyDown);
+    cancelBtnRef.current?.focus();
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onCancel]);
+
   if (!open) return null;
 
   const overlay = {
@@ -44,12 +56,12 @@ export default function ConfirmModal({
   };
 
   return (
-    <div style={overlay} onClick={onCancel}>
-      <div style={modal} onClick={e => e.stopPropagation()}>
+    <div style={overlay} onClick={onCancel} role="presentation">
+      <div style={modal} onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         {/* Ícono + Título */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <span style={{ fontSize: 22 }}>{danger ? "⚠️" : "❓"}</span>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>{title}</h2>
+          <h2 id="confirm-modal-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>{title}</h2>
         </div>
 
         {/* Mensaje */}
@@ -62,6 +74,7 @@ export default function ConfirmModal({
         {/* Botones */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button
+            ref={cancelBtnRef}
             style={{ ...btnBase, background: "#F3F4F6", color: "#374151" }}
             onClick={onCancel}
           >
