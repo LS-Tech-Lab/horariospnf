@@ -155,7 +155,15 @@ export default function useAppData() {
       const { nombre_raw: targetRaw, nombre_display: canonicalDisplay } = existing[0];
       const { error: rpcError } = await supabase.rpc("replace_nombre_en_clases", { old_raw: rawName, new_raw: targetRaw });
       if (rpcError) throw new Error(`Error al unificar en horarios: ${rpcError.message}`);
-      await supabase.from(tableName).delete().eq("nombre_raw", rawName);
+      // Si esta limpieza falla, no abortamos: la unificación en "horarios" (el dato
+      // importante) ya se completó. Solo quedaría un registro huérfano de nombre
+      // en `tableName`, que no afecta la app (getDocName/getMateriaName usan
+      // nombre_raw como clave y targetRaw ya es el que se usará en adelante).
+      // Lo registramos para poder limpiarlo manualmente si se acumula.
+      const { error: deleteError } = await supabase.from(tableName).delete().eq("nombre_raw", rawName);
+      if (deleteError) {
+        console.warn(`No se pudo eliminar el registro huérfano "${rawName}" de "${tableName}":`, deleteError.message);
+      }
       return { targetRaw, canonicalDisplay };
     }
     return null;
@@ -358,8 +366,23 @@ export default function useAppData() {
           }
         }
       }
-      if (!allRows.length) { setError("No se encontraron datos válidos."); setUploading(false); return; }
-      const { data: existingData } = await supabase.from("horarios").select("sheet, dia, hora, clase, programa");
+      if (!allRows.length) {
+        setError("No se encontraron datos válidos.");
+        showToast("⚠️ No se encontraron datos válidos en el archivo.", "warning");
+        setUploading(false);
+        return;
+      }
+      // Optimización: en lugar de traer TODA la tabla "horarios" para deduplicar
+      // en cliente (costoso cuando la tabla crece), filtramos por las hojas
+      // (`sheet`) y programas presentes en el archivo subido, que es el único
+      // subconjunto relevante para detectar duplicados de esta carga.
+      const sheetsEnArchivo = [...new Set(allRows.map(r => r.sheet))];
+      const programasEnArchivo = [...new Set(allRows.map(r => r.programa))];
+      const { data: existingData } = await supabase
+        .from("horarios")
+        .select("sheet, dia, hora, clase, programa")
+        .in("sheet", sheetsEnArchivo)
+        .in("programa", programasEnArchivo);
       const existingKeys = new Set(existingData?.map(r => `${r.sheet}|${r.dia}|${r.hora}|${r.clase}|${r.programa}`) || []);
       const newRows = allRows.filter(r => !existingKeys.has(`${r.sheet}|${r.dia}|${r.hora}|${r.clase}|${r.programa}`));
       if (!newRows.length) { showToast("⚠️ Sin registros nuevos.", "warning"); setUploading(false); return; }
