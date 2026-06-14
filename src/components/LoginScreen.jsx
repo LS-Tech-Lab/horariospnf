@@ -3,6 +3,8 @@ import { supabase } from "../lib/supabase";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 60;
+const LOCKOUT_STORAGE_KEY = "login_lockout_until";
+const ATTEMPTS_STORAGE_KEY = "login_failed_attempts";
 
 function getAuthErrorMessage(error) {
   const msg = (error?.message || "").toLowerCase();
@@ -26,13 +28,52 @@ function getAuthErrorMessage(error) {
   return error?.message || "No se pudo iniciar sesión. Intenta de nuevo.";
 }
 
+// El bloqueo por intentos fallidos se persiste en localStorage para que
+// sobreviva recargas de página (F5) y no se pueda eludir simplemente
+// refrescando el navegador. La protección real contra brute force la
+// aplica Supabase Auth en el backend; esto es una capa adicional de UX.
+function readStoredLockout() {
+  try {
+    const until = parseInt(localStorage.getItem(LOCKOUT_STORAGE_KEY) || "0", 10);
+    return until > Date.now() ? until : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredAttempts() {
+  try {
+    return parseInt(localStorage.getItem(ATTEMPTS_STORAGE_KEY) || "0", 10);
+  } catch {
+    return 0;
+  }
+}
+
+function persistLockout(until) {
+  try {
+    if (until) localStorage.setItem(LOCKOUT_STORAGE_KEY, String(until));
+    else localStorage.removeItem(LOCKOUT_STORAGE_KEY);
+  } catch { /* localStorage no disponible (modo privado, etc.) — degradamos sin persistencia */ }
+}
+
+function persistAttempts(n) {
+  try {
+    if (n > 0) localStorage.setItem(ATTEMPTS_STORAGE_KEY, String(n));
+    else localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
+  } catch { /* idem */ }
+}
+
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockedUntil, setLockedUntil] = useState(null);
+  const [failedAttempts, setFailedAttempts] = useState(() => {
+    // Si hay un lockout activo persistido, los intentos también se restauran;
+    // si el lockout ya expiró, no tiene sentido arrastrar el contador.
+    return readStoredLockout() ? readStoredAttempts() : 0;
+  });
+  const [lockedUntil, setLockedUntil] = useState(() => readStoredLockout());
   const [remaining, setRemaining] = useState(0);
   const timerRef = useRef(null);
 
@@ -44,6 +85,8 @@ export default function LoginScreen() {
       if (secsLeft <= 0) {
         setLockedUntil(null);
         setFailedAttempts(0);
+        persistLockout(null);
+        persistAttempts(0);
         clearInterval(timerRef.current);
       }
     };
@@ -69,11 +112,16 @@ export default function LoginScreen() {
       setError(getAuthErrorMessage(error));
       const nextAttempts = failedAttempts + 1;
       setFailedAttempts(nextAttempts);
+      persistAttempts(nextAttempts);
       if (nextAttempts >= MAX_ATTEMPTS) {
-        setLockedUntil(Date.now() + LOCKOUT_SECONDS * 1000);
+        const until = Date.now() + LOCKOUT_SECONDS * 1000;
+        setLockedUntil(until);
+        persistLockout(until);
       }
     } else {
       setFailedAttempts(0);
+      persistAttempts(0);
+      persistLockout(null);
     }
     setLoading(false);
   };
@@ -113,6 +161,7 @@ export default function LoginScreen() {
               required
               disabled={isLocked}
               placeholder="admin@ejemplo.com"
+              autoComplete="email"
               onFocus={e => { e.target.style.borderColor = "#2563EB"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
               onBlur={e  => { e.target.style.borderColor = "#D1D5DB"; e.target.style.boxShadow = "none"; }}
               style={{
@@ -135,6 +184,7 @@ export default function LoginScreen() {
               required
               disabled={isLocked}
               placeholder="••••••••"
+              autoComplete="current-password"
               onFocus={e => { e.target.style.borderColor = "#2563EB"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
               onBlur={e  => { e.target.style.borderColor = "#D1D5DB"; e.target.style.boxShadow = "none"; }}
               style={{
