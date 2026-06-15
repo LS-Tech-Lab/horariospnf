@@ -142,7 +142,6 @@ const GLOBAL_CSS = `
 // ── Admin dropdown ────────────────────────────────────────────────────────────
 function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef }) {
   const ref = useRef(null);
-  const backupRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
@@ -226,7 +225,7 @@ export default function App() {
   const [hovered,    setHovered]    = useState(false);
   const [pinned,     setPinned]     = useState(() => localStorage.getItem("sb_pinned") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
-const [adminOpen,  setAdminOpen]  = useState(false);
+  const [adminOpen,  setAdminOpen]  = useState(false);
 
   // Refs de los <input type="file"> para "Cargar Excel" y "Restaurar
   // backup". Viven aquí (en App, que no se desmonta al cerrar el menú
@@ -236,7 +235,9 @@ const [adminOpen,  setAdminOpen]  = useState(false);
   // el selector de archivos del sistema está abierto destruye el nodo
   // <input> antes de que el evento "change" pueda dispararse, y la
   // selección de archivo se pierde silenciosamente (sin error visible).
-  const fileRef = useRef(null);
+  const fileRef   = useRef(null);
+  const backupRef = useRef(null);
+
   const expanded = pinned || hovered || mobileOpen;
 
   const togglePin = () => {
