@@ -1,11 +1,12 @@
-import { DAYS, ALL_TRAYECTOS, DEFAULT_PROGRAMAS } from "../constants";
-import { timeToMin } from "../utils/time";
+import { ALL_TRAYECTOS, DEFAULT_PROGRAMAS } from "../constants";
 import { getTurnoByCodigo, normalizeTurno } from "../utils/turno";
 import { normalizarPrograma, parseClase } from "../utils/parsing";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
+import { suscribirCambiosRemotos } from "../lib/realtime";
+import useConflictos from "./useConflictos";
 import {
   guardarEnCache, cargarDeCache,
   CACHE_KEYS, limpiarCache, obtenerUltimaSincronizacion, validarVersionCache
@@ -105,7 +106,7 @@ export default function useAppData(lapso) {
     setIsSyncing(false);
   }, [selectedPrograma, lapso, cacheKey, showToast]);
 
-  const fetchDocenteNames = async () => {
+  const fetchDocenteNames = useCallback(async () => {
     const cachedDocentes = cargarDeCache(CACHE_KEYS.docentes);
     if (cachedDocentes) setDocenteNames(cachedDocentes);
     try {
@@ -120,9 +121,9 @@ export default function useAppData(lapso) {
       console.warn("Error fetching docentes:", err);
       if (cachedDocentes) setDocenteNames(cachedDocentes);
     }
-  };
+  }, []);
 
-  const fetchMateriaNames = async () => {
+  const fetchMateriaNames = useCallback(async () => {
     const cachedMaterias = cargarDeCache(CACHE_KEYS.materias);
     if (cachedMaterias) setMateriaNames(cachedMaterias);
     try {
@@ -137,7 +138,7 @@ export default function useAppData(lapso) {
       console.warn("Error fetching materias:", err);
       if (cachedMaterias) setMateriaNames(cachedMaterias);
     }
-  };
+  }, []);
 
   useEffect(() => { fetchProgramas(lapso); fetchDocenteNames(); fetchMateriaNames(); }, [lapso]);
   useEffect(() => { fetchHorarios(selectedPrograma); }, [selectedPrograma, lapso, fetchHorarios]);
@@ -155,8 +156,52 @@ export default function useAppData(lapso) {
     window.addEventListener("offline", handleOffline);
     return () => { window.removeEventListener("online", handleOnline); window.removeEventListener("offline", handleOffline); };
   }, [selectedPrograma, fetchHorarios, showToast]);
+  // ── Realtime: invalidar caché y refrescar cuando otro cliente cambia
+  // horarios/docentes/materias (Prioridad 8) ────────────────────────────
+  // Solo se activa con usuario autenticado y conexión disponible; evita
+  // suscripciones innecesarias en la pantalla de login o en modo offline.
+  const [conflictsRefreshKey, setConflictsRefreshKey] = useState(0);
 
-  const unifyName = async (tableName, rawName, newDisplayName) => {
+  useEffect(() => {
+    if (!user) return;
+
+    const cancelar = suscribirCambiosRemotos({
+      lapso,
+      onHorariosChange: () => {
+        // Limpiamos el caché de este lapso para forzar datos frescos
+        limpiarCache();
+        fetchHorarios(selectedPrograma);
+        setConflictsRefreshKey(k => k + 1);
+        showToast("🔄 Horarios actualizados por otro usuario.", "info");
+      },
+      onDocentesChange: () => {
+        fetchDocenteNames();
+        setConflictsRefreshKey(k => k + 1);
+      },
+      onMateriasChange: () => {
+        fetchMateriaNames();
+      },
+    });
+
+    return cancelar;
+  }, [user, lapso, selectedPrograma, fetchHorarios, fetchDocenteNames, fetchMateriaNames, showToast]);
+
+
+  // ── Unificación / renombrado de docentes y materias (Prioridad 6) ──────
+  // Antes: unifyName hacía 3 llamadas secuenciales no transaccionales
+  // (select -> rpc replace_nombre_en_clases -> delete), pudiendo dejar
+  // datos inconsistentes si fallaba a mitad de camino.
+  //
+  // Ahora: se intenta primero la RPC transaccional renombrar_docente /
+  // renombrar_materia (ver supabase/migrations/0002_*), que opera sobre
+  // docente_id/materia_id (FKs reales de la migración 0001) y hace todo
+  // en una sola transacción SQL: o bien renombra, o bien repunta las FKs
+  // del duplicado al registro canónico y borra el duplicado.
+  //
+  // Fallback: si la RPC no existe (entorno sin migrar), se usa el flujo
+  // legacy anterior (unifyName + upsert) para no romper despliegues
+  // pendientes de migración.
+  const unifyNameLegacy = async (tableName, rawName, newDisplayName) => {
     const { data: existing } = await supabase.from(tableName).select("nombre_raw, nombre_display").ilike("nombre_display", newDisplayName.trim()).neq("nombre_raw", rawName).limit(1);
     if (existing?.length > 0) {
       const { nombre_raw: targetRaw, nombre_display: canonicalDisplay } = existing[0];
@@ -173,8 +218,33 @@ export default function useAppData(lapso) {
 
   const saveDocenteName = async (rawName, displayName) => {
     try {
-      const unified = await unifyName("docentes", rawName, displayName);
-      if (unified) { showToast("✅ Docente unificado.", "success"); await fetchDocenteNames(); await fetchHorarios(); return { success: true, targetRaw: unified.targetRaw }; }
+      // Necesitamos el id del docente (clave de las nuevas RPCs); se
+      // busca por nombre_raw, que sigue siendo único.
+      const { data: docenteRow, error: findError } = await supabase
+        .from("docentes").select("id").eq("nombre_raw", rawName).maybeSingle();
+
+      if (!findError && docenteRow?.id) {
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc("renombrar_docente", { p_id: docenteRow.id, p_nuevo_nombre: displayName.trim() });
+
+        if (!rpcError) {
+          const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+          if (result?.unificado_con) {
+            showToast("✅ Docente unificado.", "success");
+          } else {
+            showToast("✅ Docente actualizado.", "success");
+          }
+          await fetchDocenteNames();
+          await fetchHorarios();
+          setConflictsRefreshKey(k => k + 1);
+          return { success: true };
+        }
+        console.warn("renombrar_docente no disponible, usando flujo legacy:", rpcError.message);
+      }
+
+      // Fallback legacy (RPC no disponible / migraciones no aplicadas)
+      const unified = await unifyNameLegacy("docentes", rawName, displayName);
+      if (unified) { showToast("✅ Docente unificado.", "success"); await fetchDocenteNames(); await fetchHorarios(); setConflictsRefreshKey(k => k + 1); return { success: true, targetRaw: unified.targetRaw }; }
       await supabase.from("docentes").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
       setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
       showToast("✅ Docente actualizado.", "success"); return { success: true };
@@ -183,7 +253,29 @@ export default function useAppData(lapso) {
 
   const saveMateriaName = async (rawName, displayName) => {
     try {
-      const unified = await unifyName("materias", rawName, displayName);
+      const { data: materiaRow, error: findError } = await supabase
+        .from("materias").select("id").eq("nombre_raw", rawName).maybeSingle();
+
+      if (!findError && materiaRow?.id) {
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc("renombrar_materia", { p_id: materiaRow.id, p_nuevo_nombre: displayName.trim() });
+
+        if (!rpcError) {
+          const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+          if (result?.unificado_con) {
+            showToast("✅ Materia unificada.", "success");
+          } else {
+            showToast("✅ Materia actualizada.", "success");
+          }
+          await fetchMateriaNames();
+          await fetchHorarios();
+          return { success: true };
+        }
+        console.warn("renombrar_materia no disponible, usando flujo legacy:", rpcError.message);
+      }
+
+      // Fallback legacy
+      const unified = await unifyNameLegacy("materias", rawName, displayName);
       if (unified) { showToast("✅ Materia unificada.", "success"); await fetchMateriaNames(); await fetchHorarios(); return { success: true, targetRaw: unified.targetRaw }; }
       await supabase.from("materias").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
       setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
@@ -387,6 +479,17 @@ export default function useAppData(lapso) {
       }
       const sheetsEnArchivo = [...new Set(allRows.map(r => r.sheet))];
       const programasEnArchivo = [...new Set(allRows.map(r => r.programa))];
+
+      // Prioridad 7: garantizar que exista la partición de "horarios"
+      // para este lapso antes de insertar (asegurar_particion_lapso es
+      // idempotente; ver supabase/migrations/0003_*). Si la RPC no
+      // existe (entorno sin migrar / tabla no particionada), se ignora
+      // el error y el insert sigue funcionando contra la tabla normal.
+      if (lapso) {
+        const { error: partError } = await supabase.rpc("asegurar_particion_lapso", { p_lapso: lapso });
+        if (partError) console.warn("asegurar_particion_lapso no disponible:", partError.message);
+      }
+
       let dupQuery = supabase.from("horarios").select("sheet, dia, hora, clase, programa").in("sheet", sheetsEnArchivo).in("programa", programasEnArchivo);
       if (lapso) dupQuery = dupQuery.eq("lapso", lapso);
       const { data: existingData } = await dupQuery;
@@ -407,6 +510,10 @@ export default function useAppData(lapso) {
         if (matsArray.length) await supabase.from("materias").upsert(matsArray, { onConflict: "nombre_raw" });
         await fetchDocenteNames();
         await fetchMateriaNames();
+        // El trigger de la migración 0001 resuelve docente_id/materia_id
+        // automáticamente al insertar; refrescamos conflictos para que
+        // la nueva carga se refleje en la vista de Conflictos.
+        setConflictsRefreshKey(k => k + 1);
       }
       setUploading(false);
     };
@@ -428,44 +535,13 @@ export default function useAppData(lapso) {
     return m;
   }, [data]);
 
-  const conflicts = useMemo(() => {
-    const issues = [];
-    const parseRango = (hora) => {
-      if (!hora) return null;
-      const parts = hora.trim().split(/[-–]/);
-      const inicio = timeToMin(parts[0]?.trim());
-      if (inicio === 0) return null;
-      const fin = parts[1] ? timeToMin(parts[1]?.trim()) : inicio + 45;
-      return { inicio, fin: fin > inicio ? fin : inicio + 45 };
-    };
-    const solapan = (a, b) => a.inicio < b.fin && b.inicio < a.fin;
-    const tienenConflicto = (entA, entB) => {
-      const ra = parseRango(entA.hora);
-      const rb = parseRango(entB.hora);
-      if (ra && rb) return solapan(ra, rb);
-      return entA.hora?.trim() === entB.hora?.trim();
-    };
-    Object.entries(byDocente).forEach(([doc, entries]) => {
-      DAYS.forEach(day => {
-        const enDia = entries.filter(e => e.dia === day);
-        if (enDia.length < 2) return;
-        for (let i = 0; i < enDia.length; i++) {
-          for (let j = i + 1; j < enDia.length; j++) {
-            const a = enDia[i], b = enDia[j];
-            if (!tienenConflicto(a, b)) continue;
-            const grupoExistente = issues.find(c => c.docente === doc && c.dia === day && (c.entries.includes(a) || c.entries.includes(b)));
-            if (grupoExistente) {
-              if (!grupoExistente.entries.includes(a)) grupoExistente.entries.push(a);
-              if (!grupoExistente.entries.includes(b)) grupoExistente.entries.push(b);
-            } else {
-              issues.push({ docente: doc, dia: day, hora: a.hora, entries: [a, b] });
-            }
-          }
-        }
-      });
-    });
-    return issues;
-  }, [byDocente]);
+  // Conflictos calculados en SQL (Prioridad 3): conflictos_horario_detalle
+  // resuelve solapamientos en la base de datos, filtrado por lapso y
+  // programa. Si la RPC no está disponible (entorno sin migrar), cae
+  // automáticamente al cálculo local sobre `data`.
+  const { conflicts, usingFallback: usingFallbackConflicts, refetchConflictos } = useConflictos({
+    lapso, selectedPrograma, data, refreshKey: conflictsRefreshKey,
+  });
 
   const allTrayectos = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -488,10 +564,10 @@ export default function useAppData(lapso) {
   return {
     user, loading, isSyncing, uploading, error, selectedPrograma, setSelectedPrograma,
     programasDisponibles, data, docenteNames, materiaNames,
-    byDocente, byMateria, conflicts, stats, allTrayectos,
+    byDocente, byMateria, conflicts, usingFallbackConflicts, refetchConflictos, stats, allTrayectos,
     isOffline, lastSync, toast, showToast, hideToast,
     confirmModal, openConfirm, closeConfirm,
     handleLogout, handleFileUpload, exportarDatos, importarDatos, clearAllData,
     saveDocenteName, saveMateriaName, getDocName, getMateriaName,
   };
-}
+          }
