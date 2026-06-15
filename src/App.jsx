@@ -140,7 +140,7 @@ const GLOBAL_CSS = `
 `;
 
 // ── Admin dropdown ────────────────────────────────────────────────────────────
-function AdminMenu({ appData, onClose, modoConsulta }) {
+function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef }) {
   const ref = useRef(null);
   const fileRef = useRef(null);
   const backupRef = useRef(null);
@@ -160,15 +160,11 @@ function AdminMenu({ appData, onClose, modoConsulta }) {
         Datos del trimestre
       </div>
 
-      {!modoConsulta && (
-        <>
-          <button className="admin-item" disabled={disabled}
-            onClick={() => { fileRef.current?.click(); setTimeout(onClose, 0); }}>
-            <span>📂</span> Cargar Excel
-          </button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
-            onChange={e => { if (e.target.files[0]) appData.handleFileUpload(e.target.files[0]); e.target.value = ""; }} />
-        </>
+     {!modoConsulta && (
+        <button className="admin-item" disabled={disabled}
+          onClick={() => { fileRef.current?.click(); setTimeout(onClose, 0); }}>
+          <span>📂</span> Cargar Excel
+        </button>
       )}
 
       <button className="admin-item" disabled={disabled || !appData.data.length}
@@ -177,14 +173,10 @@ function AdminMenu({ appData, onClose, modoConsulta }) {
       </button>
 
       {!modoConsulta && (
-        <>
-          <button className="admin-item" disabled={disabled}
-            onClick={() => backupRef.current?.click()}>
-            <span>📥</span> Restaurar backup
-          </button>
-          <input ref={backupRef} type="file" accept=".json" style={{ display: "none" }}
-            onChange={e => { if (e.target.files[0]) { appData.importarDatos(e.target.files[0]); onClose(); } e.target.value = ""; }} />
-        </>
+        <button className="admin-item" disabled={disabled}
+          onClick={() => { backupRef.current?.click(); setTimeout(onClose, 0); }}>
+          <span>📥</span> Restaurar backup
+        </button>
       )}
 
       {!modoConsulta && (
@@ -235,8 +227,18 @@ export default function App() {
   const [hovered,    setHovered]    = useState(false);
   const [pinned,     setPinned]     = useState(() => localStorage.getItem("sb_pinned") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [adminOpen,  setAdminOpen]  = useState(false);
+const [adminOpen,  setAdminOpen]  = useState(false);
 
+  // Refs de los <input type="file"> para "Cargar Excel" y "Restaurar
+  // backup". Viven aquí (en App, que no se desmonta al cerrar el menú
+  // admin) en vez de dentro de AdminMenu, porque AdminMenu se renderiza
+  // condicionalmente ({adminOpen && <AdminMenu/>}). Si el input vive
+  // dentro de AdminMenu, cualquier re-render que cierre el menú mientras
+  // el selector de archivos del sistema está abierto destruye el nodo
+  // <input> antes de que el evento "change" pueda dispararse, y la
+  // selección de archivo se pierde silenciosamente (sin error visible).
+  const fileRef = useRef(null);
+  const backupRef = useRef(null);
   const expanded = pinned || hovered || mobileOpen;
 
   const togglePin = () => {
@@ -452,8 +454,18 @@ export default function App() {
             appData={appData}
             modoConsulta={modoConsulta}
             onClose={() => setAdminOpen(false)}
+            fileRef={fileRef}
+            backupRef={backupRef}
           />
         )}
+
+        {/* Inputs de archivo: viven fuera de AdminMenu para no perder la
+            selección si el menú se cierra mientras el selector del
+            sistema está abierto (ver comentario junto a fileRef arriba). */}
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
+          onChange={e => { if (e.target.files[0]) appData.handleFileUpload(e.target.files[0]); e.target.value = ""; }} />
+        <input ref={backupRef} type="file" accept=".json" style={{ display: "none" }}
+          onChange={e => { if (e.target.files[0]) appData.importarDatos(e.target.files[0]); e.target.value = ""; }} />
 
         {/* Footer: botón admin + usuario */}
         <div style={{ borderTop:"1px solid #1E293B", padding:"8px 8px", flexShrink:0 }}>
