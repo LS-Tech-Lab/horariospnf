@@ -142,8 +142,6 @@ const GLOBAL_CSS = `
 // ── Admin dropdown ────────────────────────────────────────────────────────────
 function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef }) {
   const ref = useRef(null);
-  const fileRef = useRef(null);
-  const backupRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
