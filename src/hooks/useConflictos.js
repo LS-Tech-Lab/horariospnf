@@ -15,65 +15,15 @@
 // se recurre al cálculo local equivalente al que tenía useAppData, para
 // no romper la app en despliegues que aún no aplicaron las migraciones
 // de supabase/migrations/.
+//
+// Mejora 9: calcularConflictosLocal se extrajo a utils/conflictos.js
+// como función pura, para poder testearla con Vitest sin montar el hook.
 // =====================================================================
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import { DAYS } from "../constants";
-import { timeToMin } from "../utils/time";
 import { parseClase } from "../utils/parsing";
-
-// ---- Fallback local (idéntico al comportamiento previo de useAppData) ----
-function calcularConflictosLocal(data) {
-  const byDocente = {};
-  (data || []).forEach((d) => {
-    const { docente } = parseClase(d.clase);
-    if (docente) {
-      if (!byDocente[docente]) byDocente[docente] = [];
-      byDocente[docente].push(d);
-    }
-  });
-
-  const issues = [];
-  const parseRango = (hora) => {
-    if (!hora) return null;
-    const parts = hora.trim().split(/[-–]/);
-    const inicio = timeToMin(parts[0]?.trim());
-    if (inicio === 0) return null;
-    const fin = parts[1] ? timeToMin(parts[1]?.trim()) : inicio + 45;
-    return { inicio, fin: fin > inicio ? fin : inicio + 45 };
-  };
-  const solapan = (a, b) => a.inicio < b.fin && b.inicio < a.fin;
-  const tienenConflicto = (entA, entB) => {
-    const ra = parseRango(entA.hora);
-    const rb = parseRango(entB.hora);
-    if (ra && rb) return solapan(ra, rb);
-    return entA.hora?.trim() === entB.hora?.trim();
-  };
-
-  Object.entries(byDocente).forEach(([doc, entries]) => {
-    DAYS.forEach((day) => {
-      const enDia = entries.filter((e) => e.dia === day);
-      if (enDia.length < 2) return;
-      for (let i = 0; i < enDia.length; i++) {
-        for (let j = i + 1; j < enDia.length; j++) {
-          const a = enDia[i], b = enDia[j];
-          if (!tienenConflicto(a, b)) continue;
-          const grupoExistente = issues.find(
-            (c) => c.docente === doc && c.dia === day && (c.entries.includes(a) || c.entries.includes(b))
-          );
-          if (grupoExistente) {
-            if (!grupoExistente.entries.includes(a)) grupoExistente.entries.push(a);
-            if (!grupoExistente.entries.includes(b)) grupoExistente.entries.push(b);
-          } else {
-            issues.push({ docente: doc, dia: day, hora: a.hora, entries: [a, b] });
-          }
-        }
-      }
-    });
-  });
-  return issues;
-}
+import { calcularConflictosLocal } from "../utils/conflictos";
 
 /**
  * Adapta el resultado de conflictos_horario_detalle (filas por par de
@@ -86,10 +36,6 @@ function adaptarFilasRpc(rows) {
   (rows || []).forEach((row) => {
     const a = row.horario_a;
     const b = row.horario_b;
-    // `docente` (raw) se necesita porque ConflictosView/DocentesView
-    // navegan y comparan por el valor "raw" de docente, no por id.
-    // Mientras el frontend siga usando parseClase para mostrar nombres,
-    // derivamos el raw desde clase_raw/clase de cualquiera de las dos filas.
     const rawDocente = parseClase(a?.clase || a?.clase_raw).docente
       || parseClase(b?.clase || b?.clase_raw).docente
       || row.docente_nombre;
@@ -134,9 +80,6 @@ export default function useConflictos({ lapso, selectedPrograma, data, refreshKe
       setConflicts(adaptarFilasRpc(rows));
       setUsingFallback(false);
     } catch (err) {
-      // La RPC puede no existir aún (entorno sin migrar) o fallar por
-      // cualquier otra razón: se cae al cálculo local sobre `data`,
-      // que ya está filtrado por lapso/programa en el cliente.
       console.warn("conflictos_horario_detalle no disponible, usando cálculo local:", err.message);
       setConflicts(calcularConflictosLocal(data));
       setUsingFallback(true);
@@ -150,4 +93,4 @@ export default function useConflictos({ lapso, selectedPrograma, data, refreshKe
   }, [fetchConflictos, refreshKey]);
 
   return { conflicts, loading, usingFallback, refetchConflictos: fetchConflictos };
-  }
+}
