@@ -4,7 +4,12 @@ export function parseClase(clase) {
   if (!clase || typeof clase !== "string") return { materia: "", docente: "" };
   const trimmed = clase.trim();
   if (!trimmed) return { materia: "", docente: "" };
-  const parts = trimmed.split(/\s+(?:Profes?\.?|Prof\.?)\s+/i);
+  // Mejora 9: el regex original no contemplaba "Profa." (forma femenina),
+  // detectado al escribir tests de cobertura — separaba "Materia Profa.
+  // Nombre" como una sola cadena en lugar de dividir materia/docente.
+  // Orden de alternancia importante: "Profes?" antes que "Prof" evita que
+  // "Profe"/"Profes" colapse prematuramente; "Profa?" cubre "Prof"/"Profa".
+  const parts = trimmed.split(/\s+(?:Profes?\.?|Profa\.?|Prof\.?)\s+/i);
   return { materia: parts[0].trim(), docente: parts[1] ? parts[1].trim() : "" };
 }
 
