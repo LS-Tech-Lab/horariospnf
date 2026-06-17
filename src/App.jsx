@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import useAppData from "./hooks/useAppData";
 import useHorariosFilters from "./hooks/useHorariosFilters";
+import useAuth from "./hooks/useAuth";
 import LoginScreen from "./components/LoginScreen";
 import GlobalSearch from "./components/GlobalSearch";
 import Toast from "./components/Toast";
@@ -12,35 +13,46 @@ import MateriasView from "./components/MateriasView";
 import AsistenciasView from "./components/AsistenciasView";
 import ConfirmModal from "./components/ConfirmModal";
 import HistorialView from "./components/HistorialView";
+import UsuariosView from "./components/UsuariosView";
+import LogsView from "./components/LogsView";
 import { S } from "./constants";
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "./utils/lapso";
 import { supabase, supabaseConfigError } from "./lib/supabase";
 
 // ── Grupos de navegación ──────────────────────────────────────────────────────
-const NAV_GROUPS = [
-  {
-    label: "Consulta",
-    items: [
-      { id: "resumen",    emoji: "📊", label: "Resumen"     },
-      { id: "horarios",  emoji: "📅", label: "Horarios"    },
-      { id: "secciones", emoji: "🏫", label: "Secciones"   },
-    ],
-  },
-  {
-    label: "Académico",
-    items: [
-      { id: "docentes",    emoji: "👥", label: "Docentes"    },
-      { id: "materias",    emoji: "📖", label: "Materias"    },
-      { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      { id: "historial",  emoji: "🗂️", label: "Historial"  },
-    ],
-  },
-];
+// Se recalculan según permisos en el componente App
+function buildNavGroups(permisos) {
+  const grupos = [
+    {
+      label: "Consulta",
+      items: [
+        { id: "resumen",    emoji: "📊", label: "Resumen"   },
+        { id: "horarios",  emoji: "📅", label: "Horarios"   },
+        { id: "secciones", emoji: "🏫", label: "Secciones"  },
+      ],
+    },
+    {
+      label: "Académico",
+      items: [
+        { id: "docentes",    emoji: "👥", label: "Docentes"    },
+        { id: "materias",    emoji: "📖", label: "Materias"    },
+        { id: "asistencias", emoji: "🖨️", label: "Asistencias" },
+      ],
+    },
+  ];
+
+  const sistema = { label: "Sistema", items: [] };
+  sistema.items.push({ id: "historial", emoji: "🗂️", label: "Historial" });
+  if (permisos.puedeVerLogs) {
+    sistema.items.push({ id: "logs", emoji: "🔐", label: "Registros" });
+  }
+  if (permisos.puedeGestionarUsuarios) {
+    sistema.items.push({ id: "usuarios", emoji: "👑", label: "Usuarios" });
+  }
+  grupos.push(sistema);
+
+  return grupos;
+}
 
 // ── Estilos globales ──────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
@@ -52,7 +64,6 @@ const GLOBAL_CSS = `
   .sb-collapsed { width: 56px !important; }
   .sb-expanded  { width: 220px !important; }
 
-  /* Etiquetas y separadores en sidebar */
   .sb-label { transition: opacity 0.15s, width 0.15s; white-space: nowrap; overflow: hidden; }
   .sb-collapsed .sb-label  { opacity: 0; width: 0; }
   .sb-expanded  .sb-label  { opacity: 1; }
@@ -72,7 +83,6 @@ const GLOBAL_CSS = `
   .nav-item.active { background: #1E3A8A; color: #93C5FD; font-weight: 600;
                      border-left: 2px solid #3B82F6; }
 
-  /* Tooltip cuando colapsado */
   .nav-item .tooltip {
     display: none; position: absolute; left: 52px; top: 50%;
     transform: translateY(-50%);
@@ -139,8 +149,16 @@ const GLOBAL_CSS = `
   @keyframes spin { to { transform: rotate(360deg); } }
 `;
 
+// ── Etiqueta de rol en el sidebar ─────────────────────────────────────────────
+const ROL_SIDEBAR = {
+  admin:          { label: "Administrador",  color: "#A78BFA" },
+  coordinador:    { label: "Coordinador",    color: "#60A5FA" },
+  secretario:     { label: "Secretario",     color: "#34D399" },
+  administrativo: { label: "Administrativo", color: "#94A3B8" },
+};
+
 // ── Admin dropdown ────────────────────────────────────────────────────────────
-function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef }) {
+function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef, permisos }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -150,37 +168,45 @@ function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef }) {
   }, [onClose]);
 
   const disabled = appData.uploading || appData.loading;
+  const puedeEscribir = !modoConsulta && (permisos.puedeImportarExcel || permisos.puedeEditarHorarios);
 
   return (
     <div ref={ref} className="admin-menu">
-      {/* Sección: datos */}
-      <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", padding: "4px 10px 6px" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase",
+        letterSpacing: "0.08em", padding: "4px 10px 6px" }}>
         Datos del trimestre
       </div>
 
-     {!modoConsulta && (
+      {/* Cargar Excel: solo quien puede importar */}
+      {!modoConsulta && permisos.puedeImportarExcel && (
         <button className="admin-item" disabled={disabled}
           onClick={() => { fileRef.current?.click(); setTimeout(onClose, 0); }}>
           <span>📂</span> Cargar Excel
         </button>
       )}
 
-      <button className="admin-item" disabled={disabled || !appData.data.length}
-        onClick={() => { appData.exportarDatos(); onClose(); }}>
-        <span>💾</span> Exportar backup
-      </button>
+      {/* Exportar backup */}
+      {permisos.puedeHacerBackup && (
+        <button className="admin-item" disabled={disabled || !appData.data.length}
+          onClick={() => { appData.exportarDatos(); onClose(); }}>
+          <span>💾</span> Exportar backup
+        </button>
+      )}
 
-      {!modoConsulta && (
+      {/* Restaurar backup: solo admin */}
+      {!modoConsulta && permisos.puedeRestaurarBackup && (
         <button className="admin-item" disabled={disabled}
           onClick={() => { backupRef.current?.click(); setTimeout(onClose, 0); }}>
           <span>📥</span> Restaurar backup
         </button>
       )}
 
-      {!modoConsulta && (
+      {/* Borrar datos: solo admin/coordinador */}
+      {!modoConsulta && permisos.puedeBorrarHorarios && (
         <>
           <div className="admin-divider" />
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", padding: "4px 10px 6px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase",
+            letterSpacing: "0.08em", padding: "4px 10px 6px" }}>
             Zona de peligro
           </div>
           <button className="admin-item danger" disabled={disabled || !appData.data.length}
@@ -212,6 +238,61 @@ function AdminMenu({ appData, onClose, modoConsulta, fileRef, backupRef }) {
   );
 }
 
+// ── Pantalla: cuenta desactivada ──────────────────────────────────────────────
+function CuentaDesactivada({ onLogout }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", height: "100vh",
+      background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
+      fontFamily: "system-ui, sans-serif", padding: 32 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "40px 32px",
+        maxWidth: 400, width: "100%", textAlign: "center",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
+        <h2 style={{ margin: "0 0 8px", fontSize: 20, color: "#111827" }}>Cuenta desactivada</h2>
+        <p style={{ margin: "0 0 24px", fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
+          Tu cuenta ha sido desactivada. Contacta al administrador del sistema para más información.
+        </p>
+        <button onClick={onLogout}
+          style={{ padding: "10px 24px", borderRadius: 8, border: "none",
+            background: "#2563EB", color: "#fff", cursor: "pointer",
+            fontSize: 14, fontWeight: 600 }}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Pantalla: sin perfil asignado ─────────────────────────────────────────────
+function SinPerfilAsignado({ onLogout }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", height: "100vh",
+      background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
+      fontFamily: "system-ui, sans-serif", padding: 32 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "40px 32px",
+        maxWidth: 420, width: "100%", textAlign: "center",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⚙️</div>
+        <h2 style={{ margin: "0 0 8px", fontSize: 20, color: "#111827" }}>
+          Perfil no configurado
+        </h2>
+        <p style={{ margin: "0 0 24px", fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
+          Tu cuenta existe pero aún no tiene un perfil de acceso asignado.
+          El administrador debe configurar tu rol en el sistema.
+        </p>
+        <button onClick={onLogout}
+          style={{ padding: "10px 24px", borderRadius: 8, border: "none",
+            background: "#374151", color: "#fff", cursor: "pointer",
+            fontSize: 14, fontWeight: 600 }}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function App() {
   const [view,        setView]        = useState("resumen");
@@ -221,22 +302,16 @@ export default function App() {
   const [lapso,       setLapso]       = useState(() => getCurrentLapso());
   const [modoConsulta,setModoConsulta]= useState(false);
 
-  // Sidebar state: expanded (hover o fijado), pinned (fijado por el usuario), mobileOpen
   const [hovered,    setHovered]    = useState(false);
   const [pinned,     setPinned]     = useState(() => localStorage.getItem("sb_pinned") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen,  setAdminOpen]  = useState(false);
 
-  // Refs de los <input type="file"> para "Cargar Excel" y "Restaurar
-  // backup". Viven aquí (en App, que no se desmonta al cerrar el menú
-  // admin) en vez de dentro de AdminMenu, porque AdminMenu se renderiza
-  // condicionalmente ({adminOpen && <AdminMenu/>}). Si el input vive
-  // dentro de AdminMenu, cualquier re-render que cierre el menú mientras
-  // el selector de archivos del sistema está abierto destruye el nodo
-  // <input> antes de que el evento "change" pueda dispararse, y la
-  // selección de archivo se pierde silenciosamente (sin error visible).
   const fileRef   = useRef(null);
   const backupRef = useRef(null);
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const { user, profile, permisos, loadingProfile, handleLogin, handleLogout, logAudit } = useAuth();
 
   const expanded = pinned || hovered || mobileOpen;
 
@@ -246,7 +321,7 @@ export default function App() {
     localStorage.setItem("sb_pinned", next ? "1" : "0");
   };
 
-  // Trimestre: detectar si es consulta histórica
+  // Detectar modo consulta histórica
   useEffect(() => {
     const check = async () => {
       const { data } = await supabase.from("trimestres").select("estado").eq("lapso", lapso).single();
@@ -255,13 +330,21 @@ export default function App() {
     check();
   }, [lapso]);
 
+  // Restringir programa automáticamente para secretarios
+  const appData = useAppData(lapso);
+
+  useEffect(() => {
+    if (permisos.puedeVerSoloSuPrograma && permisos.programaRestringido) {
+      appData.setSelectedPrograma(permisos.programaRestringido);
+    }
+  }, [permisos.puedeVerSoloSuPrograma, permisos.programaRestringido]);
+
+  const horariosFilters = useHorariosFilters(appData.data);
+
   const handleCambiarLapso = useCallback((nuevo) => {
     setLapso(nuevo);
     setView("resumen");
   }, []);
-
-  const appData        = useAppData(lapso);
-  const horariosFilters = useHorariosFilters(appData.data);
 
   const handleNavigate = (r) => {
     if (r.docente) { setDocenteNav(r.rawDocente || r.docente); setView("docentes"); }
@@ -274,22 +357,75 @@ export default function App() {
     setView("horarios");
   };
 
+  // Envolver operaciones de escritura con auditoría
+  const handleFileUploadAuditado = async (file) => {
+    await appData.handleFileUpload(file);
+    await logAudit({
+      accion:            "IMPORTAR_EXCEL",
+      entidad:           "horarios",
+      lapso,
+      programa_afectado: appData.selectedPrograma !== "todos" ? appData.selectedPrograma : null,
+      resumen:           `Importación Excel: ${file.name}`,
+    });
+  };
+
+  const handleExportarAuditado = async () => {
+    await appData.exportarDatos();
+    await logAudit({
+      accion:  "EXPORTAR_BACKUP",
+      entidad: "horarios",
+      lapso,
+      resumen: `Exportación de backup. Lapso: ${lapso}`,
+    });
+  };
+
+  const appDataAuditada = {
+    ...appData,
+    exportarDatos: handleExportarAuditado,
+  };
+
   // ── Guards ────────────────────────────────────────────────────────────────
   if (supabaseConfigError) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      height:"100vh", background:"#0F172A", color:"#E2E8F0", gap:16, padding:32, textAlign:"center", fontFamily:"system-ui,sans-serif" }}>
+      height:"100vh", background:"#0F172A", color:"#E2E8F0", gap:16, padding:32,
+      textAlign:"center", fontFamily:"system-ui,sans-serif" }}>
       <span style={{ fontSize:48 }}>⚠️</span>
       <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"#F1F5F9" }}>Configuración incompleta</h2>
-      <p style={{ margin:0, fontSize:14, color:"#94A3B8", maxWidth:460, lineHeight:1.6 }}>{supabaseConfigError}</p>
+      <p style={{ margin:0, fontSize:14, color:"#94A3B8", maxWidth:460, lineHeight:1.6 }}>
+        {supabaseConfigError}
+      </p>
     </div>
   );
-  if (appData.user === undefined) return (
+
+  // Cargando sesión
+  if (user === undefined) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh",
       background:"#0F172A", color:"#94A3B8", fontFamily:"system-ui,sans-serif", fontSize:15 }}>
       Verificando sesión…
     </div>
   );
-  if (!appData.user) return <LoginScreen />;
+
+  // Sin sesión → login
+  if (!user) return <LoginScreen />;
+
+  // Sesión activa pero cargando perfil
+  if (loadingProfile) return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      height:"100vh", background:"#0F172A", gap:16, fontFamily:"system-ui,sans-serif" }}>
+      <div style={{ width:32, height:32, border:"3px solid #1E3A5F", borderTop:"3px solid #3B82F6",
+        borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <span style={{ color:"#94A3B8", fontSize:14 }}>Cargando perfil…</span>
+    </div>
+  );
+
+  // Sin perfil asignado
+  if (!profile) return <SinPerfilAsignado onLogout={handleLogout} />;
+
+  // Cuenta desactivada
+  if (profile._desactivado) return <CuentaDesactivada onLogout={handleLogout} />;
+
+  // Datos cargando
   if (appData.loading && !appData.data.length) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       height:"100vh", background:"#0F172A", gap:16, fontFamily:"system-ui,sans-serif" }}>
@@ -300,8 +436,12 @@ export default function App() {
     </div>
   );
 
-  // Conflictos count para badge
+  const navGroups = buildNavGroups(permisos);
   const conflictCount = appData.conflicts.length;
+  const rolInfo = ROL_SIDEBAR[profile.rol] || { label: profile.rol, color: "#94A3B8" };
+
+  // Selector de programa: deshabilitado para secretarios
+  const puedeSeleccionarPrograma = !permisos.puedeVerSoloSuPrograma;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -309,7 +449,9 @@ export default function App() {
       background:"#F3F4F6", overflow:"hidden" }}>
       <style>{GLOBAL_CSS}</style>
 
-      {appData.toast && <Toast message={appData.toast.message} type={appData.toast.type} onClose={appData.hideToast} />}
+      {appData.toast && (
+        <Toast message={appData.toast.message} type={appData.toast.type} onClose={appData.hideToast} />
+      )}
       <ConfirmModal
         open={!!appData.confirmModal}
         title={appData.confirmModal?.title}
@@ -322,7 +464,8 @@ export default function App() {
 
       {/* Overlay móvil */}
       <div className="sb-overlay" onClick={() => setMobileOpen(false)}
-        style={{ display:"none", position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:299 }} />
+        style={{ display:"none", position:"fixed", inset:0,
+          background:"rgba(0,0,0,0.45)", zIndex:299 }} />
 
       {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
       <aside
@@ -341,8 +484,12 @@ export default function App() {
             🎓
           </div>
           <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
-            <div style={{ fontSize:13, fontWeight:700, color:"#F1F5F9", whiteSpace:"nowrap" }}>Horarios PNF</div>
-            <div style={{ fontSize:10, color:"#475569", marginTop:1, whiteSpace:"nowrap" }}>Sistema de gestión</div>
+            <div style={{ fontSize:13, fontWeight:700, color:"#F1F5F9", whiteSpace:"nowrap" }}>
+              Horarios PNF
+            </div>
+            <div style={{ fontSize:10, color:"#475569", marginTop:1, whiteSpace:"nowrap" }}>
+              Sistema de gestión
+            </div>
           </div>
           {expanded && (
             <button className={`pin-btn ${pinned ? "pinned" : ""}`} onClick={togglePin}
@@ -354,31 +501,31 @@ export default function App() {
 
         {/* Trimestre activo */}
         <div style={{ padding:"10px 10px 10px", borderBottom:"1px solid #1E293B", flexShrink:0 }}>
-          <div style={{ width:32, height:32, borderRadius:7, flexShrink:0,
-            background: modoConsulta ? "#451A03" : "#0C1A3A",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
-            cursor: modoConsulta ? "pointer" : "default",
-            ...(expanded ? { display:"none" } : {}) }}
-            onClick={() => modoConsulta && handleCambiarLapso(getCurrentLapso())}
-            title={modoConsulta ? `Historial: ${lapso} — clic para volver` : `Trimestre activo: ${lapso}`}
-          >
-            {modoConsulta ? "📂" : "📅"}
-          </div>
-          {expanded && (
+          {!expanded ? (
+            <div style={{ width:32, height:32, borderRadius:7, flexShrink:0,
+              background: modoConsulta ? "#451A03" : "#0C1A3A",
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
+              cursor: modoConsulta ? "pointer" : "default" }}
+              onClick={() => modoConsulta && handleCambiarLapso(getCurrentLapso())}
+              title={modoConsulta ? `Historial: ${lapso}` : `Trimestre activo: ${lapso}`}>
+              {modoConsulta ? "📂" : "📅"}
+            </div>
+          ) : (
             <div>
               <div style={{ fontSize:9, fontWeight:700, color:"#334155", textTransform:"uppercase",
                 letterSpacing:"0.08em", marginBottom:3 }}>
                 {modoConsulta ? "📂 Consultando historial" : "📅 Trimestre activo"}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ fontSize:13, fontWeight:700, color: modoConsulta ? "#FBBF24" : "#60A5FA",
-                  flex:1, whiteSpace:"nowrap" }}>
+                <span style={{ fontSize:13, fontWeight:700,
+                  color: modoConsulta ? "#FBBF24" : "#60A5FA", flex:1, whiteSpace:"nowrap" }}>
                   {formatLapso(lapso)}
                 </span>
                 {modoConsulta && (
                   <button onClick={() => handleCambiarLapso(getCurrentLapso())}
-                    style={{ fontSize:10, padding:"2px 7px", borderRadius:5, border:"1px solid #334155",
-                      background:"#1E293B", color:"#60A5FA", cursor:"pointer", fontWeight:600, flexShrink:0 }}>
+                    style={{ fontSize:10, padding:"2px 7px", borderRadius:5,
+                      border:"1px solid #334155", background:"#1E293B",
+                      color:"#60A5FA", cursor:"pointer", fontWeight:600, flexShrink:0 }}>
                     ↩
                   </button>
                 )}
@@ -390,17 +537,27 @@ export default function App() {
         {/* Selector de programa */}
         <div style={{ padding:"8px 10px", borderBottom:"1px solid #1E293B", flexShrink:0 }}>
           {expanded ? (
-            <select value={appData.selectedPrograma} onChange={e => appData.setSelectedPrograma(e.target.value)}
+            <select
+              value={appData.selectedPrograma}
+              onChange={e => puedeSeleccionarPrograma && appData.setSelectedPrograma(e.target.value)}
+              disabled={!puedeSeleccionarPrograma}
               style={{ ...S.select, width:"100%", background:"#1E293B", color:"#CBD5E1",
-                borderColor:"#334155", fontSize:12, padding:"6px 8px" }}>
-              {appData.programasDisponibles.map(p => (
-                <option key={p} value={p}>{p === "todos" ? "Todos los programas" : p}</option>
-              ))}
+                borderColor:"#334155", fontSize:12, padding:"6px 8px",
+                opacity: puedeSeleccionarPrograma ? 1 : 0.6,
+                cursor: puedeSeleccionarPrograma ? "pointer" : "not-allowed" }}>
+              {puedeSeleccionarPrograma
+                ? appData.programasDisponibles.map(p => (
+                    <option key={p} value={p}>
+                      {p === "todos" ? "Todos los programas" : p}
+                    </option>
+                  ))
+                : <option value={permisos.programaRestringido}>{permisos.programaRestringido}</option>
+              }
             </select>
           ) : (
             <div style={{ width:32, height:32, borderRadius:7, background:"#1E293B",
               display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:13, color:"#475569", cursor:"default" }}
+              fontSize:13, color:"#475569" }}
               title={`Programa: ${appData.selectedPrograma === "todos" ? "Todos" : appData.selectedPrograma}`}>
               🎓
             </div>
@@ -409,9 +566,8 @@ export default function App() {
 
         {/* Navegación */}
         <nav style={{ flex:1, padding:"8px 8px 6px", overflowY:"auto", overflowX:"hidden" }}>
-          {NAV_GROUPS.map((group, gi) => (
-            <div key={group.label} style={{ marginBottom: gi < NAV_GROUPS.length - 1 ? 4 : 0 }}>
-              {/* Separador con etiqueta */}
+          {navGroups.map((group, gi) => (
+            <div key={group.label} style={{ marginBottom: gi < navGroups.length - 1 ? 4 : 0 }}>
               {gi > 0 && (
                 <div style={{ height:1, background:"#1E293B", margin:"6px 4px 8px" }} />
               )}
@@ -436,7 +592,6 @@ export default function App() {
                     </span>
                     <span className="sb-label" style={{ flex:1 }}>{item.label}</span>
                     {badge > 0 && <span className="badge-red">{badge}</span>}
-                    {/* Tooltip solo cuando colapsado */}
                     <span className="tooltip">
                       {item.label}{badge > 0 ? ` (${badge})` : ""}
                     </span>
@@ -450,59 +605,71 @@ export default function App() {
         {/* Admin dropdown */}
         {adminOpen && (
           <AdminMenu
-            appData={appData}
+            appData={appDataAuditada}
             modoConsulta={modoConsulta}
             onClose={() => setAdminOpen(false)}
             fileRef={fileRef}
             backupRef={backupRef}
+            permisos={permisos}
           />
         )}
 
-        {/* Inputs de archivo: viven fuera de AdminMenu para no perder la
-            selección si el menú se cierra mientras el selector del
-            sistema está abierto (ver comentario junto a fileRef arriba). */}
         <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
-          onChange={e => { if (e.target.files[0]) appData.handleFileUpload(e.target.files[0]); e.target.value = ""; }} />
+          onChange={e => {
+            if (e.target.files[0]) handleFileUploadAuditado(e.target.files[0]);
+            e.target.value = "";
+          }} />
         <input ref={backupRef} type="file" accept=".json" style={{ display: "none" }}
-          onChange={e => { if (e.target.files[0]) appData.importarDatos(e.target.files[0]); e.target.value = ""; }} />
+          onChange={e => {
+            if (e.target.files[0]) appData.importarDatos(e.target.files[0]);
+            e.target.value = "";
+          }} />
 
         {/* Footer: botón admin + usuario */}
         <div style={{ borderTop:"1px solid #1E293B", padding:"8px 8px", flexShrink:0 }}>
-          {/* Botón de administración */}
-          <button
-            onClick={() => setAdminOpen(o => !o)}
-            className="nav-item"
-            style={{ marginBottom:6, color: adminOpen ? "#93C5FD" : "#64748B",
-              background: adminOpen ? "#1E293B" : "transparent" }}
-            title="Administración"
-          >
-            <span style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }}>⚙️</span>
-            <span className="sb-label" style={{ flex:1 }}>Administración</span>
-            {appData.uploading && (
-              <span style={{ width:8, height:8, borderRadius:"50%", border:"1.5px solid #3B82F6",
-                borderTop:"1.5px solid transparent", animation:"spin .7s linear infinite", flexShrink:0 }} />
-            )}
-            <span className="tooltip">Administración</span>
-          </button>
+          {/* Botón de administración — visible solo si tiene algo que hacer */}
+          {(permisos.puedeImportarExcel || permisos.puedeHacerBackup || permisos.puedeBorrarHorarios) && (
+            <button
+              onClick={() => setAdminOpen(o => !o)}
+              className="nav-item"
+              style={{ marginBottom:6, color: adminOpen ? "#93C5FD" : "#64748B",
+                background: adminOpen ? "#1E293B" : "transparent" }}
+              title="Administración"
+            >
+              <span style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }}>⚙️</span>
+              <span className="sb-label" style={{ flex:1 }}>Administración</span>
+              {appData.uploading && (
+                <span style={{ width:8, height:8, borderRadius:"50%", border:"1.5px solid #3B82F6",
+                  borderTop:"1.5px solid transparent",
+                  animation:"spin .7s linear infinite", flexShrink:0 }} />
+              )}
+              <span className="tooltip">Administración</span>
+            </button>
+          )}
 
-          {/* Usuario */}
+          {/* Usuario + rol */}
           <div style={{ display:"flex", alignItems:"center", gap:8, padding:"4px 4px 0" }}>
             <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
               background:"linear-gradient(135deg,#2563EB,#7C3AED)",
               display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:12, fontWeight:700, color:"#fff" }}>
-              {appData.user.email?.[0]?.toUpperCase() ?? "A"}
+              {profile.nombre?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
-              <div style={{ fontSize:11, color:"#94A3B8", overflow:"hidden",
-                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {appData.user.email}
+              <div style={{ fontSize:11, color:"#E2E8F0", overflow:"hidden",
+                textOverflow:"ellipsis", whiteSpace:"nowrap", fontWeight:600 }}>
+                {profile.nombre}
+              </div>
+              <div style={{ fontSize:10, color: rolInfo.color, fontWeight:600, whiteSpace:"nowrap" }}>
+                {rolInfo.label}
+                {profile.programa ? ` · ${profile.programa.replace("PNF ", "")}` : ""}
               </div>
             </div>
             {expanded && (
-              <button onClick={appData.handleLogout} title="Cerrar sesión"
+              <button onClick={handleLogout} title="Cerrar sesión"
                 style={{ background:"none", border:"1px solid #1E293B", borderRadius:6,
-                  cursor:"pointer", color:"#475569", fontSize:12, padding:"3px 7px", flexShrink:0 }}>
+                  cursor:"pointer", color:"#475569", fontSize:12,
+                  padding:"3px 7px", flexShrink:0 }}>
                 ⏏
               </button>
             )}
@@ -515,7 +682,6 @@ export default function App() {
 
         {/* Topbar */}
         <header className="topbar">
-          {/* Hamburger (mobile) */}
           <button className="hamburger"
             onClick={() => setMobileOpen(o => !o)}
             style={{ display:"none", background:"none", border:"1px solid #E5E7EB",
@@ -524,7 +690,6 @@ export default function App() {
             ☰
           </button>
 
-          {/* Búsqueda */}
           <div style={{ flex:1, maxWidth:420 }}>
             <GlobalSearch
               onNavigate={handleNavigate}
@@ -534,7 +699,17 @@ export default function App() {
             />
           </div>
 
-          {/* Syncing */}
+          {/* Badge de rol en topbar */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
+            <span style={{ fontSize:11, fontWeight:600, color: rolInfo.color,
+              background:"#1E293B", borderRadius:6, padding:"3px 10px",
+              display:"flex", alignItems:"center", gap:4 }}>
+              {profile.programa
+                ? profile.programa.replace("PNF ", "")
+                : rolInfo.label}
+            </span>
+          </div>
+
           {appData.isSyncing && (
             <span style={{ fontSize:11, color:"#94A3B8", whiteSpace:"nowrap", flexShrink:0 }}>
               🔄 Actualizando…
@@ -592,25 +767,38 @@ export default function App() {
               onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }}
               initialTab={horariosTab}
               onConsumeInitialTab={() => setHorariosTab(null)}
+              modoConsulta={modoConsulta || !permisos.puedeEditarHorarios}
             />
           )}
           {view === "secciones" && (
-            <SeccionesView data={appData.data} getDocName={appData.getDocName} getMateriaName={appData.getMateriaName} />
+            <SeccionesView
+              data={appData.data}
+              getDocName={appData.getDocName}
+              getMateriaName={appData.getMateriaName}
+            />
           )}
           {view === "docentes" && (
-            <DocentesView byDocente={appData.byDocente} conflicts={appData.conflicts}
+            <DocentesView
+              byDocente={appData.byDocente} conflicts={appData.conflicts}
               initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)}
-              getDocName={appData.getDocName} onSaveDocenteName={appData.saveDocenteName} />
+              getDocName={appData.getDocName}
+              onSaveDocenteName={permisos.puedeEditarDocentes ? appData.saveDocenteName : null}
+            />
           )}
           {view === "materias" && (
-            <MateriasView byMateria={appData.byMateria} initialSel={materiaNav}
+            <MateriasView
+              byMateria={appData.byMateria} initialSel={materiaNav}
               onConsumeNav={() => setMateriaNav(null)}
-              getMateriaName={appData.getMateriaName} onSaveMateriaName={appData.saveMateriaName}
-              data={appData.data} getDocName={appData.getDocName} />
+              getMateriaName={appData.getMateriaName}
+              onSaveMateriaName={permisos.puedeEditarMaterias ? appData.saveMateriaName : null}
+              data={appData.data} getDocName={appData.getDocName}
+            />
           )}
           {view === "asistencias" && (
-            <AsistenciasView data={appData.data} getDocName={appData.getDocName}
-              getMateriaName={appData.getMateriaName} lapso={lapso} />
+            <AsistenciasView
+              data={appData.data} getDocName={appData.getDocName}
+              getMateriaName={appData.getMateriaName} lapso={lapso}
+            />
           )}
           {view === "historial" && (
             <HistorialView
@@ -619,7 +807,18 @@ export default function App() {
               showToast={appData.showToast}
               openConfirm={appData.openConfirm}
               closeConfirm={appData.closeConfirm}
-              user={appData.user}
+              user={user}
+              modoConsulta={!permisos.puedeGestionarTrimestres}
+            />
+          )}
+          {view === "logs" && permisos.puedeVerLogs && (
+            <LogsView permisos={permisos} />
+          )}
+          {view === "usuarios" && permisos.puedeGestionarUsuarios && (
+            <UsuariosView
+              permisos={permisos}
+              logAudit={logAudit}
+              showToast={appData.showToast}
             />
           )}
         </main>
