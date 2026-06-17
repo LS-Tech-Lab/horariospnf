@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import useAppData from "./hooks/useAppData";
 import useHorariosFilters from "./hooks/useHorariosFilters";
 import useAuth from "./hooks/useAuth";
@@ -508,7 +509,7 @@ export default function App() {
               cursor: modoConsulta ? "pointer" : "default" }}
               onClick={() => modoConsulta && handleCambiarLapso(getCurrentLapso())}
               title={modoConsulta ? `Historial: ${lapso}` : `Trimestre activo: ${lapso}`}>
-              {modoConsulta ? "📂" : "📅"}
+              {modoConsulta ? "��" : "📅"}
             </div>
           ) : (
             <div>
@@ -823,6 +824,7 @@ export default function App() {
           )}
         </main>
       </div>
+      <SpeedInsights />
     </div>
   );
 }
