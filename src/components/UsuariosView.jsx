@@ -4,10 +4,12 @@
  * Panel de gestión de usuarios (solo admin).
  * Permite crear, editar, activar/desactivar usuarios.
  *
- * La creación del usuario en auth.users usa la Admin API de Supabase
- * a través de la anon key + Service Role en un endpoint seguro.
- * Como alternativa, el admin puede usar el Dashboard de Supabase
- * y luego asignar el perfil desde aquí.
+ * La creación de usuarios y el reseteo de contraseña de OTROS usuarios
+ * requieren la Admin API de Supabase (auth.admin.*), que solo funciona
+ * con la service_role key. Esa key nunca vive en el cliente: estas
+ * operaciones se delegan a la Edge Function `admin-users`
+ * (ver supabase/functions/admin-users), que valida que quien llama sea
+ * admin y usa la service_role internamente.
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -201,40 +203,21 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
 
     try {
       if (esNuevo) {
-        // Paso 1: crear usuario en Supabase Auth usando la Admin API
-        // Requiere service_role key o llamada server-side.
-        // Como la app es client-only, usamos signUp (email confirmation desactivado en Supabase)
-        // y luego hacemos upsert del perfil.
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true, // No requiere confirmación
+        // Crear usuario + perfil vía Edge Function (usa service_role del lado servidor).
+        const { data: result, error: fnError } = await supabase.functions.invoke("admin-users", {
+          body: { action: "create", email, password, nombre, rol, programa },
         });
 
-        if (authError) {
-          // Fallback: usar signUp convencional
-          // El admin deberá confirmar manualmente o desactivar confirmación en Supabase
-          showToast(
-            "⚠️ Usa el Dashboard de Supabase > Authentication > Add user para crear la cuenta, luego asigna el perfil aquí.",
-            "warning"
-          );
+        if (fnError) {
+          showToast("❌ No se pudo contactar la función admin-users: " + fnError.message, "error");
           setGuardando(false);
           return;
         }
-
-        const userId = authData.user?.id;
-        if (!userId) throw new Error("No se obtuvo ID del usuario creado.");
-
-        // Paso 2: crear perfil extendido
-        const { error: profileError } = await supabase.rpc("admin_upsert_user_profile", {
-          p_user_id:  userId,
-          p_email:    email,
-          p_nombre:   nombre,
-          p_rol:      rol,
-          p_programa: programa,
-        });
-
-        if (profileError) throw new Error(profileError.message);
+        if (result?.error) {
+          showToast("❌ " + result.error, "error");
+          setGuardando(false);
+          return;
+        }
 
         await logAudit({
           accion:  "CREAR_USUARIO",
@@ -260,8 +243,16 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
 
         // Cambiar password si se proporcionó
         if (password) {
-          const { error: pwError } = await supabase.auth.admin.updateUserById(userId, { password });
-          if (pwError) showToast("⚠️ Perfil actualizado pero no se pudo cambiar la contraseña.", "warning");
+          const { data: pwResult, error: pwFnError } = await supabase.functions.invoke("admin-users", {
+            body: { action: "reset_password", user_id: userId, password },
+          });
+          if (pwFnError || pwResult?.error) {
+            showToast(
+              "⚠️ Perfil actualizado pero no se pudo cambiar la contraseña: " +
+                (pwResult?.error || pwFnError.message),
+              "warning"
+            );
+          }
         }
 
         await logAudit({
@@ -491,9 +482,9 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
             💡 Nota sobre la creación de usuarios
           </div>
           <div style={{ fontSize: 12, color: "#78350F", lineHeight: 1.6 }}>
-            Si el botón "Nuevo usuario" falla (requiere Service Role Key),
-            crea la cuenta primero en el Dashboard de Supabase <strong>Authentication → Users → Add user</strong>,
-            luego usa el botón de edición aquí para asignarle el rol y programa correctos.
+            Crear usuarios y cambiar la contraseña de otros usuarios usa la Edge Function{" "}
+            <code>admin-users</code>. Si el botón "Nuevo usuario" falla, verifica que esa función
+            esté desplegada en tu proyecto de Supabase (ver <code>supabase/functions/admin-users/README.md</code>).
           </div>
         </div>
       </div>
