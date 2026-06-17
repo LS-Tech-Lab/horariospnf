@@ -139,7 +139,7 @@ const GLOBAL_CSS = `
     .sb { position: fixed !important; z-index: 300; height: 100vh;
           transform: translateX(-100%); transition: transform .25s, width .22s; }
     .sb.mobile-open { transform: translateX(0); }
-    .sb-overlay { display: block !important; }
+    .sb-overlay { display: block }
     .hamburger { display: flex !important; }
     .global-search { max-width: 160px !important; }
     .stats-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
