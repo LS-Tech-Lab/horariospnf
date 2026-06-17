@@ -464,7 +464,7 @@ export default function App() {
 
       {/* Overlay móvil */}
       <div className="sb-overlay" onClick={() => setMobileOpen(false)}
-        style={{ display:"none", position:"fixed", inset:0,
+        style={{ display: mobileOpen ? "block" : "none", position:"fixed", inset:0,
           background:"rgba(0,0,0,0.45)", zIndex:299 }} />
 
       {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
