@@ -139,7 +139,11 @@ export default function LoginScreen() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      height: "100vh",
+      // 100dvh (dynamic viewport height) evita el bug de móviles donde
+      // 100vh incluye la barra de URL y el teclado virtual desborda el layout.
+      minHeight: "100dvh",
+      overflowY: "auto",
+      padding: "24px 16px",
       background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
       fontFamily: "system-ui, -apple-system, sans-serif",
     }}>
@@ -147,7 +151,8 @@ export default function LoginScreen() {
         background: "#fff",
         borderRadius: 16,
         padding: "40px 32px",
-        width: 380,
+        width: "100%",
+        maxWidth: 380,
         boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
       }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -258,4 +263,4 @@ export default function LoginScreen() {
       </div>
     </div>
   );
-}
+          }
