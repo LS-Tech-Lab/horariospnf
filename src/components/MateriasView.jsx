@@ -11,7 +11,10 @@ export default function MateriasView({ byMateria, initialSel, onConsumeNav, getM
   const [editingName, setEditingName] = useState(false), [editValue, setEditValue] = useState(""), [saving, setSaving] = useState(false);
 
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
-  useEffect(() => { if (sel) { setEditValue(getMateriaName(sel)); setEditingName(false); } }, [sel, getMateriaName]);
+  // Solo actualizar editValue cuando cambia la selección, NO cuando cambia getMateriaName.
+  // Misma razón que DocentesView: evitar condición de carrera al guardar.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (sel) { setEditValue(getMateriaName(sel)); setEditingName(false); } }, [sel]);
 
   const selEntries = sel && byMateria[sel] ? byMateria[sel] : [];
   const filteredSorted = search ? sorted.filter(m => getMateriaName(m).toLowerCase().includes(search.toLowerCase())) : sorted;
@@ -116,4 +119,4 @@ export default function MateriasView({ byMateria, initialSel, onConsumeNav, getM
       </div>
     </div>
   );
-}
+                   }
