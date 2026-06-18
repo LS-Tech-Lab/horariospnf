@@ -1,23 +1,20 @@
 /**
  * useQRSession.js
  *
- * Hook que gestiona el ciclo de vida de una sesión QR:
- *   - Crear una nueva sesión (crear_qr_session RPC)
- *   - Auto-renovar el token cada TTL_MINUTES minutos (renovar_qr_token RPC)
- *   - Exponer estado: sessionId, token, expiresAt, segundosRestantes, loading, error
- *   - Cerrar / invalidar la sesión manualmente
+ * Hook que gestiona el ciclo de vida de una sesión QR.
+ * IMPORTANTE: debe vivir en App.jsx (o en el componente padre del módulo
+ * de asistencias) para que su estado NO se pierda al cambiar de pestaña
+ * entre "Panel QR" y "Reporte".
  *
- * La URL que se codifica en el QR tiene la forma:
- *   <origin>/scan?token=<UUID>
- *
- * El componente que usa este hook solo necesita pasar `qrUrl` a la
- * librería de generación de QR.
+ * Fixes incluidos:
+ *  - Estado persistente entre cambios de sub-vista (el hook vive arriba)
+ *  - Rotación inmediata del token cuando se registra un escaneo exitoso
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
-const TTL_MINUTES = 5; // minutos de vida de cada token
+const TTL_MINUTES = 5;
 
 export default function useQRSession() {
   const [sessionId,  setSessionId]  = useState(null);
@@ -28,73 +25,84 @@ export default function useQRSession() {
   const [error,      setError]      = useState(null);
   const [activa,     setActiva]     = useState(false);
 
-  const renewTimerRef    = useRef(null); // setInterval para auto-renovar
-  const countdownRef     = useRef(null); // setInterval para la cuenta atrás visual
+  const renewTimerRef  = useRef(null);
+  const countdownRef   = useRef(null);
+  // Ref para sessionId accesible dentro de closures de intervalos
+  const sessionIdRef   = useRef(null);
 
-  // ── Limpia todos los intervalos ──────────────────────────────────────────
   const limpiarIntervalos = useCallback(() => {
-    if (renewTimerRef.current)    clearInterval(renewTimerRef.current);
-    if (countdownRef.current)     clearInterval(countdownRef.current);
+    if (renewTimerRef.current)  clearInterval(renewTimerRef.current);
+    if (countdownRef.current)   clearInterval(countdownRef.current);
     renewTimerRef.current = null;
     countdownRef.current  = null;
   }, []);
 
-  // ── Inicia la cuenta atrás visual dado un expires_at ─────────────────────
   const iniciarCountdown = useCallback((expiresAtStr) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
-
     const tick = () => {
-      const secsLeft = Math.max(
-        0,
-        Math.round((new Date(expiresAtStr) - Date.now()) / 1000)
-      );
+      const secsLeft = Math.max(0, Math.round((new Date(expiresAtStr) - Date.now()) / 1000));
       setSegundos(secsLeft);
     };
-
-    tick(); // inmediato
+    tick();
     countdownRef.current = setInterval(tick, 1000);
   }, []);
 
-  // ── Renueva el token de una sesión activa ─────────────────────────────────
   const renovarToken = useCallback(async (sid) => {
     const { data, error: rpcErr } = await supabase.rpc("renovar_qr_token", {
       p_session_id: sid,
       p_ttl_min:    TTL_MINUTES,
     });
-
     if (rpcErr || !data?.ok) {
       setError(data?.mensaje || rpcErr?.message || "Error al renovar el token QR.");
       return false;
     }
-
     setToken(data.token);
     setExpiresAt(data.expires_at);
     iniciarCountdown(data.expires_at);
     return true;
   }, [iniciarCountdown]);
 
-  // ── Inicia el auto-renovado periódico ─────────────────────────────────────
   const iniciarAutoRenovado = useCallback((sid) => {
     if (renewTimerRef.current) clearInterval(renewTimerRef.current);
-
-    // Renova 10 segundos antes de que expire para no dejar ventana muerta
-    const intervalMs = (TTL_MINUTES * 60 - 10) * 1000;
-
-    renewTimerRef.current = setInterval(async () => {
-      await renovarToken(sid);
+    // Renueva 15 s antes de expirar
+    const intervalMs = (TTL_MINUTES * 60 - 15) * 1000;
+    renewTimerRef.current = setInterval(() => {
+      renovarToken(sid);
     }, intervalMs);
   }, [renovarToken]);
 
-  // ── Crea una nueva sesión QR ──────────────────────────────────────────────
+  // ── Suscripción realtime: rota el token cuando llega un nuevo registro ────
+  // Esto hace que una foto del QR compartida sea inútil al instante.
+  useEffect(() => {
+    if (!sessionId) return;
+    sessionIdRef.current = sessionId;
+
+    const channel = supabase
+      .channel(`qr_rotate_on_scan_${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event:  "INSERT",
+          schema: "public",
+          table:  "asistencias_diarias",
+          filter: `qr_session_id=eq.${sessionId}`,
+        },
+        () => {
+          // Rotar inmediatamente al detectar un escaneo exitoso
+          renovarToken(sessionIdRef.current);
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [sessionId, renovarToken]);
+
   const crearSesion = useCallback(async ({ turno, programa = null, fecha = null }) => {
     setLoading(true);
     setError(null);
     limpiarIntervalos();
 
-    const params = {
-      p_turno:   turno,
-      p_ttl_min: TTL_MINUTES,
-    };
+    const params = { p_turno: turno, p_ttl_min: TTL_MINUTES };
     if (programa) params.p_programa = programa;
     if (fecha)    params.p_fecha    = fecha;
 
@@ -107,6 +115,7 @@ export default function useQRSession() {
     }
 
     setSessionId(data.session_id);
+    sessionIdRef.current = data.session_id;
     setToken(data.token);
     setExpiresAt(data.expires_at);
     setActiva(true);
@@ -116,7 +125,6 @@ export default function useQRSession() {
     return true;
   }, [limpiarIntervalos, iniciarCountdown, iniciarAutoRenovado]);
 
-  // ── Renueva manualmente (botón "Regenerar" del admin) ────────────────────
   const renovarManual = useCallback(async () => {
     if (!sessionId) return;
     setLoading(true);
@@ -124,50 +132,28 @@ export default function useQRSession() {
     setLoading(false);
   }, [sessionId, renovarToken]);
 
-  // ── Cierra / invalida la sesión ───────────────────────────────────────────
   const cerrarSesion = useCallback(async () => {
     limpiarIntervalos();
-
     if (sessionId) {
-      // Marcar la sesión como inactiva en BD
-      await supabase
-        .from("qr_sessions")
-        .update({ activa: false })
-        .eq("id", sessionId);
+      await supabase.from("qr_sessions").update({ activa: false }).eq("id", sessionId);
     }
-
     setSessionId(null);
+    sessionIdRef.current = null;
     setToken(null);
     setExpiresAt(null);
     setSegundos(0);
     setActiva(false);
   }, [sessionId, limpiarIntervalos]);
 
-  // Limpiar al desmontar
-  useEffect(() => {
-    return () => limpiarIntervalos();
-  }, [limpiarIntervalos]);
+  useEffect(() => () => limpiarIntervalos(), [limpiarIntervalos]);
 
-  // ── URL que se codifica en el QR ─────────────────────────────────────────
-  const qrUrl = token
-    ? `${window.location.origin}/scan?token=${token}`
-    : null;
+  const qrUrl = token ? `${window.location.origin}/scan?token=${token}` : null;
 
   return {
-    // Estado
-    sessionId,
-    token,
-    expiresAt,
+    sessionId, token, expiresAt,
     segundosRestantes: segundos,
-    qrUrl,
-    activa,
-    loading,
-    error,
+    qrUrl, activa, loading, error,
     ttlMinutes: TTL_MINUTES,
-
-    // Acciones
-    crearSesion,
-    renovarManual,
-    cerrarSesion,
+    crearSesion, renovarManual, cerrarSesion,
   };
 }
