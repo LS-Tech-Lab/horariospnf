@@ -11,7 +11,12 @@ export default function DocentesView({ byDocente, conflicts, initialSel, onConsu
   const [editingName, setEditingName] = useState(false), [editValue, setEditValue] = useState(""), [saving, setSaving] = useState(false);
 
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
-  useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel, getDocName]);
+  // Solo actualizar editValue cuando cambia la selección, NO cuando cambia getDocName.
+  // Si getDocName estuviera en las deps, al guardar se dispararía fetchDocenteNames →
+  // nuevo getDocName → efecto se re-ejecuta → sobreescribe editValue mientras el modal
+  // sigue abierto, causando que haya que guardar dos veces.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel]);
 
   const hasConflict = (name) => conflicts.some(c => c.docente === name);
   const selEntries = byDocente[sel] || [], selConflicts = sel ? conflicts.filter(c => c.docente === sel) : [];
