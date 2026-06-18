@@ -118,6 +118,14 @@ export default function LoginScreen() {
         setLockedUntil(until);
         persistLockout(until);
       }
+      // Registrar intento fallido en BD (RPC accesible por anon)
+      try {
+        await supabase.rpc("log_login_fallido", {
+          p_email:      email,
+          p_user_agent: navigator.userAgent,
+          p_motivo:     error.message,
+        });
+      } catch { /* no-op: los logs no deben bloquear el flujo */ }
     } else {
       setFailedAttempts(0);
       persistAttempts(0);
