@@ -15,12 +15,12 @@ import ConfirmModal from "./components/ConfirmModal";
 import HistorialView from "./components/HistorialView";
 import UsuariosView from "./components/UsuariosView";
 import LogsView from "./components/LogsView";
-import ModalCambiarPassword from "./components/ModalCambiarPassword";
 // ── Módulo de Asistencias QR ──────────────────────────────────────────────────
 import ModuleSelector from "./components/ModuleSelector";
 import AdminQRPanel from "./components/asistencias/AdminQRPanel";
 import ReporteAsistencias from "./components/asistencias/ReporteAsistencias";
 import DocenteScan from "./components/asistencias/DocenteScan";
+import useQRSession from "./hooks/useQRSession";
 import { S } from "./constants";
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "./utils/lapso";
 import { supabase, supabaseConfigError } from "./lib/supabase";
@@ -161,6 +161,7 @@ const ROL_SIDEBAR = {
   coordinador:    { label: "Coordinador",    color: "#60A5FA" },
   secretario:     { label: "Secretario",     color: "#34D399" },
   administrativo: { label: "Administrativo", color: "#94A3B8" },
+  operador_qr:    { label: "Operador QR",    color: "#34D399" },
 };
 
 // ── Admin dropdown ────────────────────────────────────────────────────────────
@@ -314,11 +315,13 @@ export default function App() {
   // Sub-vista dentro del módulo de asistencias
   const [asistenciasSubView, setAsistenciasSubView] = useState("panel"); // "panel" | "reporte"
 
+  // ── Hook de sesión QR — vive AQUÍ para no perderse al cambiar sub-vista ──
+  const qrSession = useQRSession();
+
   const [hovered,    setHovered]    = useState(false);
   const [pinned,     setPinned]     = useState(() => localStorage.getItem("sb_pinned") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen,  setAdminOpen]  = useState(false);
-  const [showCambiarPassword, setShowCambiarPassword] = useState(false);
 
   const fileRef   = useRef(null);
   const backupRef = useRef(null);
@@ -419,7 +422,8 @@ export default function App() {
 
   // Cargando sesión
   if (user === undefined) return (
-    <div className="full-screen-loading" style={{ color:"#94A3B8", fontSize:15 }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh",
+      background:"#0F172A", color:"#94A3B8", fontFamily:"system-ui,sans-serif", fontSize:15 }}>
       Verificando sesión…
     </div>
   );
@@ -429,9 +433,11 @@ export default function App() {
 
   // Sesión activa pero cargando perfil
   if (loadingProfile) return (
-    <div className="full-screen-loading">
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      height:"100vh", background:"#0F172A", gap:16, fontFamily:"system-ui,sans-serif" }}>
       <div style={{ width:32, height:32, border:"3px solid #1E3A5F", borderTop:"3px solid #3B82F6",
         borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <span style={{ color:"#94A3B8", fontSize:14 }}>Cargando perfil…</span>
     </div>
   );
@@ -443,13 +449,20 @@ export default function App() {
   if (profile._desactivado) return <CuentaDesactivada onLogout={handleLogout} />;
 
 
-  // ── Selector de módulo (solo admins) ─────────────────────────────────────
-  // Roles no-admin entran directo al módulo de horarios sin pasar por aquí.
+  // ── Selector de módulo ────────────────────────────────────────────────────
+  // - admin y operador_qr ven el selector
+  // - operador_qr va directo a asistencias sin pasar por horarios
+  // - resto de roles van directo a horarios
   if (!moduloActivo) {
-    if (profile.rol !== "admin") {
-      // Auto-seleccionar horarios para no-admins
+    const esAdminOOperador = profile.rol === "admin" || profile.rol === "operador_qr";
+    if (!esAdminOOperador) {
       setModuloActivo("horarios");
-      return null; // re-renderiza en el siguiente tick con moduloActivo="horarios"
+      return null;
+    }
+    // operador_qr salta el selector y va directo a asistencias
+    if (profile.rol === "operador_qr") {
+      setModuloActivo("asistencias");
+      return null;
     }
     return (
       <ModuleSelector
@@ -463,68 +476,42 @@ export default function App() {
     );
   }
 
-  // ── Módulo de Asistencias QR (solo admin) ─────────────────────────────────
+  // ── Módulo de Asistencias QR (admin + operador_qr) ────────────────────────
   if (moduloActivo === "asistencias") {
+    const esAdmin = profile.rol === "admin";
+    const rolLabel = esAdmin ? "Administrador" : "Operador QR";
+    const rolColor = esAdmin ? "#A78BFA" : "#34D399";
+
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#F3F4F6",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-        }}
-      >
-        {/* Topbar del módulo de asistencias */}
-        <header
-          style={{
-            background: "#fff",
-            borderBottom: "1px solid #E5E7EB",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "0 20px",
-            height: 52,
-            flexShrink: 0,
-          }}
-        >
-          {/* Volver al selector */}
-          <button
-            onClick={() => setModuloActivo(null)}
-            style={{
-              background: "none",
-              border: "1px solid #E5E7EB",
-              borderRadius: 7,
-              padding: "5px 12px",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#374151",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-            }}
-          >
-            ← Módulos
-          </button>
+      <div style={{ minHeight: "100vh", background: "#F3F4F6", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        {/* Topbar */}
+        <header style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12, padding: "0 20px", height: 52, flexShrink: 0 }}>
+
+          {/* Volver al selector — solo admin, operador_qr no tiene a dónde volver */}
+          {esAdmin && (
+            <button
+              onClick={() => { qrSession.cerrarSesion(); setModuloActivo(null); }}
+              style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151" }}
+            >
+              ← Módulos
+            </button>
+          )}
 
           {/* Pestañas internas */}
           <div style={{ display: "flex", gap: 4 }}>
             {[
-              { id: "panel",   label: "📲 Panel QR"  },
-              { id: "reporte", label: "📋 Reporte"    },
+              { id: "panel",   label: "📲 Panel QR" },
+              { id: "reporte", label: "📋 Reporte"   },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setAsistenciasSubView(tab.id)}
                 style={{
-                  padding: "5px 14px",
-                  borderRadius: 7,
-                  border: "none",
+                  padding: "5px 14px", borderRadius: 7, border: "none",
                   background: asistenciasSubView === tab.id ? "#EFF6FF" : "transparent",
-                  color: asistenciasSubView === tab.id ? "#1D4ED8" : "#6B7280",
+                  color:      asistenciasSubView === tab.id ? "#1D4ED8" : "#6B7280",
                   fontWeight: asistenciasSubView === tab.id ? 700 : 500,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  transition: "all 0.12s",
+                  fontSize: 13, cursor: "pointer", transition: "all 0.12s",
                 }}
               >
                 {tab.label}
@@ -532,33 +519,22 @@ export default function App() {
             ))}
           </div>
 
-          {/* Badge de usuario */}
+          {/* Indicador de sesión QR activa en el topbar */}
+          {qrSession.activa && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 10px", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 20 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", display: "inline-block", animation: "pulse 1.4s ease-in-out infinite" }} />
+              <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#15803D" }}>Sesión activa</span>
+            </div>
+          )}
+
+          {/* Badge usuario + logout */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#A78BFA",
-                background: "#1E293B",
-                borderRadius: 6,
-                padding: "3px 10px",
-              }}
-            >
-              Administrador
+            <span style={{ fontSize: 12, fontWeight: 600, color: rolColor, background: "#1E293B", borderRadius: 6, padding: "3px 10px" }}>
+              {rolLabel}
             </span>
-            <button
-              onClick={handleLogout}
-              title="Cerrar sesión"
-              style={{
-                background: "none",
-                border: "1px solid #E5E7EB",
-                borderRadius: 6,
-                cursor: "pointer",
-                color: "#6B7280",
-                fontSize: 12,
-                padding: "3px 9px",
-              }}
-            >
+            <span style={{ fontSize: 12, color: "#9CA3AF" }}>{profile.nombre}</span>
+            <button onClick={handleLogout} title="Cerrar sesión" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, cursor: "pointer", color: "#6B7280", fontSize: 12, padding: "3px 9px" }}>
               ⏏
             </button>
           </div>
@@ -570,6 +546,7 @@ export default function App() {
             <AdminQRPanel
               profile={profile}
               onVerReporte={() => setAsistenciasSubView("reporte")}
+              {...qrSession}
             />
           )}
           {asistenciasSubView === "reporte" && (
@@ -578,15 +555,18 @@ export default function App() {
             />
           )}
         </main>
+
       </div>
     );
   }
 
   // Datos cargando
   if (appData.loading && !appData.data.length) return (
-    <div className="full-screen-loading">
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      height:"100vh", background:"#0F172A", gap:16, fontFamily:"system-ui,sans-serif" }}>
       <div style={{ width:36, height:36, border:"3px solid #1E3A5F", borderTop:"3px solid #3B82F6",
         borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <span style={{ color:"#94A3B8", fontSize:14 }}>Cargando horarios…</span>
     </div>
   );
@@ -616,13 +596,6 @@ export default function App() {
         onConfirm={appData.confirmModal?.onConfirm}
         onCancel={appData.closeConfirm}
       />
-
-      {showCambiarPassword && (
-        <ModalCambiarPassword
-          onCerrar={() => setShowCambiarPassword(false)}
-          showToast={appData.showToast}
-        />
-      )}
 
       {/* Overlay móvil */}
       <div className="sb-overlay" onClick={() => setMobileOpen(false)}
@@ -842,20 +815,12 @@ export default function App() {
               </div>
             </div>
             {expanded && (
-              <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                <button onClick={() => setShowCambiarPassword(true)} title="Cambiar contraseña"
-                  style={{ background:"none", border:"1px solid #1E293B", borderRadius:6,
-                    cursor:"pointer", color:"#475569", fontSize:12,
-                    padding:"3px 7px" }}>
-                  🔑
-                </button>
-                <button onClick={handleLogout} title="Cerrar sesión"
-                  style={{ background:"none", border:"1px solid #1E293B", borderRadius:6,
-                    cursor:"pointer", color:"#475569", fontSize:12,
-                    padding:"3px 7px" }}>
-                  ⏏
-                </button>
-              </div>
+              <button onClick={handleLogout} title="Cerrar sesión"
+                style={{ background:"none", border:"1px solid #1E293B", borderRadius:6,
+                  cursor:"pointer", color:"#475569", fontSize:12,
+                  padding:"3px 7px", flexShrink:0 }}>
+                ⏏
+              </button>
             )}
           </div>
         </div>
