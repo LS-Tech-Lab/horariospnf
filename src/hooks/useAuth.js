@@ -154,11 +154,12 @@ export default function useAuth() {
   const handleLogin = useCallback(async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      // Intentar registrar login fallido (sin sesión activa, puede fallar)
+      // Registrar intento fallido usando RPC accesible por anon (sin sesión activa)
       try {
-        await supabase.rpc("log_session_event", {
-          p_evento:   "login_fallido",
-          p_detalles: { email, motivo: error.message },
+        await supabase.rpc("log_login_fallido", {
+          p_email:      email,
+          p_user_agent: navigator.userAgent,
+          p_motivo:     error.message,
         });
       } catch { /* no-op */ }
       return { error };
