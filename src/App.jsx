@@ -419,8 +419,7 @@ export default function App() {
 
   // Cargando sesión
   if (user === undefined) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh",
-      background:"#0F172A", color:"#94A3B8", fontFamily:"system-ui,sans-serif", fontSize:15 }}>
+    <div className="full-screen-loading" style={{ color:"#94A3B8", fontSize:15 }}>
       Verificando sesión…
     </div>
   );
@@ -430,11 +429,9 @@ export default function App() {
 
   // Sesión activa pero cargando perfil
   if (loadingProfile) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      height:"100vh", background:"#0F172A", gap:16, fontFamily:"system-ui,sans-serif" }}>
+    <div className="full-screen-loading">
       <div style={{ width:32, height:32, border:"3px solid #1E3A5F", borderTop:"3px solid #3B82F6",
         borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <span style={{ color:"#94A3B8", fontSize:14 }}>Cargando perfil…</span>
     </div>
   );
@@ -587,11 +584,9 @@ export default function App() {
 
   // Datos cargando
   if (appData.loading && !appData.data.length) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      height:"100vh", background:"#0F172A", gap:16, fontFamily:"system-ui,sans-serif" }}>
+    <div className="full-screen-loading">
       <div style={{ width:36, height:36, border:"3px solid #1E3A5F", borderTop:"3px solid #3B82F6",
         borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <span style={{ color:"#94A3B8", fontSize:14 }}>Cargando horarios…</span>
     </div>
   );
