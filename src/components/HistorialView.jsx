@@ -46,8 +46,8 @@ function ModalTrimestre({ modo, lapsoSugerido, onConfirm, onCancel, loading }) {
   }, [esCrear]);
 
   const valido = esCrear
-    ? isValidLapso(lapso) && fechaInicio
-    : fechaFin;
+    ? isValidLapso(lapso) && fechaInicio?.trim()
+    : fechaFin?.trim();
 
   return (
     <div style={{
