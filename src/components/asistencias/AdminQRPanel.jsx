@@ -152,7 +152,7 @@ export default function AdminQRPanel({
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111827" }}>📲 Control de Asistencias QR</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 14, color: "#6B7280" }}>Genera el código QR y proyéctalo. Los docentes escanean con su celular.</p>
+          <p style={{ margin: "4px 0 0", fontSize: 14, color: "#6B7280" }}>Genera el código QR y proyéctalo. Los docentes escanean y eligen Entrada o Salida.</p>
         </div>
         {onVerReporte && (
           <button onClick={onVerReporte} style={{ padding: "8px 16px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151" }}>
@@ -268,7 +268,7 @@ export default function AdminQRPanel({
             <div style={{ marginTop: 16, padding: "12px 14px", background: "#F0FDF4", borderRadius: 10, border: "1px solid #BBF7D0", textAlign: "center" }}>
               <div style={{ fontSize: 28, fontWeight: 800, color: "#15803D" }}>{totalHoy}</div>
               <div style={{ fontSize: 12, color: "#166534", fontWeight: 600 }}>
-                docente{totalHoy !== 1 ? "s" : ""} registrado{totalHoy !== 1 ? "s" : ""}
+                marca{totalHoy !== 1 ? "s" : ""} registrada{totalHoy !== 1 ? "s" : ""} (entrada + salida)
               </div>
             </div>
           )}
@@ -299,15 +299,15 @@ export default function AdminQRPanel({
               {/* QR */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", padding: 24, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 16, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Escanea para registrar tu asistencia
+                  Escanea para registrar tu entrada o salida
                 </div>
                 <QRDisplay qrUrl={qrUrl} segundos={segundosRestantes} ttlMinutes={ttlMinutes} />
 
                 {/* Instrucciones */}
                 <div style={{ marginTop: 20, background: "#F8FAFC", borderRadius: 10, padding: "14px 18px", width: "100%", maxWidth: 340 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Instrucciones para el docente</div>
-                  {["Abre la cámara de tu celular", "Apunta al código QR en pantalla", "Primera vez: ingresa tu cédula y nombre", "Confirma y listo ✅"].map((step, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: i < 3 ? 8 : 0 }}>
+                  {["Abre la cámara de tu celular", "Apunta al código QR en pantalla", "Elige Entrada o Salida", "Primera vez: ingresa tu cédula y nombre", "Confirma y listo ✅"].map((step, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: i < 4 ? 8 : 0 }}>
                       <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#2563EB", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
                       <span style={{ fontSize: 13, color: "#374151" }}>{step}</span>
                     </div>
