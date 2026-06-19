@@ -26,20 +26,52 @@ function diaSemana(fechaISO) {
   return DIAS_ISO[new Date(y, m - 1, d).getDay()];
 }
 
-// ── Exportar CSV ─────────────────────────────────────────────────────────────
-function exportarCSV(docentesAgrupados, fecha, turno) {
-  const headers = ["Cédula", "Nombre", "Estado", "Hora entrada", "Hora salida", "Turno", "Programa"];
-  const lines = docentesAgrupados.map(d => [
-    d.cedula,
-    d.nombre,
-    d.estado === "completo"  ? "Entrada y salida" :
-    d.estado === "solo_entrada" ? "Solo entrada" :
-    d.estado === "solo_salida"  ? "Solo salida (anómalo)" : "—",
-    d.horaEntrada ? new Date(d.horaEntrada).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" }) : "—",
-    d.horaSalida  ? new Date(d.horaSalida).toLocaleTimeString("es-VE",  { hour: "2-digit", minute: "2-digit" }) : "—",
-    turno,
-    d.programa || "—",
-  ]);
+// ── Exportar CSV con nombre_display cruzado (MEJORA #8) ─────────────────────
+async function exportarCSV(docentesAgrupados, fecha, turno) {
+  // Cruzar cédulas contra la tabla docentes para obtener nombre_display oficial
+  const cedulas = docentesAgrupados.map(d => d.cedula).filter(Boolean);
+  let nombreDisplay = {};
+  if (cedulas.length > 0) {
+    const { data: docentesDB } = await supabase
+      .from("docentes")
+      .select("cedula, nombre_display")
+      .in("cedula", cedulas);
+    (docentesDB || []).forEach(d => {
+      if (d.cedula && d.nombre_display) nombreDisplay[d.cedula] = d.nombre_display;
+    });
+  }
+
+  const headers = [
+    "Cédula",
+    "Nombre (ingresado por docente)",
+    "Nombre oficial (sistema)",
+    "¿Coincide?",
+    "Estado",
+    "Hora entrada",
+    "Hora salida",
+    "Turno",
+    "Programa",
+  ];
+
+  const lines = docentesAgrupados.map(d => {
+    const oficial  = nombreDisplay[d.cedula] || "";
+    const coincide = oficial
+      ? (oficial.trim().toLowerCase() === (d.nombre || "").trim().toLowerCase() ? "✓" : "✗ REVISAR")
+      : "sin registro";
+    return [
+      d.cedula,
+      d.nombre,
+      oficial || "—",
+      coincide,
+      d.estado === "completo"    ? "Entrada y salida" :
+      d.estado === "solo_entrada" ? "Solo entrada" :
+      d.estado === "solo_salida"  ? "Solo salida (anómalo)" : "—",
+      d.horaEntrada ? new Date(d.horaEntrada).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" }) : "—",
+      d.horaSalida  ? new Date(d.horaSalida).toLocaleTimeString("es-VE",  { hour: "2-digit", minute: "2-digit" }) : "—",
+      turno,
+      d.programa || "—",
+    ];
+  });
 
   const csvContent = [headers, ...lines]
     .map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))
