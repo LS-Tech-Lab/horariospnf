@@ -18,6 +18,7 @@ import LogsView from "./components/LogsView";
 // ── Módulo de Asistencias QR ──────────────────────────────────────────────────
 import ModuleSelector from "./components/ModuleSelector";
 import AdminQRPanel from "./components/asistencias/AdminQRPanel";
+import QRProyeccion from "./components/asistencias/QRProyeccion";
 import ReporteAsistencias from "./components/asistencias/ReporteAsistencias";
 import DocenteScan from "./components/asistencias/DocenteScan";
 import useQRSession from "./hooks/useQRSession";
@@ -513,8 +514,9 @@ export default function App() {
           {/* Pestañas internas */}
           <div style={{ display: "flex", gap: 4 }}>
             {[
-              { id: "panel",   label: "📲 Panel QR" },
-              { id: "reporte", label: "📋 Reporte"   },
+              { id: "panel",      label: "📲 Panel QR"   },
+              { id: "proyeccion", label: "🖥️ Proyección" },
+              { id: "reporte",    label: "📋 Reporte"     },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -560,6 +562,14 @@ export default function App() {
               profile={profile}
               onVerReporte={() => setAsistenciasSubView("reporte")}
               {...qrSession}
+            />
+          )}
+          {asistenciasSubView === "proyeccion" && (
+            <QRProyeccion
+              activa={qrSession.activa}
+              qrUrl={qrSession.qrUrl}
+              segundosRestantes={qrSession.segundosRestantes}
+              ttlMinutes={qrSession.ttlMinutes}
             />
           )}
           {asistenciasSubView === "reporte" && (
