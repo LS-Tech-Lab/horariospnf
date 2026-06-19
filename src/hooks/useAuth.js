@@ -113,14 +113,35 @@ export default function useAuth() {
 
   // Suscribirse a cambios de Auth
   useEffect(() => {
+    // Flag para evitar doble carga: onAuthStateChange dispara INITIAL_SESSION
+    // casi simultáneamente con getSession(). En móvil (mayor latencia), la
+    // duplicación causaba el ciclo undefined→null→user que dejaba pantalla negra.
+    let initialHandled = false;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      cargarProfile(session?.user ?? null);
+      if (!initialHandled) {
+        initialHandled = true;
+        setUser(session?.user ?? null);
+        cargarProfile(session?.user ?? null);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const authUser = session?.user ?? null;
+
+        // INITIAL_SESSION llega casi simultáneamente con getSession().
+        // Si getSession ya procesó la sesión inicial, ignoramos este evento
+        // para no relanzar cargarProfile innecesariamente y evitar pantalla negra.
+        if (event === "INITIAL_SESSION") {
+          if (!initialHandled) {
+            initialHandled = true;
+            setUser(authUser);
+            cargarProfile(authUser);
+          }
+          return;
+        }
+
         setUser(authUser);
         cargarProfile(authUser);
 
