@@ -145,7 +145,9 @@ const GLOBAL_CSS = `
     .sb { position: fixed !important; z-index: 300; height: 100dvh;
           transform: translateX(-100%); transition: transform .25s, width .22s; }
     .sb.mobile-open { transform: translateX(0); }
-    .sb-overlay { display: block !important; }
+    /* sb-overlay NO se activa aquí — lo controla React con mobileOpen.
+       Si se pone display:block en el CSS, el overlay cubre toda la pantalla
+       permanentemente en tablet aunque el sidebar esté cerrado. */
     .hamburger { display: flex !important; }
     .global-search { max-width: 200px !important; }
     .stats-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
@@ -608,9 +610,12 @@ export default function App() {
       />
 
       {/* Overlay móvil */}
-      <div className="sb-overlay" onClick={() => setMobileOpen(false)}
-        style={{ display:"none", position:"fixed", inset:0,
-          background:"rgba(0,0,0,0.45)", zIndex:299 }} />
+      {/* Overlay: solo visible cuando el sidebar móvil/tablet está abierto */}
+      {mobileOpen && (
+        <div onClick={() => setMobileOpen(false)}
+          style={{ position:"fixed", inset:0,
+            background:"rgba(0,0,0,0.45)", zIndex:299 }} />
+      )}
 
       {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
       <aside
