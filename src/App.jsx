@@ -355,6 +355,15 @@ export default function App() {
     }
   }, [permisos.puedeVerSoloSuPrograma, permisos.programaRestringido]);
 
+  // ── Auto-selección de módulo (roles no-admin y operador_qr) ───────────────
+  // DEBE estar aquí, junto a los otros hooks, ANTES de cualquier return
+  // condicional — viola la Regla de Hooks si se pone después de un return.
+  useEffect(() => {
+    if (!profile || moduloActivo) return;
+    if (profile.rol === "operador_qr") setModuloActivo("asistencias");
+    else if (profile.rol !== "admin") setModuloActivo("horarios");
+  }, [profile, moduloActivo]);
+
   const horariosFilters = useHorariosFilters(appData.data);
 
   const handleCambiarLapso = useCallback((nuevo) => {
@@ -445,15 +454,6 @@ export default function App() {
   // Cuenta desactivada
   if (profile._desactivado) return <CuentaDesactivada onLogout={handleLogout} />;
 
-
-  // ── Auto-selección de módulo (roles no-admin y operador_qr) ───────────────
-  // Se hace en useEffect para NUNCA retornar null durante el render;
-  // eso causaba la pantalla negra en móvil (un frame sin contenido visible).
-  useEffect(() => {
-    if (!profile || moduloActivo) return;
-    if (profile.rol === "operador_qr") setModuloActivo("asistencias");
-    else if (profile.rol !== "admin") setModuloActivo("horarios");
-  }, [profile, moduloActivo]);
 
   // ── Selector de módulo ────────────────────────────────────────────────────
   // - admin: ve el selector de módulos
