@@ -1,4 +1,3 @@
-
 /**
  * DocenteScan.jsx
  *
@@ -6,14 +5,19 @@
  * No requiere sesión Supabase (acceso anónimo).
  *
  * Flujo:
+ *  - Elige tipo de marca: Entrada o Salida
  *  - Primera vez: pide cédula + nombre completo, guarda en localStorage
  *  - Siguientes veces: muestra datos guardados y pide solo confirmar
- *  - Llama a registrar_asistencia() RPC
- *  - Muestra resultado con UI clara según código de respuesta
+ *  - Llama a registrar_asistencia() RPC con el tipo elegido
+ *  - Muestra resultado con UI clara según código de respuesta, incluyendo
+ *    el detalle de materias/sección/hora que le tocan al docente ese día
+ *    (horario_hoy, devuelto por la misma RPC)
  */
 
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { parseClase } from "../../utils/parsing";
+import { getHoraDisplayDeRegistro } from "../../utils/time";
 
 const LS_KEY = "pnf_docente_datos";
 
@@ -69,26 +73,32 @@ const IconWarn = () => (
 );
 
 const RESULTADO_UI = {
-  ok:               { Icon: IconCheck, titulo: "¡Asistencia registrada!", color: "#15803D" },
-  YA_REGISTRADO:    { Icon: IconWarn,  titulo: "Ya registraste tu asistencia hoy", color: "#92400E",
-                      hint: "Tu presencia ya estaba registrada. No es necesario hacer nada más." },
-  TOKEN_EXPIRADO:   { Icon: IconError, titulo: "Código QR expirado", color: "#991B1B",
-                      hint: "Pide al administrador que regenere el código." },
-  TOKEN_INVALIDO:   { Icon: IconError, titulo: "Código QR no válido", color: "#991B1B",
-                      hint: "Asegúrate de escanear el código desde la pantalla del aula." },
-  SESION_INACTIVA:  { Icon: IconError, titulo: "Sesión cerrada", color: "#1E40AF",
-                      hint: "El administrador cerró esta sesión. Consulta si hay una nueva." },
-  DEVICE_DUPLICADO: { Icon: IconError, titulo: "Dispositivo ya utilizado", color: "#991B1B",
-                      hint: "Este celular ya registró la asistencia de otro docente en esta sesión." },
-  ERROR:            { Icon: IconError, titulo: "Error de conexión", color: "#991B1B",
-                      hint: "Intenta de nuevo o contacta al administrador." },
+  ok:                   { Icon: IconCheck, titulo: "¡Registro exitoso!", color: "#15803D" },
+  YA_REGISTRADO:        { Icon: IconWarn,  titulo: "Ya registraste tu entrada hoy", color: "#92400E",
+                          hint: "Tu entrada ya estaba registrada. No es necesario hacer nada más." },
+  YA_REGISTRADO_SALIDA: { Icon: IconWarn,  titulo: "Ya registraste tu salida hoy", color: "#92400E",
+                          hint: "Tu salida ya estaba registrada. No es necesario hacer nada más." },
+  SIN_ENTRADA_PREVIA:   { Icon: IconWarn,  titulo: "Falta registrar tu entrada", color: "#92400E",
+                          hint: "Debes marcar tu entrada antes de poder marcar la salida." },
+  TIPO_INVALIDO:        { Icon: IconError, titulo: "Error interno", color: "#991B1B",
+                          hint: "Recarga la página e inténtalo de nuevo." },
+  TOKEN_EXPIRADO:       { Icon: IconError, titulo: "Código QR expirado", color: "#991B1B",
+                          hint: "Pide al administrador que regenere el código." },
+  TOKEN_INVALIDO:       { Icon: IconError, titulo: "Código QR no válido", color: "#991B1B",
+                          hint: "Asegúrate de escanear el código desde la pantalla del aula." },
+  SESION_INACTIVA:      { Icon: IconError, titulo: "Sesión cerrada", color: "#1E40AF",
+                          hint: "El administrador cerró esta sesión. Consulta si hay una nueva." },
+  DEVICE_DUPLICADO:     { Icon: IconError, titulo: "Dispositivo ya utilizado", color: "#991B1B",
+                          hint: "Este celular ya registró la asistencia de otro docente en esta sesión." },
+  ERROR:                { Icon: IconError, titulo: "Error de conexión", color: "#991B1B",
+                          hint: "Intenta de nuevo o contacta al administrador." },
 };
 
 // ── Shell centrado ───────────────────────────────────────────────────────────
-function Shell({ children }) {
+function Shell({ children, ancho = 380 }) {
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"system-ui,-apple-system,sans-serif" }}>
-      <div style={{ background:"#fff", borderRadius:20, padding:"36px 28px", width:"100%", maxWidth:380, boxShadow:"0 20px 60px rgba(0,0,0,0.35)", display:"flex", flexDirection:"column", alignItems:"center" }}>
+      <div style={{ background:"#fff", borderRadius:20, padding:"36px 28px", width:"100%", maxWidth:ancho, boxShadow:"0 20px 60px rgba(0,0,0,0.35)", display:"flex", flexDirection:"column", alignItems:"center" }}>
         {children}
       </div>
     </div>
@@ -111,9 +121,82 @@ function Campo({ label, hint, ...props }) {
   );
 }
 
+// ── Tarjeta "Tu horario de hoy" ──────────────────────────────────────────────
+// horarioHoy: array de filas { materia (texto crudo "Materia Prof. X"), sheet, hora, trayecto, programa, aula }
+// devueltas por la RPC. Se parsea cada `materia` con parseClase para mostrar
+// solo el nombre de la materia (sin repetir "Prof. Nombre" del docente).
+function HorarioHoyCard({ horarioHoy, diaSemana }) {
+  if (!Array.isArray(horarioHoy) || horarioHoy.length === 0) {
+    return (
+      <div style={{ marginTop:16, background:"#F8FAFC", border:"1px solid #E2E8F0", borderRadius:12, padding:"14px 18px", width:"100%", textAlign:"center" }}>
+        <div style={{ fontSize:12, color:"#64748B", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>
+          {diaSemana ? `Horario de hoy (${diaSemana.charAt(0)}${diaSemana.slice(1).toLowerCase()})` : "Horario de hoy"}
+        </div>
+        <div style={{ fontSize:13, color:"#9CA3AF" }}>No tienes clases asignadas hoy según el sistema.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop:16, background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:12, padding:"14px 18px", width:"100%" }}>
+      <div style={{ fontSize:12, color:"#1D4ED8", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10, textAlign:"center" }}>
+        {diaSemana ? `Tu horario de hoy (${diaSemana.charAt(0)}${diaSemana.slice(1).toLowerCase()})` : "Tu horario de hoy"}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {horarioHoy.map((clase, i) => {
+          const { materia } = parseClase(clase.materia);
+          return (
+            <div key={i} style={{ background:"#fff", borderRadius:9, padding:"10px 12px", border:"1px solid #DBEAFE" }}>
+              <div style={{ fontSize:14, fontWeight:700, color:"#111827" }}>{materia || clase.materia}</div>
+              <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
+                <span style={{ fontSize:12, color:"#6B7280" }}>Sección {clase.sheet}</span>
+                <span style={{ fontSize:12, color:"#1D4ED8", fontWeight:700 }}>{getHoraDisplayDeRegistro(clase)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Selector de tipo: Entrada / Salida ───────────────────────────────────────
+function SelectorTipo({ onElegir }) {
+  return (
+    <Shell>
+      <div style={{ textAlign:"center", marginBottom:24, width:"100%" }}>
+        <div style={{ width:52, height:52, borderRadius:14, background:"linear-gradient(135deg,#1E3A8A,#2563EB)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, margin:"0 auto 12px" }}>📲</div>
+        <h1 style={{ margin:0, fontSize:19, fontWeight:700, color:"#111827" }}>Control de Asistencia</h1>
+        <p style={{ margin:"5px 0 0", fontSize:13, color:"#6B7280" }}>¿Qué deseas registrar?</p>
+      </div>
+
+      <button
+        onClick={() => onElegir("ENTRADA")}
+        style={{ width:"100%", padding:"16px 0", background:"#2563EB", color:"#fff", border:"none", borderRadius:12, fontSize:16, fontWeight:700, cursor:"pointer", marginBottom:12, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}
+      >
+        🟢 Marcar Entrada
+      </button>
+
+      <button
+        onClick={() => onElegir("SALIDA")}
+        style={{ width:"100%", padding:"16px 0", background:"#fff", color:"#374151", border:"1.5px solid #D1D5DB", borderRadius:12, fontSize:16, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}
+      >
+        🔴 Marcar Salida
+      </button>
+
+      <p style={{ marginTop:18, fontSize:11, color:"#9CA3AF", textAlign:"center", lineHeight:1.5 }}>
+        Debes marcar tu entrada antes de poder marcar la salida.
+      </p>
+    </Shell>
+  );
+}
+
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function DocenteScan() {
   const token = new URLSearchParams(window.location.search).get("token");
+
+  // Tipo de marca elegido por el docente: null | "ENTRADA" | "SALIDA"
+  const [tipo, setTipo] = useState(null);
 
   // Datos guardados del docente
   const [datosGuardados, setDatosGuardados] = useState(null);
@@ -148,7 +231,7 @@ export default function DocenteScan() {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ cedula: c, nombre: n })); } catch {}
   };
 
-  const registrar = useCallback(async (cedulaFinal, nombreFinal) => {
+  const registrar = useCallback(async (cedulaFinal, nombreFinal, tipoFinal) => {
     setLoading(true);
     try {
       const fingerprint = await calcularDeviceFingerprint();
@@ -159,6 +242,7 @@ export default function DocenteScan() {
         p_cedula_docente:     cedulaNorm,
         p_nombre_docente:     nombreFinal.trim() || cedulaNorm,
         p_device_fingerprint: fingerprint,
+        p_tipo:               tipoFinal,
       });
 
       if (rpcErr) throw rpcErr;
@@ -176,17 +260,24 @@ export default function DocenteScan() {
   const handleFormulario = (e) => {
     e.preventDefault();
     if (!cedula.trim() || !nombre.trim()) return;
-    registrar(cedula, nombre);
+    registrar(cedula, nombre, tipo);
   };
 
   const handleConfirmar = () => {
-    registrar(datosGuardados.cedula, datosGuardados.nombre);
+    registrar(datosGuardados.cedula, datosGuardados.nombre, tipo);
   };
 
   const handleCambiarDatos = () => {
     setPaso("formulario");
     setCedula("");
     setNombre("");
+  };
+
+  const handleVolverASelectorTipo = () => {
+    setTipo(null);
+    setResultado(null);
+    // Recupera el paso correcto según si hay datos guardados o no
+    setPaso(datosGuardados ? "confirmar" : "formulario");
   };
 
   // ── Sin token ────────────────────────────────────────────────────────────
@@ -212,25 +303,46 @@ export default function DocenteScan() {
     );
   }
 
+  // ── Elegir tipo (Entrada/Salida) ─────────────────────────────────────────
+  if (!tipo) {
+    return <SelectorTipo onElegir={setTipo} />;
+  }
+
   // ── Resultado ────────────────────────────────────────────────────────────
   if (paso === "resultado" && resultado) {
-    const tipo = resultado.ok ? "ok" : (resultado.codigo || "ERROR");
-    const ui   = RESULTADO_UI[tipo] || RESULTADO_UI.ERROR;
+    const tipoUi = resultado.ok ? "ok" : (resultado.codigo || "ERROR");
+    const ui     = RESULTADO_UI[tipoUi] || RESULTADO_UI.ERROR;
     const { Icon, titulo, color, hint } = ui;
     return (
-      <Shell>
+      <Shell ancho={420}>
         <Icon />
         <h2 style={{ margin:"16px 0 6px", fontSize:19, fontWeight:700, color, textAlign:"center" }}>{titulo}</h2>
         <p style={{ margin:0, fontSize:14, color:"#374151", textAlign:"center", lineHeight:1.55 }}>{resultado.mensaje}</p>
         {hint && <p style={{ margin:"10px 0 0", fontSize:13, color:"#6B7280", textAlign:"center" }}>{hint}</p>}
+
         {/* Si fue exitoso, mostrar datos registrados */}
         {resultado.ok && (
           <div style={{ marginTop:20, background:"#F0FDF4", border:"1px solid #86EFAC", borderRadius:12, padding:"14px 18px", width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:12, color:"#166534", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Datos registrados</div>
+            <div style={{ fontSize:12, color:"#166534", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+              {resultado.tipo === "SALIDA" ? "Salida registrada" : "Entrada registrada"}
+            </div>
             <div style={{ fontSize:15, fontWeight:700, color:"#15803D" }}>{nombre || datosGuardados?.nombre}</div>
             <div style={{ fontSize:13, color:"#166534", fontFamily:"monospace", marginTop:2 }}>{normalizarCedula(cedula || datosGuardados?.cedula || "")}</div>
           </div>
         )}
+
+        {/* Detalle de materias/sección/hora del día, devuelto por la RPC */}
+        {resultado.ok && (
+          <HorarioHoyCard horarioHoy={resultado.horario_hoy} diaSemana={resultado.dia_semana} />
+        )}
+
+        {/* Permitir registrar el otro tipo (ej. salida tras entrada) sin recargar */}
+        <button
+          onClick={handleVolverASelectorTipo}
+          style={{ marginTop:18, background:"none", border:"none", color:"#2563EB", fontSize:13, fontWeight:600, cursor:"pointer" }}
+        >
+          ← Registrar otra marca
+        </button>
       </Shell>
     );
   }
@@ -241,8 +353,8 @@ export default function DocenteScan() {
       <Shell>
         {/* Header */}
         <div style={{ textAlign:"center", marginBottom:24 }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:"linear-gradient(135deg,#1E3A8A,#2563EB)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, margin:"0 auto 12px" }}>✅</div>
-          <h1 style={{ margin:0, fontSize:19, fontWeight:700, color:"#111827" }}>Registrar Asistencia</h1>
+          <div style={{ width:52, height:52, borderRadius:14, background:"linear-gradient(135deg,#1E3A8A,#2563EB)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, margin:"0 auto 12px" }}>{tipo === "SALIDA" ? "🔴" : "🟢"}</div>
+          <h1 style={{ margin:0, fontSize:19, fontWeight:700, color:"#111827" }}>{tipo === "SALIDA" ? "Registrar Salida" : "Registrar Entrada"}</h1>
           <p style={{ margin:"5px 0 0", fontSize:13, color:"#6B7280" }}>Confirma que eres tú para continuar</p>
         </div>
 
@@ -259,15 +371,23 @@ export default function DocenteScan() {
           disabled={loading}
           style={{ width:"100%", padding:"13px 0", background: loading ? "#93C5FD" : "#2563EB", color:"#fff", border:"none", borderRadius:10, fontSize:15, fontWeight:700, cursor: loading ? "not-allowed" : "pointer", marginBottom:10 }}
         >
-          {loading ? "Registrando…" : "✅ Confirmar mi asistencia"}
+          {loading ? "Registrando…" : `${tipo === "SALIDA" ? "🔴" : "✅"} Confirmar mi ${tipo === "SALIDA" ? "salida" : "entrada"}`}
         </button>
 
         {/* Enlace para cambiar datos */}
         <button
           onClick={handleCambiarDatos}
-          style={{ background:"none", border:"none", color:"#6B7280", fontSize:13, cursor:"pointer", textDecoration:"underline" }}
+          style={{ background:"none", border:"none", color:"#6B7280", fontSize:13, cursor:"pointer", textDecoration:"underline", marginBottom:6 }}
         >
           No soy yo — usar otros datos
+        </button>
+
+        {/* Volver a elegir entrada/salida */}
+        <button
+          onClick={() => setTipo(null)}
+          style={{ background:"none", border:"none", color:"#9CA3AF", fontSize:12, cursor:"pointer" }}
+        >
+          ← Cambiar tipo de registro
         </button>
       </Shell>
     );
@@ -278,8 +398,8 @@ export default function DocenteScan() {
     <Shell>
       {/* Header */}
       <div style={{ textAlign:"center", marginBottom:24, width:"100%" }}>
-        <div style={{ width:52, height:52, borderRadius:14, background:"linear-gradient(135deg,#1E3A8A,#2563EB)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, margin:"0 auto 12px" }}>✅</div>
-        <h1 style={{ margin:0, fontSize:19, fontWeight:700, color:"#111827" }}>Registro de Asistencia</h1>
+        <div style={{ width:52, height:52, borderRadius:14, background:"linear-gradient(135deg,#1E3A8A,#2563EB)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, margin:"0 auto 12px" }}>{tipo === "SALIDA" ? "🔴" : "🟢"}</div>
+        <h1 style={{ margin:0, fontSize:19, fontWeight:700, color:"#111827" }}>{tipo === "SALIDA" ? "Registro de Salida" : "Registro de Entrada"}</h1>
         <p style={{ margin:"5px 0 0", fontSize:13, color:"#6B7280" }}>Primera vez — ingresa tus datos</p>
       </div>
 
@@ -310,11 +430,18 @@ export default function DocenteScan() {
           disabled={loading || !cedula.trim() || !nombre.trim()}
           style={{ width:"100%", padding:"13px 0", background: loading || !cedula.trim() || !nombre.trim() ? "#93C5FD" : "#2563EB", color:"#fff", border:"none", borderRadius:10, fontSize:15, fontWeight:700, cursor: loading || !cedula.trim() || !nombre.trim() ? "not-allowed" : "pointer" }}
         >
-          {loading ? "Registrando…" : "Registrar mi asistencia"}
+          {loading ? "Registrando…" : `Registrar mi ${tipo === "SALIDA" ? "salida" : "entrada"}`}
         </button>
       </form>
 
-      <p style={{ marginTop:14, fontSize:11, color:"#9CA3AF", textAlign:"center", lineHeight:1.5 }}>
+      <button
+        onClick={() => setTipo(null)}
+        style={{ marginTop:14, background:"none", border:"none", color:"#9CA3AF", fontSize:12, cursor:"pointer" }}
+      >
+        ← Cambiar tipo de registro
+      </button>
+
+      <p style={{ marginTop:10, fontSize:11, color:"#9CA3AF", textAlign:"center", lineHeight:1.5 }}>
         Tus datos se guardan en este dispositivo para agilizar futuros registros.
       </p>
     </Shell>
