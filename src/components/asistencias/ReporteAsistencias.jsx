@@ -10,13 +10,18 @@
  * mostrando quién tenía clases y no apareció.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import { DEFAULT_PROGRAMAS } from "../../constants";
 import { S } from "../../constants";
 import { parseClase } from "../../utils/parsing";
 
-const TURNOS = ["DIURNO", "VESPERTINO", "NOCTURNO"];
+// FIX (turno-todos-reporte): se agrega "TODOS" como opción de filtro,
+// además de los turnos reales que existen en el módulo QR (DIURNO/VESPERTINO).
+const TURNOS_FILTRO = ["DIURNO", "VESPERTINO", "TODOS"];
+
+// Intervalo de refresco de respaldo (ver FIX realtime-fallback-polling-reporte).
+const POLL_FALLBACK_MS = 8000;
 
 // ── Días de la semana según fecha ISO ───────────────────────────────────────
 const DIAS_ISO = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
@@ -381,9 +386,10 @@ export default function ReporteAsistencias({ onVolverPanel }) {
       .from("asistencias_diarias")
       .select("*")
       .eq("fecha", fecha)
-      .eq("turno", turno)
       .order("hora_registro", { ascending: true });
 
+    // FIX (turno-todos-reporte): "TODOS" no filtra por turno.
+    if (turno !== "TODOS") query = query.eq("turno", turno);
     if (programa) query = query.eq("programa", programa);
 
     const { data, error: err } = await query;
@@ -394,7 +400,8 @@ export default function ReporteAsistencias({ onVolverPanel }) {
 
   useEffect(() => { fetchAsistencias(); }, [fetchAsistencias]);
 
-  // Realtime
+  // Realtime (requiere que asistencias_diarias esté en la publicación
+  // supabase_realtime — ver migración 0010_realtime_asistencias_qr.sql)
   useEffect(() => {
     const ch = supabase.channel("reporte_realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias_diarias" }, fetchAsistencias)
@@ -402,8 +409,21 @@ export default function ReporteAsistencias({ onVolverPanel }) {
     return () => supabase.removeChannel(ch);
   }, [fetchAsistencias]);
 
-  // CRÍTICO #1: agrupar por docente antes de mostrar
-  const docentesAgrupados = agruparPorDocente(rows);
+  // FIX (realtime-fallback-polling-reporte): poll de respaldo por si Realtime
+  // no está habilitado en el proyecto (o se cae la conexión websocket), para
+  // que el reporte no se quede desactualizado en silencio.
+  useEffect(() => {
+    const id = setInterval(fetchAsistencias, POLL_FALLBACK_MS);
+    return () => clearInterval(id);
+  }, [fetchAsistencias]);
+
+  // FIX (ausentes-parpadeo): docentesAgrupados y cedulasPresentes se memoizan
+  // por `rows`. Antes se recreaban en CADA render (incluso al teclear en el
+  // buscador, o al recibir un INSERT de otro turno/fecha), generando un Set
+  // nuevo cada vez. Ese Set es dependencia del useEffect de VistaAusentes y
+  // de AlertaSinVincular, así que disparaba su fetch una y otra vez,
+  // poniendo loading=true y haciendo "parpadear" la tabla de Ausentes.
+  const docentesAgrupados = useMemo(() => agruparPorDocente(rows), [rows]);
 
   const filtrados = docentesAgrupados.filter(d => {
     if (!busqueda) return true;
@@ -412,7 +432,10 @@ export default function ReporteAsistencias({ onVolverPanel }) {
   });
 
   // Cédulas presentes para pasarlas a VistaAusentes (CRÍTICO #4)
-  const cedulasPresentes = new Set(docentesAgrupados.map(d => d.cedula));
+  const cedulasPresentes = useMemo(
+    () => new Set(docentesAgrupados.map(d => d.cedula)),
+    [docentesAgrupados]
+  );
 
   // Estadísticas separadas
   const totalDocentes = docentesAgrupados.length;
@@ -457,7 +480,11 @@ export default function ReporteAsistencias({ onVolverPanel }) {
         <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Turno</span>
           <select value={turno} onChange={e => setTurno(e.target.value)} style={{ ...S.select }}>
-            {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
+            {TURNOS_FILTRO.map(t => (
+              <option key={t} value={t}>
+                {t === "DIURNO" ? "☀️ Diurno" : t === "VESPERTINO" ? "🌙 Vespertino" : "🔁 Todos"}
+              </option>
+            ))}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
