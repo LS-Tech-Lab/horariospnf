@@ -2,13 +2,12 @@
  * AdminQRPanel.jsx
  *
  * Panel del admin/operador_qr para gestionar la sesión QR.
- * El estado de la sesión (useQRSession) vive en el padre (App.jsx)
- * para que persista al cambiar entre las pestañas Panel QR / Reporte.
  *
- * Validaciones:
- *  - No permite seleccionar fechas pasadas
- *  - No permite seleccionar un turno que ya terminó hoy
- *  - NOCTURNO oculto (reservado para futura actualización)
+ * CRÍTICO #2 FIX: El contador ahora separa docentes únicos con ENTRADA
+ * vs marcas de SALIDA, en vez de sumar todo como un número sin contexto.
+ *
+ * CRÍTICO #6 FIX: Feed en tiempo real de los últimos registros, para que
+ * el operador vea actividad sin tener que ir al reporte.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -17,17 +16,12 @@ import { supabase } from "../../lib/supabase";
 
 // ── Hora actual en Venezuela (UTC-4) ────────────────────────────────────────
 function horaActualVE() {
-  const now = new Date();
-  // Venezuela es UTC-4 fijo (sin horario de verano)
-  const ve = new Date(now.toLocaleString("en-US", { timeZone: "America/Caracas" }));
-  return ve.getHours() * 60 + ve.getMinutes(); // minutos desde medianoche
+  const ve = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
+  return ve.getHours() * 60 + ve.getMinutes();
 }
 
-// DIURNO termina a las 12:00 → 720 min. Si ya son las 12:01, no se puede.
-// VESPERTINO termina a las 17:30 → 1050 min.
 const TURNO_FIN = { DIURNO: 720, VESPERTINO: 1050 };
 
-// Formato DD-MM-YYYY
 function formatFechaVE(isoStr) {
   if (!isoStr) return "";
   const [y, m, d] = isoStr.split("-");
@@ -37,7 +31,6 @@ function formatFechaVE(isoStr) {
 const TURNOS_VISIBLES = [
   { id: "DIURNO",     label: "☀️ Diurno",    hora: "7:30 AM – 12:00 PM" },
   { id: "VESPERTINO", label: "🌆 Vespertino", hora: "1:00 PM – 5:30 PM"  },
-  // NOCTURNO oculto — futura actualización
 ];
 
 // ── Barra de cuenta regresiva ────────────────────────────────────────────────
@@ -90,8 +83,107 @@ function QRDisplay({ qrUrl, segundos, ttlMinutes }) {
       </div>
       <CountdownBar segundos={segundos} total={ttlMinutes * 60} />
       <p style={{ marginTop: 6, fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>
-        Se regenera automáticamente y al cada escaneo. Las fotos compartidas no son válidas.
+        Se regenera automáticamente tras cada escaneo. Las fotos compartidas no son válidas.
       </p>
+    </div>
+  );
+}
+
+// ── Feed de actividad reciente ───────────────────────────────────────────────
+// CRÍTICO #6: muestra los últimos registros en tiempo real para que el
+// operador vea que los docentes están escaneando sin ir al reporte.
+function FeedActividad({ registros }) {
+  if (registros.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 16, background: "#F8FAFC", borderRadius: 10, border: "1px solid #E2E8F0", overflow: "hidden" }}>
+      <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.07em", borderBottom: "1px solid #E2E8F0", background: "#F1F5F9" }}>
+        Actividad reciente
+      </div>
+      <div style={{ maxHeight: 200, overflowY: "auto" }}>
+        {registros.map((r, i) => (
+          <div
+            key={r.id}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "8px 14px",
+              borderBottom: i < registros.length - 1 ? "1px solid #F1F5F9" : "none",
+              background: i === 0 ? "#FFFBEB" : "#fff",
+              transition: "background 0.3s",
+            }}
+          >
+            <span style={{ fontSize: 16, flexShrink: 0 }}>
+              {r.tipo === "SALIDA" ? "🔴" : "🟢"}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r.nombre_docente}
+              </div>
+              <div style={{ fontSize: 11, color: "#6B7280", fontFamily: "monospace" }}>
+                {r.cedula_docente}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: r.tipo === "SALIDA" ? "#DC2626" : "#15803D" }}>
+                {r.tipo === "SALIDA" ? "Salida" : "Entrada"}
+              </div>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>
+                {new Date(r.hora_registro).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Contador separado: docentes únicos con entrada y marcas de salida ────────
+// CRÍTICO #2: en vez de un número ambiguo, muestra qué hay realmente.
+function ContadorSesion({ sessionId }) {
+  const [stats, setStats] = useState({ entradas: 0, salidas: 0 });
+
+  useEffect(() => {
+    if (!sessionId) { setStats({ entradas: 0, salidas: 0 }); return; }
+
+    const fetchStats = async () => {
+      const { data } = await supabase
+        .from("asistencias_diarias")
+        .select("cedula_docente, tipo")
+        .eq("qr_session_id", sessionId);
+
+      if (!data) return;
+      const cedulas = new Set(data.filter(r => r.tipo === "ENTRADA").map(r => r.cedula_docente));
+      const salidas = new Set(data.filter(r => r.tipo === "SALIDA").map(r => r.cedula_docente));
+      setStats({ entradas: cedulas.size, salidas: salidas.size });
+    };
+
+    fetchStats();
+
+    const ch = supabase.channel(`panel_stats_${sessionId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "asistencias_diarias",
+        filter: `qr_session_id=eq.${sessionId}`,
+      }, fetchStats)
+      .subscribe();
+
+    return () => supabase.removeChannel(ch);
+  }, [sessionId]);
+
+  return (
+    <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ padding: "12px 14px", background: "#F0FDF4", borderRadius: 10, border: "1px solid #BBF7D0", textAlign: "center" }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: "#15803D" }}>{stats.entradas}</div>
+        <div style={{ fontSize: 11, color: "#166534", fontWeight: 600, marginTop: 2 }}>
+          🟢 {stats.entradas === 1 ? "docente" : "docentes"} entraron
+        </div>
+      </div>
+      <div style={{ padding: "12px 14px", background: "#FFF1F2", borderRadius: 10, border: "1px solid #FECDD3", textAlign: "center" }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: "#BE123C" }}>{stats.salidas}</div>
+        <div style={{ fontSize: 11, color: "#9F1239", fontWeight: 600, marginTop: 2 }}>
+          🔴 {stats.salidas === 1 ? "docente" : "docentes"} salieron
+        </div>
+      </div>
     </div>
   );
 }
@@ -99,47 +191,54 @@ function QRDisplay({ qrUrl, segundos, ttlMinutes }) {
 // ── Panel principal ──────────────────────────────────────────────────────────
 export default function AdminQRPanel({
   profile, onVerReporte,
-  // Props del hook que vive en el padre:
   qrUrl, activa, loading, error, segundosRestantes, ttlMinutes, sessionId,
   crearSesion, renovarManual, cerrarSesion,
 }) {
   const hoy = new Date().toISOString().slice(0, 10);
   const minHoy = horaActualVE();
 
-  // Turno por defecto según hora actual
   const turnoDefault = minHoy < TURNO_FIN.DIURNO ? "DIURNO" : "VESPERTINO";
 
   const [turno,    setTurno]    = useState(turnoDefault);
   const [programa, setPrograma] = useState(profile?.programa || "");
   const [fecha,    setFecha]    = useState(hoy);
 
-  // Validaciones de turno según hora actual (solo si la fecha es HOY)
+  // Feed de actividad reciente — CRÍTICO #6
+  const [feedRegistros, setFeedRegistros] = useState([]);
+
   const esHoy = fecha === hoy;
   function turnoDisponible(tId) {
-    if (!esHoy) return true; // fecha futura → todos disponibles
+    if (!esHoy) return true;
     return minHoy < TURNO_FIN[tId];
   }
 
-  // Conteo en tiempo real
-  const [totalHoy, setTotalHoy] = useState(0);
+  // Cargar y suscribir feed en tiempo real
   useEffect(() => {
-    if (!sessionId) { setTotalHoy(0); return; }
-    const fetch = async () => {
-      const { count } = await supabase
+    if (!sessionId) { setFeedRegistros([]); return; }
+
+    const fetchFeed = async () => {
+      const { data } = await supabase
         .from("asistencias_diarias")
-        .select("*", { count: "exact", head: true })
-        .eq("qr_session_id", sessionId);
-      setTotalHoy(count || 0);
+        .select("id, nombre_docente, cedula_docente, tipo, hora_registro")
+        .eq("qr_session_id", sessionId)
+        .order("hora_registro", { ascending: false })
+        .limit(10);
+      setFeedRegistros(data || []);
     };
-    fetch();
-    const ch = supabase.channel(`panel_count_${sessionId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias_diarias", filter: `qr_session_id=eq.${sessionId}` }, fetch)
+
+    fetchFeed();
+
+    const ch = supabase.channel(`panel_feed_${sessionId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "asistencias_diarias",
+        filter: `qr_session_id=eq.${sessionId}`,
+      }, fetchFeed)
       .subscribe();
+
     return () => supabase.removeChannel(ch);
   }, [sessionId]);
 
   const handleIniciar = () => {
-    // Guardar validación final antes de crear
     if (esHoy && !turnoDisponible(turno)) return;
     crearSesion({ turno, programa: programa || null, fecha });
   };
@@ -263,15 +362,11 @@ export default function AdminQRPanel({
             </div>
           )}
 
-          {/* Contador */}
-          {activa && (
-            <div style={{ marginTop: 16, padding: "12px 14px", background: "#F0FDF4", borderRadius: 10, border: "1px solid #BBF7D0", textAlign: "center" }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#15803D" }}>{totalHoy}</div>
-              <div style={{ fontSize: 12, color: "#166534", fontWeight: 600 }}>
-                marca{totalHoy !== 1 ? "s" : ""} registrada{totalHoy !== 1 ? "s" : ""} (entrada + salida)
-              </div>
-            </div>
-          )}
+          {/* Contador separado ENTRADA / SALIDA — CRÍTICO #2 */}
+          {activa && <ContadorSesion sessionId={sessionId} />}
+
+          {/* Feed de actividad — CRÍTICO #6 */}
+          {activa && <FeedActividad registros={feedRegistros} />}
         </div>
 
         {/* ── Columna derecha: QR ── */}
