@@ -5,10 +5,11 @@ import { parseClase } from '../utils/parsing';
 import Avatar from './Avatar';
 import StatCard from './StatCard';
 
-export default function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, getDocName, onSaveDocenteName }) {
+export default function DocentesView({ byDocente, conflicts, initialSel, onConsumeNav, getDocName, onSaveDocenteName, getDocCedula, onSaveDocenteCedula }) {
   const sorted = Object.keys(byDocente).sort();
   const [sel, setSel] = useState(initialSel || null), [search, setSearch] = useState("");
   const [editingName, setEditingName] = useState(false), [editValue, setEditValue] = useState(""), [saving, setSaving] = useState(false);
+  const [editingCedula, setEditingCedula] = useState(false), [cedulaValue, setCedulaValue] = useState(""), [savingCedula, setSavingCedula] = useState(false);
 
   useEffect(() => { if (initialSel) { setSel(initialSel); onConsumeNav(); } }, [initialSel, onConsumeNav]);
   // Solo actualizar editValue cuando cambia la selección, NO cuando cambia getDocName.
@@ -16,7 +17,7 @@ export default function DocentesView({ byDocente, conflicts, initialSel, onConsu
   // nuevo getDocName → efecto se re-ejecuta → sobreescribe editValue mientras el modal
   // sigue abierto, causando que haya que guardar dos veces.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (sel) setEditValue(getDocName(sel)); }, [sel]);
+  useEffect(() => { if (sel) { setEditValue(getDocName(sel)); setCedulaValue(getDocCedula ? getDocCedula(sel) : ""); } }, [sel]);
 
   const hasConflict = (name) => conflicts.some(c => c.docente === name);
   const selEntries = byDocente[sel] || [], selConflicts = sel ? conflicts.filter(c => c.docente === sel) : [];
@@ -48,6 +49,15 @@ export default function DocentesView({ byDocente, conflicts, initialSel, onConsu
         if (res.targetRaw) setSel(res.targetRaw);
       }
     } else setEditingName(false);
+  };
+
+  const saveCedulaEdit = async () => {
+    if (sel && onSaveDocenteCedula) {
+      setSavingCedula(true);
+      const res = await onSaveDocenteCedula(sel, cedulaValue);
+      setSavingCedula(false);
+      if (res.success) setEditingCedula(false);
+    } else setEditingCedula(false);
   };
 
   return (
@@ -93,6 +103,32 @@ export default function DocentesView({ byDocente, conflicts, initialSel, onConsu
                   </div>
                 )}
                 <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4, fontWeight: 500 }}>{selEntries.length} clases asignadas{selConflicts.length > 0 && <span style={{ marginLeft: 10, background: "#FEF2F2", color: "#DC2626", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>⚠️ {selConflicts.length} conflicto{selConflicts.length > 1 ? "s" : ""}</span>}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  {editingCedula ? (
+                    <>
+                      <input
+                        value={cedulaValue}
+                        onChange={e => setCedulaValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveCedulaEdit(); if (e.key === "Escape") setEditingCedula(false); }}
+                        autoFocus
+                        placeholder="V-12345678"
+                        style={{ ...S.input, fontSize: 13, fontWeight: 600, width: 160, fontFamily: "monospace" }}
+                      />
+                      <button onClick={saveCedulaEdit} disabled={savingCedula} style={{ padding: "5px 12px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 6, cursor: savingCedula ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600, opacity: savingCedula ? 0.6 : 1 }}>{savingCedula ? "Guardando..." : "Guardar"}</button>
+                      <button onClick={() => setEditingCedula(false)} style={{ padding: "5px 10px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>Cancelar</button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 12, color: "#6B7280", fontWeight: 500 }}>🪪 Cédula:</span>
+                      <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: getDocCedula && getDocCedula(sel) ? "#111827" : "#D1D5DB" }}>
+                        {getDocCedula && getDocCedula(sel) ? getDocCedula(sel) : "sin vincular"}
+                      </span>
+                      {onSaveDocenteCedula && (
+                        <button onClick={() => { setCedulaValue(getDocCedula ? getDocCedula(sel) : ""); setEditingCedula(true); }} title="Editar cédula" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: "#6B7280", fontWeight: 500 }}>✏️</button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{[...new Set(selEntries.map(e => e.trayecto))].sort().map(t => <span key={t} style={{ background: TRAYECTO_BG[t] || "#f3f4f6", color: TRAYECTO_COLORS[t] || "#555", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>T.{t}</span>)}</div>
             </div>
