@@ -45,7 +45,7 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
   const byDay = useMemo(() => DAYS.reduce((acc, day) => { acc[day] = entries.filter(e => e.dia === day).sort((a, b) => getHoraMin(a) - getHoraMin(b)); return acc; }, {}), [entries]);
 
   return (
-    <div className="secciones-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
+    <div className="secciones-layout" style={{ padding: 20, display: "flex", gap: 16, flex: 1, height: 0, overflow: "hidden" }}>
       <div className="secciones-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <select value={filterTray} onChange={e => setFilterTray(e.target.value)} style={{ ...S.select, width: "100%" }}>
           <option value="all">Todos los trayectos</option>
