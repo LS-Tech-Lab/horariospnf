@@ -140,17 +140,22 @@ const GLOBAL_CSS = `
   .badge-red { background: #EF4444; color: #fff; border-radius: 10px;
                font-size: 10px; padding: 1px 5px; font-weight: 700; line-height: 1.4; }
 
-  /* Mobile */
-  @media (max-width: 768px) {
-    .sb { position: fixed !important; z-index: 300; height: 100vh;
+  /* Móvil y tablet (hasta 1024px): sidebar como overlay, hamburger visible */
+  @media (max-width: 1024px) {
+    .sb { position: fixed !important; z-index: 300; height: 100dvh;
           transform: translateX(-100%); transition: transform .25s, width .22s; }
     .sb.mobile-open { transform: translateX(0); }
     .sb-overlay { display: block !important; }
     .hamburger { display: flex !important; }
-    .global-search { max-width: 160px !important; }
+    .global-search { max-width: 200px !important; }
     .stats-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
     .docentes-layout, .materias-layout, .secciones-layout { flex-direction: column !important; height: auto !important; }
-    .docentes-left-panel, .materias-left-panel, .secciones-left-panel { width: 100% !important; max-height: 220px; }
+    .docentes-left-panel, .materias-left-panel, .secciones-left-panel { width: 100% !important; max-height: 260px; }
+  }
+  /* Móvil pequeño (hasta 640px) */
+  @media (max-width: 640px) {
+    .global-search { max-width: 140px !important; }
+    .docentes-left-panel, .materias-left-panel, .secciones-left-panel { max-height: 220px; }
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 `;
@@ -585,7 +590,7 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:"flex", height:"100vh", fontFamily:"system-ui,-apple-system,sans-serif",
+    <div style={{ display:"flex", height:"100dvh", fontFamily:"system-ui,-apple-system,sans-serif",
       background:"#F3F4F6", overflow:"hidden" }}>
       <style>{GLOBAL_CSS}</style>
 
