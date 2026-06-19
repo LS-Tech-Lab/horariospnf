@@ -14,9 +14,10 @@ import { S } from "../../constants";
 const TURNOS = ["DIURNO", "VESPERTINO", "NOCTURNO"];
 
 function exportarCSV(rows, fecha, turno) {
-  const headers = ["Cédula", "Nombre", "Turno", "Programa", "Hora de registro", "Dispositivo (hash)"];
+  const headers = ["Cédula", "Tipo", "Nombre", "Turno", "Programa", "Hora de registro", "Dispositivo (hash)"];
   const lines = rows.map((r) => [
     r.cedula_docente,
+    r.tipo === "SALIDA" ? "Salida" : "Entrada",
     r.nombre_docente,
     r.turno,
     r.programa || "—",
@@ -39,13 +40,13 @@ function exportarCSV(rows, fecha, turno) {
   URL.revokeObjectURL(url);
 }
 
-// ── Chip de estado ────────────────────────────────────────────────────────────
-function EstadoChip({ tipo }) {
+// ── Chip de tipo de marca (Entrada / Salida) ───────────────────────────────────
+function TipoMarcaChip({ tipo }) {
   const map = {
-    presente: { label: "Presente", bg: "#F0FDF4", color: "#15803D", border: "#86EFAC" },
-    ausente:  { label: "Ausente",  bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" },
+    ENTRADA: { label: "🟢 Entrada", bg: "#F0FDF4", color: "#15803D", border: "#86EFAC" },
+    SALIDA:  { label: "🔴 Salida",  bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" },
   };
-  const ui = map[tipo] || map.ausente;
+  const ui = map[tipo] || map.ENTRADA;
   return (
     <span
       style={{
@@ -56,6 +57,7 @@ function EstadoChip({ tipo }) {
         background: ui.bg,
         color: ui.color,
         border: `1px solid ${ui.border}`,
+        whiteSpace: "nowrap",
       }}
     >
       {ui.label}
@@ -67,7 +69,7 @@ function EstadoChip({ tipo }) {
 function SkeletonRow() {
   return (
     <tr>
-      {[140, 200, 80, 120, 80].map((w, i) => (
+      {[140, 90, 200, 80, 120, 80].map((w, i) => (
         <td key={i} style={S.td}>
           <div
             style={{
@@ -361,7 +363,7 @@ export default function ReporteAsistencias({ onVolverPanel }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Cédula", "Nombre docente", "Turno", "Hora registro", "Estado"].map((h) => (
+              {["Cédula", "Tipo", "Nombre docente", "Turno", "Hora registro", "Estado"].map((h) => (
                 <th key={h} style={S.th}>{h}</th>
               ))}
             </tr>
@@ -371,7 +373,7 @@ export default function ReporteAsistencias({ onVolverPanel }) {
               Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
             ) : rowsFiltradas.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ ...S.td, textAlign: "center", padding: "40px 0", color: "#9CA3AF" }}>
+                <td colSpan={6} style={{ ...S.td, textAlign: "center", padding: "40px 0", color: "#9CA3AF" }}>
                   {busqueda
                     ? "No se encontraron docentes con ese nombre o cédula."
                     : "No hay asistencias registradas para esta fecha y turno."}
@@ -387,6 +389,9 @@ export default function ReporteAsistencias({ onVolverPanel }) {
                 >
                   <td style={{ ...S.td, fontFamily: "monospace", fontWeight: 600, color: "#1D4ED8" }}>
                     {r.cedula_docente}
+                  </td>
+                  <td style={S.td}>
+                    <TipoMarcaChip tipo={r.tipo} />
                   </td>
                   <td style={{ ...S.td, fontWeight: 500 }}>
                     {r.nombre_docente || <span style={{ color: "#9CA3AF" }}>—</span>}
@@ -415,7 +420,7 @@ export default function ReporteAsistencias({ onVolverPanel }) {
                     })}
                   </td>
                   <td style={S.td}>
-                    <EstadoChip tipo="presente" />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#15803D" }}>✓ Presente</span>
                   </td>
                 </tr>
               ))
