@@ -15,6 +15,7 @@ export default function HorariosView({
   allTrayectos,
   conflicts, onGoDocente,
   initialTab, onConsumeInitialTab,
+  modoConsulta,
 }) {
   const [tab, setTab] = useState('horarios');
 
