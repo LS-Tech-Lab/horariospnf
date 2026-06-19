@@ -276,14 +276,18 @@ export default function useAppData(lapso, logAudit = null) {
   const saveDocenteCedula = async (rawName, cedula) => {
     const cedulaLimpia = cedula.trim().toUpperCase();
     try {
-      const { error: upsertError } = await supabase
+      // UPDATE en lugar de upsert: la cédula siempre se edita sobre un
+      // docente que ya existe. El upsert intentaría INSERT si no existe,
+      // fallando por la restricción NOT NULL de nombre_display.
+      const { error: updateError } = await supabase
         .from("docentes")
-        .upsert({ nombre_raw: rawName, cedula: cedulaLimpia || null }, { onConflict: "nombre_raw" });
-      if (upsertError) {
-        if (upsertError.code === "23505") {
+        .update({ cedula: cedulaLimpia || null })
+        .eq("nombre_raw", rawName);
+      if (updateError) {
+        if (updateError.code === "23505") {
           showToast("❌ Esa cédula ya está vinculada a otro docente.", "error");
         } else {
-          showToast("❌ Error: " + upsertError.message, "error");
+          showToast("❌ Error: " + updateError.message, "error");
         }
         return { success: false };
       }
