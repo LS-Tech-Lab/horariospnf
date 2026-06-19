@@ -21,7 +21,7 @@ export default function MateriasView({ byMateria, initialSel, onConsumeNav, getM
 
   const saveEdit = async () => {
     const t = editValue.trim();
-    if (t && sel) {
+    if (t && sel && onSaveMateriaName) {
       setSaving(true);
       const res = await onSaveMateriaName(sel, t);
       setSaving(false);
@@ -41,7 +41,7 @@ export default function MateriasView({ byMateria, initialSel, onConsumeNav, getM
   }, [selEntries]);
 
   return (
-    <div className="materias-layout" style={{ padding: 20, display: "flex", gap: 16, height: "calc(100vh - 61px)", overflow: "hidden" }}>
+    <div className="materias-layout" style={{ padding: 20, display: "flex", gap: 16, flex: 1, height: 0, overflow: "hidden" }}>
       <div className="materias-left-panel" style={{ width: 250, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar materia…" style={{ ...S.input, width: "100%", boxSizing: "border-box" }} />
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
@@ -77,7 +77,9 @@ export default function MateriasView({ byMateria, initialSel, onConsumeNav, getM
                 ) : (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ fontSize: 19, fontWeight: 700, color: "#111827" }}>{getMateriaName(sel)}</div>
-                    <button onClick={() => { setEditValue(getMateriaName(sel)); setEditingName(true); }} title="Editar" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontSize: 12, color: "#6B7280", fontWeight: 500 }}>✏️ Editar</button>
+                    {onSaveMateriaName && (
+                      <button onClick={() => { setEditValue(getMateriaName(sel)); setEditingName(true); }} title="Editar" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontSize: 12, color: "#6B7280", fontWeight: 500 }}>✏️ Editar</button>
+                    )}
                   </div>
                 )}
                 <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4, fontWeight: 500 }}>
