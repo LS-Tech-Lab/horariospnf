@@ -20,6 +20,31 @@ import { parseClase } from "../../utils/parsing";
 import { getHoraDisplayDeRegistro } from "../../utils/time";
 
 const LS_KEY = "pnf_docente_datos";
+// Tiempo máximo en horas antes de mostrar aviso de datos viejos
+const LS_TIMEOUT_HORAS = 12;
+
+// Fecha de hoy en Venezuela (UTC-4) como string YYYY-MM-DD
+function fechaHoyVE() {
+  const now = new Date();
+  // UTC-4 fijo (Venezuela no usa DST)
+  const ve  = new Date(now.getTime() - (now.getTimezoneOffset() + 240) * 60000);
+  return ve.toISOString().slice(0, 10);
+}
+
+// Devuelve string de aviso si los datos guardados son sospechosamente viejos o de otro dia
+function avisoStale(datos) {
+  if (!datos) return null;
+  if (datos.fecha && datos.fecha !== fechaHoyVE()) {
+    return `Estos datos fueron guardados el ${datos.fecha}. Si eres el docente indicado, confirma. Si no, toca "No soy yo".`;
+  }
+  if (datos.guardadoEn) {
+    const diffHoras = Math.round((Date.now() - datos.guardadoEn) / 3600000);
+    if (diffHoras >= LS_TIMEOUT_HORAS) {
+      return `Estos datos llevan ${diffHoras} horas guardados en este dispositivo. Confirma que eres el docente correcto.`;
+    }
+  }
+  return null;
+}
 
 // ── Device fingerprint ───────────────────────────────────────────────────────
 async function calcularDeviceFingerprint() {
@@ -86,8 +111,8 @@ const RESULTADO_UI = {
                           hint: "Pide al administrador que regenere el código." },
   TOKEN_INVALIDO:       { Icon: IconError, titulo: "Código QR no válido", color: "#991B1B",
                           hint: "Asegúrate de escanear el código desde la pantalla del aula." },
-  SESION_INACTIVA:      { Icon: IconError, titulo: "Sesión cerrada", color: "#1E40AF",
-                          hint: "El administrador cerró esta sesión. Consulta si hay una nueva." },
+  SESION_INACTIVA:      { Icon: IconError, titulo: "Sesión cerrada por el administrador", color: "#1E40AF",
+                          hint: "Esta sesión QR fue cerrada. Busca al operador o administrador del aula y pídele que abra una nueva sesión. Cuando lo haga, escanea el nuevo código QR de la pantalla." },
   DEVICE_DUPLICADO:     { Icon: IconError, titulo: "Dispositivo ya utilizado", color: "#991B1B",
                           hint: "Este celular ya registró la asistencia de otro docente en esta sesión." },
   ERROR:                { Icon: IconError, titulo: "Error de conexión", color: "#991B1B",
@@ -228,7 +253,14 @@ export default function DocenteScan() {
 
   // Guardar datos en localStorage al confirmar
   const guardarDatos = (c, n) => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ cedula: c, nombre: n })); } catch {}
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        cedula: c,
+        nombre: n,
+        fecha: fechaHoyVE(),
+        guardadoEn: Date.now(),
+      }));
+    } catch {}
   };
 
   const registrar = useCallback(async (cedulaFinal, nombreFinal, tipoFinal) => {
@@ -347,8 +379,8 @@ export default function DocenteScan() {
     );
   }
 
-  // ── Confirmar (datos recordados) ─────────────────────────────────────────
   if (paso === "confirmar" && datosGuardados) {
+    const aviso = avisoStale(datosGuardados);
     return (
       <Shell>
         {/* Header */}
@@ -358,9 +390,17 @@ export default function DocenteScan() {
           <p style={{ margin:"5px 0 0", fontSize:13, color:"#6B7280" }}>Confirma que eres tú para continuar</p>
         </div>
 
+        {/* Aviso de datos viejos o de otro día — MEJORA #7 */}
+        {aviso && (
+          <div style={{ width:"100%", background:"#FFFBEB", border:"1.5px solid #FCD34D", borderRadius:10, padding:"10px 14px", marginBottom:14, display:"flex", gap:8, alignItems:"flex-start" }}>
+            <span style={{ fontSize:18, flexShrink:0 }}>⚠️</span>
+            <p style={{ margin:0, fontSize:12, color:"#92400E", lineHeight:1.5 }}>{aviso}</p>
+          </div>
+        )}
+
         {/* Tarjeta de datos */}
         <div style={{ width:"100%", background:"#F8FAFC", border:"1.5px solid #E2E8F0", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"#94A3B8", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Tus datos registrados</div>
+          <div style={{ fontSize:11, fontWeight:700, color:"#94A3B8", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Datos guardados en este dispositivo</div>
           <div style={{ fontSize:16, fontWeight:700, color:"#111827", marginBottom:3 }}>{datosGuardados.nombre}</div>
           <div style={{ fontSize:13, color:"#6B7280", fontFamily:"monospace", fontWeight:600 }}>{datosGuardados.cedula}</div>
         </div>
