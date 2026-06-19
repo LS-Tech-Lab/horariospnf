@@ -945,15 +945,16 @@ export default function App() {
             />
           )}
           {view === "docentes" && (
-  <DocentesView
-    byDocente={appData.byDocente} conflicts={appData.conflicts}
-    initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)}
-    getDocName={appData.getDocName}
-    onSaveDocenteName={permisos.puedeEditarDocentes ? appData.saveDocenteName : null}
-    getDocCedula={appData.getDocCedula}
-    onSaveDocenteCedula={permisos.puedeEditarDocentes ? appData.saveDocenteCedula : null}
-  />
-)}
+            <DocentesView
+              byDocente={appData.byDocente} conflicts={appData.conflicts}
+              initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)}
+              getDocName={appData.getDocName}
+              onSaveDocenteName={permisos.puedeEditarDocentes ? appData.saveDocenteName : null}
+              getDocCedula={appData.getDocCedula}
+              getDocCedulaFuente={appData.getDocCedulaFuente}
+              onSaveDocenteCedula={permisos.puedeEditarDocentes ? appData.saveDocenteCedula : null}
+            />
+          )}
           {view === "materias" && (
             <MateriasView
               byMateria={appData.byMateria} initialSel={materiaNav}
