@@ -21,8 +21,10 @@ import { fechaHoyVE } from "../../utils/time";
 // además de los turnos reales que existen en el módulo QR (DIURNO/VESPERTINO).
 const TURNOS_FILTRO = ["DIURNO", "VESPERTINO", "TODOS"];
 
-// Intervalo de refresco de respaldo (ver FIX realtime-fallback-polling-reporte).
-const POLL_FALLBACK_MS = 8000;
+// Intervalo de refresco de respaldo (ver FIX realtime-fallback-polling-reporte
+// y FIX reporte-refresco-molesto). Solo es red de seguridad: Realtime ya está
+// confirmado activo, así que no hace falta que sea agresivo.
+const POLL_FALLBACK_MS = 60000;
 
 // ── Días de la semana según fecha ISO ───────────────────────────────────────
 const DIAS_ISO = ["DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"];
@@ -382,8 +384,13 @@ export default function ReporteAsistencias({ onVolverPanel }) {
   const [busqueda, setBusqueda] = useState("");
   const [tab,      setTab]      = useState("presentes"); // "presentes" | "ausentes"
 
-  const fetchAsistencias = useCallback(async () => {
-    setLoading(true);
+  // FIX (reporte-refresco-molesto): `silent=true` actualiza los datos sin
+  // tocar `loading`, para que los refrescos en segundo plano (realtime / poll
+  // de respaldo) no hagan parpadear toda la tabla cada pocos segundos. Solo
+  // se muestra el estado de carga cuando el usuario cambia fecha/turno/
+  // programa o entra por primera vez.
+  const fetchAsistencias = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     let query = supabase
@@ -399,7 +406,7 @@ export default function ReporteAsistencias({ onVolverPanel }) {
     const { data, error: err } = await query;
     if (err) { setError(err.message); setRows([]); }
     else     { setRows(data || []); }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [fecha, turno, programa]);
 
   useEffect(() => { fetchAsistencias(); }, [fetchAsistencias]);
@@ -408,16 +415,18 @@ export default function ReporteAsistencias({ onVolverPanel }) {
   // supabase_realtime — ver migración 0010_realtime_asistencias_qr.sql)
   useEffect(() => {
     const ch = supabase.channel("reporte_realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias_diarias" }, fetchAsistencias)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias_diarias" }, () => fetchAsistencias(true))
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [fetchAsistencias]);
 
-  // FIX (realtime-fallback-polling-reporte): poll de respaldo por si Realtime
-  // no está habilitado en el proyecto (o se cae la conexión websocket), para
-  // que el reporte no se quede desactualizado en silencio.
+  // FIX (realtime-fallback-polling-reporte) + FIX (reporte-refresco-molesto):
+  // poll de respaldo silencioso. Ahora que Realtime ya está confirmado activo
+  // en producción (migración 0010), este poll es solo una red de seguridad
+  // por si se cae el websocket — se espació a 60s (antes 8s, que se sentía
+  // como un refresco constante de la página) y ya no muestra el loader.
   useEffect(() => {
-    const id = setInterval(fetchAsistencias, POLL_FALLBACK_MS);
+    const id = setInterval(() => fetchAsistencias(true), POLL_FALLBACK_MS);
     return () => clearInterval(id);
   }, [fetchAsistencias]);
 
