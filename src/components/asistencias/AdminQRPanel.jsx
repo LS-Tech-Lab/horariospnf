@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { DEFAULT_PROGRAMAS } from "../../constants";
 import { supabase } from "../../lib/supabase";
+import { fechaHoyVE } from "../../utils/time";
 
 // ── Hora actual en Venezuela (UTC-4) ────────────────────────────────────────
 function horaActualVE() {
@@ -206,7 +207,10 @@ export default function AdminQRPanel({
   qrUrl, activa, loading, error, segundosRestantes, ttlMinutes, sessionId,
   crearSesion, renovarManual, cerrarSesion,
 }) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  // FIX (fecha-hoy-timezone): antes usaba new Date().toISOString().slice(0,10)
+  // (fecha en UTC), lo que adelantaba "hoy" un día durante la noche en
+  // Venezuela y bloqueaba el día real en el selector de fecha.
+  const hoy = fechaHoyVE();
   const minHoy = horaActualVE();
 
   const turnoDefault = minHoy < TURNO_FIN.DIURNO ? "DIURNO" : "VESPERTINO";
