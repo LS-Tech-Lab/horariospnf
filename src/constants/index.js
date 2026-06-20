@@ -54,6 +54,14 @@ export const BLOQUES_VESPERTINO = [
   { inicio: "4:45PM", fin: "5:30PM", label: "4:45 – 5:30 PM" },
 ];
 
+export const ROL_SIDEBAR = {
+  admin:          { label: "Administrador",  color: "#A78BFA" },
+  coordinador:    { label: "Coordinador",    color: "#60A5FA" },
+  secretario:     { label: "Secretario",     color: "#34D399" },
+  administrativo: { label: "Administrativo", color: "#94A3B8" },
+  operador_qr:    { label: "Operador QR",    color: "#34D399" },
+};
+
 export const NAV_ITEMS = [
   { id: "resumen",    emoji: "📊", label: "Resumen" },
   { id: "horarios",  emoji: "📅", label: "Horarios" },
