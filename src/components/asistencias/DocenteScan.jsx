@@ -24,19 +24,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { parseClase } from "../../utils/parsing";
-import { getHoraDisplayDeRegistro } from "../../utils/time";
+import { getHoraDisplayDeRegistro, fechaHoyVE } from "../../utils/time";
 
 const LS_KEY = "pnf_docente_datos";
 // Tiempo máximo en horas antes de mostrar aviso de datos viejos
 const LS_TIMEOUT_HORAS = 12;
-
-// Fecha de hoy en Venezuela (UTC-4) como string YYYY-MM-DD
-function fechaHoyVE() {
-  const now = new Date();
-  // UTC-4 fijo (Venezuela no usa DST)
-  const ve  = new Date(now.getTime() - (now.getTimezoneOffset() + 240) * 60000);
-  return ve.toISOString().slice(0, 10);
-}
 
 // Devuelve string de aviso si los datos guardados son sospechosamente viejos o de otro dia
 function avisoStale(datos) {
