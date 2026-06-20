@@ -84,3 +84,30 @@ export const responsiveCSS = `
  @media(max-width:768px){.hamburger-btn{display:block!important}.sidebar-aside{transform:translateX(-100%);position:fixed!important;z-index:300;height:100vh;transition:transform .25s}.sidebar-aside.open{transform:translateX(0)}.sidebar-overlay{display:block!important}.main-content{margin-left:0!important}.stats-grid-4{grid-template-columns:repeat(2,1fr)!important}.stats-grid-2{grid-template-columns:1fr!important}.docentes-layout,.materias-layout,.secciones-layout{flex-direction:column!important;height:auto!important}.docentes-left-panel,.materias-left-panel,.secciones-left-panel{width:100%!important;max-height:220px}.global-search{width:160px!important}}
  @media(max-width:480px){.stats-grid-4{grid-template-columns:1fr 1fr!important}.header-stats{display:none}}
 `;
+
+// ── MEJORA #11: Configuración de turnos ─────────────────────────────────────
+// Para activar el turno NOCTURNO, cambia `habilitado: false` a `true`.
+// No se requiere modificar ningún otro archivo.
+export const TURNOS_CONFIG = [
+  {
+    id:         "DIURNO",
+    label:      "☀️ Diurno",
+    hora:       "7:30 AM – 12:00 PM",
+    finMin:     720,   // 12:00 en minutos desde medianoche
+    habilitado: true,
+  },
+  {
+    id:         "VESPERTINO",
+    label:      "🌆 Vespertino",
+    hora:       "1:00 PM – 5:30 PM",
+    finMin:     1050,  // 17:30
+    habilitado: true,
+  },
+  {
+    id:         "NOCTURNO",
+    label:      "🌙 Nocturno",
+    hora:       "6:00 PM – 9:30 PM",
+    finMin:     1290,  // 21:30
+    habilitado: false, // Cambiar a true cuando la institución active este turno
+  },
+];
