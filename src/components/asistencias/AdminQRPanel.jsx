@@ -23,13 +23,15 @@ function horaActualVE() {
 
 const TURNO_FIN = { DIURNO: 720, VESPERTINO: 1050 };
 
-function formatFechaVE(isoStr) {
+// FIX (qr-solo-en-proyeccion): exportadas para reutilizarlas en
+// QRProyeccion.jsx sin duplicar el formato de fecha/turno.
+export function formatFechaVE(isoStr) {
   if (!isoStr) return "";
   const [y, m, d] = isoStr.split("-");
   return `${d}-${m}-${y}`;
 }
 
-const TURNOS_VISIBLES = [
+export const TURNOS_VISIBLES = [
   { id: "DIURNO",     label: "☀️ Diurno",    hora: "7:30 AM – 12:00 PM" },
   { id: "VESPERTINO", label: "🌆 Vespertino", hora: "1:00 PM – 5:30 PM"  },
 ];
@@ -203,8 +205,8 @@ function ContadorSesion({ sessionId }) {
 
 // ── Panel principal ──────────────────────────────────────────────────────────
 export default function AdminQRPanel({
-  profile, onVerReporte,
-  qrUrl, activa, loading, error, segundosRestantes, ttlMinutes, sessionId,
+  profile, onVerReporte, onVerProyeccion,
+  activa, loading, error, sessionId,
   crearSesion, renovarManual, cerrarSesion,
 }) {
   // FIX (fecha-hoy-timezone): antes usaba new Date().toISOString().slice(0,10)
@@ -388,7 +390,16 @@ export default function AdminQRPanel({
           {activa && <FeedActividad registros={feedRegistros} />}
         </div>
 
-        {/* ── Columna derecha: QR ── */}
+        {/* ── Columna derecha: estado de la sesión (SIN el QR) ── */}
+        {/*
+          FIX (qr-solo-en-proyeccion): antes el QR y las "Instrucciones para
+          el docente" se mostraban aquí, en el mismo panel donde están los
+          botones de Iniciar/Regenerar/Cerrar sesión. Eso es justo lo que
+          hacía riesgoso proyectar esta pantalla (ver fix qr-pill-proyeccion).
+          Ahora el control solo muestra un resumen de estado — el QR real
+          vive exclusivamente en la pestaña "🖥️ Proyección", que no tiene
+          ningún botón.
+        */}
         <div style={{ flex: 1, minWidth: 280 }}>
           {!activa ? (
             <div style={{ background: "#fff", borderRadius: 12, border: "2px dashed #E2E8F0", padding: "60px 24px", textAlign: "center" }}>
@@ -410,23 +421,21 @@ export default function AdminQRPanel({
                 </span>
               </div>
 
-              {/* QR */}
-              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", padding: 24, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 16, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Escanea para registrar tu entrada o salida
+              {/* Aviso + enlace a Proyección, en vez del QR */}
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", padding: "32px 24px", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🖥️</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#374151", marginBottom: 6 }}>El código QR está listo</div>
+                <div style={{ fontSize: 13, color: "#9CA3AF", maxWidth: 300, margin: "0 auto 18px" }}>
+                  Para mantener este panel de control fuera del alcance de los docentes, el QR y las instrucciones se muestran solo en la pestaña de proyección.
                 </div>
-                <QRDisplay qrUrl={qrUrl} segundos={segundosRestantes} ttlMinutes={ttlMinutes} />
-
-                {/* Instrucciones */}
-                <div style={{ marginTop: 20, background: "#F8FAFC", borderRadius: 10, padding: "14px 18px", width: "100%", maxWidth: 340 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Instrucciones para el docente</div>
-                  {["Abre la cámara de tu celular", "Apunta al código QR en pantalla", "Elige Entrada o Salida", "Primera vez: ingresa tu cédula y nombre", "Confirma y listo ✅"].map((step, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: i < 4 ? 8 : 0 }}>
-                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#2563EB", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
-                      <span style={{ fontSize: 13, color: "#374151" }}>{step}</span>
-                    </div>
-                  ))}
-                </div>
+                {onVerProyeccion && (
+                  <button
+                    onClick={onVerProyeccion}
+                    style={{ padding: "10px 20px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    🖥️ Abrir Proyección
+                  </button>
+                )}
               </div>
             </div>
           )}
