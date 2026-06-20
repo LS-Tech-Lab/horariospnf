@@ -15,6 +15,7 @@ import { supabase } from "../../lib/supabase";
 import { DEFAULT_PROGRAMAS } from "../../constants";
 import { S } from "../../constants";
 import { parseClase } from "../../utils/parsing";
+import { fechaHoyVE } from "../../utils/time";
 
 // FIX (turno-todos-reporte): se agrega "TODOS" como opción de filtro,
 // además de los turnos reales que existen en el módulo QR (DIURNO/VESPERTINO).
@@ -368,7 +369,10 @@ function AlertaSinVincular({ cedulasPresentes, loading }) {
 
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function ReporteAsistencias({ onVolverPanel }) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  // FIX (fecha-hoy-timezone): antes usaba new Date().toISOString() (UTC),
+  // que durante la noche en Venezuela mostraba el reporte de "mañana" en
+  // vez del de hoy por defecto al abrir la pestaña.
+  const hoy = fechaHoyVE();
   const [fecha,    setFecha]    = useState(hoy);
   const [turno,    setTurno]    = useState("DIURNO");
   const [programa, setPrograma] = useState("");
