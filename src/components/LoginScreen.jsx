@@ -162,10 +162,13 @@ export default function LoginScreen() {
             alt="Logo Coordinación"
             style={{ width: 180, height: 180, objectFit: "contain", margin: "0 auto 10px", display: "block" }}
           />
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#0F172A", letterSpacing: "-0.01em", lineHeight: 1.3 }}>
-            Gestión de Horarios Académicos y Asistencias Docentes
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, color: "#0F172A", letterSpacing: "0.05em", lineHeight: 1.2 }}>
+            SIGMA
           </h1>
-          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748B", fontWeight: 500 }}>
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.01em" }}>
+            Sistema Integrado de Gestión y Módulos Académicos
+          </p>
+          <p style={{ margin: "14px 0 0", fontSize: 13, color: "#64748B", fontWeight: 500 }}>
             Inicia sesión para continuar
           </p>
         </div>
