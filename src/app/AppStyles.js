@@ -5,6 +5,10 @@ const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   body { margin: 0; }
 
+  /* Iconografía Tabler: tamaño y alineación consistentes en sidebar/menús */
+  .nav-item i.ti, .admin-item i.ti, .pin-btn i.ti { font-size: 15px; line-height: 1; }
+  .admin-item i.ti { width: 16px; text-align: center; flex-shrink: 0; }
+
   /* Sidebar */
   .sb { transition: width 0.22s cubic-bezier(.4,0,.2,1); overflow: hidden; }
   .sb-collapsed { width: 56px !important; }
