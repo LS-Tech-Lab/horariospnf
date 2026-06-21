@@ -379,10 +379,10 @@ export default function App() {
           </div>
           <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
             <div style={{ fontSize:13, fontWeight:700, color:"#F1F5F9", whiteSpace:"nowrap" }}>
-              Horarios PNF
+              SIGMA
             </div>
             <div style={{ fontSize:10, color:"#475569", marginTop:1, whiteSpace:"nowrap" }}>
-              Sistema de gestión
+              Gest. y Módulos Académicos
             </div>
           </div>
           {expanded && (
