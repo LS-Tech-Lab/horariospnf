@@ -25,21 +25,22 @@ const PROGRAMAS = [
 ];
 
 const ROL_CONFIG = {
-  admin:          { label: "Administrador",         emoji: "👑", color: "#7C3AED", bg: "#F5F3FF" },
-  coordinador:    { label: "Coordinador General",   emoji: "🏛️", color: "#1D4ED8", bg: "#EFF6FF" },
-  secretario:     { label: "Secretario Ap. Docente",emoji: "📋", color: "#0F766E", bg: "#F0FDFA" },
-  administrativo: { label: "Administrativo",        emoji: "👤", color: "#374151", bg: "#F9FAFB" },
+  admin:          { label: "Administrador",          icon: "ti-shield-star",  color: "#7C3AED", bg: "#F5F3FF" },
+  coordinador:    { label: "Coordinador General",    icon: "ti-building-bank", color: "#1D4ED8", bg: "#EFF6FF" },
+  secretario:     { label: "Secretario Ap. Docente", icon: "ti-clipboard",    color: "#0F766E", bg: "#F0FDFA" },
+  administrativo: { label: "Administrativo",         icon: "ti-user",         color: "#475569", bg: "#F8FAFC" },
 };
 
 function RolBadge({ rol }) {
-  const cfg = ROL_CONFIG[rol] || { label: rol, emoji: "?", color: "#374151", bg: "#F9FAFB" };
+  const cfg = ROL_CONFIG[rol] || { label: rol, icon: "ti-user", color: "#475569", bg: "#F8FAFC" };
   return (
     <span style={{
       background: cfg.bg, color: cfg.color,
       borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700,
       display: "inline-flex", alignItems: "center", gap: 4,
     }}>
-      {cfg.emoji} {cfg.label}
+      <i className={`ti ${cfg.icon}`} style={{ fontSize: 12 }} aria-hidden="true" />
+      {cfg.label}
     </span>
   );
 }
@@ -66,7 +67,7 @@ function ModalUsuario({ usuario, onGuardar, onCancelar, guardando }) {
   };
 
   const inputStyle = { ...S.input, width: "100%", boxSizing: "border-box", padding: "9px 12px" };
-  const labelStyle = { fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 };
+  const labelStyle = { fontSize: 12, fontWeight: 600, color: "#475569", display: "block", marginBottom: 5 };
 
   return (
     <div style={{
@@ -76,7 +77,10 @@ function ModalUsuario({ usuario, onGuardar, onCancelar, guardando }) {
       <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 460, width: "100%",
         boxShadow: "0 8px 40px rgba(0,0,0,0.18)", maxHeight: "90vh", overflowY: "auto" }}>
 
-        <div style={{ fontSize: 24, marginBottom: 6 }}>{esNuevo ? "➕" : "✏️"}</div>
+        <div style={{ marginBottom: 8 }}>
+          <i className={`ti ${esNuevo ? "ti-user-plus" : "ti-user-edit"}`}
+             style={{ fontSize: 28, color: "#2563EB" }} aria-hidden="true" />
+        </div>
         <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
           {esNuevo ? "Nuevo usuario" : `Editar: ${usuario.nombre}`}
         </h2>
@@ -122,7 +126,7 @@ function ModalUsuario({ usuario, onGuardar, onCancelar, guardando }) {
             <select value={rol} onChange={e => setRol(e.target.value)}
               style={{ ...S.select, width: "100%", padding: "9px 12px" }}>
               {Object.entries(ROL_CONFIG).map(([k, v]) => (
-                <option key={k} value={k}>{v.emoji} {v.label}</option>
+                <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
             <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>
@@ -153,8 +157,9 @@ function ModalUsuario({ usuario, onGuardar, onCancelar, guardando }) {
 
           {error && (
             <div style={{ background: "#FEF2F2", color: "#DC2626", borderRadius: 8,
-              padding: "10px 14px", fontSize: 13 }}>
-              ⚠️ {error}
+              padding: "10px 14px", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true" />
+              {error}
             </div>
           )}
         </div>
@@ -162,15 +167,24 @@ function ModalUsuario({ usuario, onGuardar, onCancelar, guardando }) {
         <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
           <button onClick={onCancelar}
             style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #E5E7EB",
-              background: "#F9FAFB", color: "#374151", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              background: "#F8FAFC", color: "#475569", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
             Cancelar
           </button>
           <button onClick={handleSubmit} disabled={!valido || guardando}
             style={{ flex: 2, padding: "10px 0", borderRadius: 8, border: "none",
               background: valido ? "#2563EB" : "#E5E7EB",
               color: valido ? "#fff" : "#94A3B8",
-              cursor: valido ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700 }}>
-            {guardando ? "Guardando…" : esNuevo ? "✅ Crear usuario" : "✅ Guardar cambios"}
+              cursor: valido ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {guardando ? (
+              "Guardando…"
+            ) : (
+              <>
+                <i className={`ti ${esNuevo ? "ti-user-plus" : "ti-device-floppy"}`}
+                   style={{ fontSize: 15 }} aria-hidden="true" />
+                {esNuevo ? "Crear usuario" : "Guardar cambios"}
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -203,7 +217,6 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
 
     try {
       if (esNuevo) {
-        // Crear usuario + perfil vía Edge Function (usa service_role del lado servidor).
         const { data: result, error: fnError } = await supabase.functions.invoke("admin-users", {
           body: { action: "create", email, password, nombre, rol, programa },
         });
@@ -228,7 +241,6 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
         showToast(`✅ Usuario ${email} creado.`, "success");
 
       } else {
-        // Editar usuario existente
         const userId = modal.usuario.id;
 
         const { error: profileError } = await supabase.rpc("admin_upsert_user_profile", {
@@ -241,7 +253,6 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
 
         if (profileError) throw new Error(profileError.message);
 
-        // Cambiar password si se proporcionó
         if (password) {
           const { data: pwResult, error: pwFnError } = await supabase.functions.invoke("admin-users", {
             body: { action: "reset_password", user_id: userId, password },
@@ -300,7 +311,7 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
   if (!permisos.puedeGestionarUsuarios) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "#94A3B8" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+        <i className="ti ti-lock" style={{ fontSize: 40, display: "block", marginBottom: 12 }} aria-hidden="true" />
         <div style={{ fontSize: 14 }}>No tienes permiso para gestionar usuarios.</div>
       </div>
     );
@@ -311,7 +322,6 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
       || u.email.toLowerCase().includes(filtro.toLowerCase())
   );
 
-  // Agrupar por rol para mostrar ordenados
   const ordenRoles = ["admin", "coordinador", "secretario", "administrativo"];
   const agrupados = ordenRoles.reduce((acc, rol) => {
     const lista = filtrados.filter(u => u.rol === rol);
@@ -321,7 +331,6 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
 
   return (
     <>
-      {/* Modal */}
       {modal && (
         <ModalUsuario
           usuario={modal.usuario || null}
@@ -348,8 +357,9 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
             onClick={() => setModal({ nuevo: true })}
             style={{ padding: "8px 18px", borderRadius: 8, border: "none",
               background: "#2563EB", color: "#fff", cursor: "pointer",
-              fontSize: 13, fontWeight: 600 }}>
-            ➕ Nuevo usuario
+              fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            <i className="ti ti-plus" style={{ fontSize: 15 }} aria-hidden="true" />
+            Nuevo usuario
           </button>
         </div>
 
@@ -366,7 +376,8 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
             <div key={k} style={{ background: v.bg, color: v.color, borderRadius: 8,
               padding: "5px 12px", fontSize: 11, fontWeight: 600,
               display: "flex", alignItems: "center", gap: 4 }}>
-              {v.emoji} {v.label}
+              <i className={`ti ${v.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
+              {v.label}
             </div>
           ))}
         </div>
@@ -377,7 +388,7 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
           </div>
         ) : agrupados.length === 0 ? (
           <div style={{ textAlign: "center", padding: 48 }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>👤</div>
+            <i className="ti ti-users" style={{ fontSize: 32, color: "#CBD5E1", display: "block", marginBottom: 12 }} aria-hidden="true" />
             <div style={{ fontSize: 14, color: "#64748B" }}>
               {filtro ? "No se encontraron usuarios." : "No hay usuarios registrados."}
             </div>
@@ -387,7 +398,8 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
             <div key={rol} style={{ marginBottom: 24 }}>
               {/* Subtítulo de grupo */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <div style={{ fontSize: 18 }}>{ROL_CONFIG[rol].emoji}</div>
+                <i className={`ti ${ROL_CONFIG[rol].icon}`}
+                   style={{ fontSize: 18, color: ROL_CONFIG[rol].color }} aria-hidden="true" />
                 <div style={{ fontSize: 13, fontWeight: 700, color: ROL_CONFIG[rol].color }}>
                   {ROL_CONFIG[rol].label}
                 </div>
@@ -408,7 +420,7 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
                       {/* Avatar */}
                       <div style={{
                         width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-                        background: `linear-gradient(135deg, ${ROL_CONFIG[u.rol]?.color || "#374151"}, #7C3AED)`,
+                        background: `linear-gradient(135deg, ${ROL_CONFIG[u.rol]?.color || "#475569"}, #7C3AED)`,
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: 15, fontWeight: 700, color: "#fff",
                       }}>
@@ -451,9 +463,9 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
                           onClick={() => setModal({ usuario: u })}
                           title="Editar usuario"
                           style={{ background: "#EFF6FF", color: "#1D4ED8", border: "none",
-                            borderRadius: 7, padding: "5px 10px", cursor: "pointer",
-                            fontSize: 13, fontWeight: 600 }}>
-                          ✏️
+                            borderRadius: 7, padding: "6px 10px", cursor: "pointer",
+                            display: "flex", alignItems: "center" }}>
+                          <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
                         </button>
                         <button
                           onClick={() => handleToggleActivo(u)}
@@ -461,10 +473,11 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
                           style={{
                             background: u.activo ? "#FEF2F2" : "#F0FDF4",
                             color: u.activo ? "#DC2626" : "#16A34A",
-                            border: "none", borderRadius: 7, padding: "5px 10px",
-                            cursor: "pointer", fontSize: 13, fontWeight: 600
+                            border: "none", borderRadius: 7, padding: "6px 10px",
+                            cursor: "pointer", display: "flex", alignItems: "center",
                           }}>
-                          {u.activo ? "🚫" : "✅"}
+                          <i className={`ti ${u.activo ? "ti-user-off" : "ti-user-check"}`}
+                             style={{ fontSize: 15 }} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -478,8 +491,10 @@ export default function UsuariosView({ permisos, logAudit, showToast }) {
         {/* Nota informativa */}
         <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10,
           padding: "14px 18px", marginTop: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 4 }}>
-            💡 Nota sobre la creación de usuarios
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 4,
+            display: "flex", alignItems: "center", gap: 6 }}>
+            <i className="ti ti-info-circle" style={{ fontSize: 14 }} aria-hidden="true" />
+            Nota sobre la creación de usuarios
           </div>
           <div style={{ fontSize: 12, color: "#78350F", lineHeight: 1.6 }}>
             Crear usuarios y cambiar la contraseña de otros usuarios usa la Edge Function{" "}
