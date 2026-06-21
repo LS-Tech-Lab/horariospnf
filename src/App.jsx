@@ -154,7 +154,7 @@ export default function App() {
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       height:"100vh", background:"#0F172A", color:"#E2E8F0", gap:16, padding:32,
       textAlign:"center", fontFamily:"system-ui,sans-serif" }}>
-      <span style={{ fontSize:48 }}>⚠️</span>
+      <i className="ti ti-alert-triangle" style={{ fontSize:44, color:"#FBBF24" }} aria-hidden="true" />
       <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"#F1F5F9" }}>Configuración incompleta</h2>
       <p style={{ margin:0, fontSize:14, color:"#94A3B8", maxWidth:460, lineHeight:1.6 }}>
         {supabaseConfigError}
@@ -231,18 +231,18 @@ export default function App() {
           {esAdmin && (
             <button
               onClick={() => { qrSession.cerrarSesion(); setModuloActivo(null); }}
-              style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151" }}
+              style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151", display: "flex", alignItems: "center", gap: 6 }}
             >
-              ← Módulos
+              <i className="ti ti-arrow-left" aria-hidden="true" /> Módulos
             </button>
           )}
 
           {/* Pestañas internas */}
           <div style={{ display: "flex", gap: 4 }}>
             {[
-              { id: "panel",      label: "📲 Panel QR"   },
-              { id: "proyeccion", label: "🖥️ Proyección" },
-              { id: "reporte",    label: "📋 Reporte"     },
+              { id: "panel",      icon: "ti-device-mobile", label: "Panel QR"   },
+              { id: "proyeccion", icon: "ti-device-tv",     label: "Proyección" },
+              { id: "reporte",    icon: "ti-report",        label: "Reporte"    },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -253,9 +253,10 @@ export default function App() {
                   color:      asistenciasSubView === tab.id ? "#1D4ED8" : "#6B7280",
                   fontWeight: asistenciasSubView === tab.id ? 700 : 500,
                   fontSize: 13, cursor: "pointer", transition: "all 0.12s",
+                  display: "flex", alignItems: "center", gap: 6,
                 }}
               >
-                {tab.label}
+                <i className={`ti ${tab.icon}`} aria-hidden="true" /> {tab.label}
               </button>
             ))}
           </div>
@@ -275,8 +276,8 @@ export default function App() {
               {rolLabel}
             </span>
             <span style={{ fontSize: 12, color: "#9CA3AF" }}>{profile.nombre}</span>
-            <button onClick={handleLogout} title="Cerrar sesión" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, cursor: "pointer", color: "#6B7280", fontSize: 12, padding: "3px 9px" }}>
-              ⏏
+            <button onClick={handleLogout} title="Cerrar sesión" style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 6, cursor: "pointer", color: "#6B7280", fontSize: 12, padding: "3px 9px", display: "flex", alignItems: "center" }}>
+              <i className="ti ti-logout" style={{ fontSize: 14 }} aria-hidden="true" />
             </button>
           </div>
         </header>
@@ -372,7 +373,7 @@ export default function App() {
           <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
             background:"linear-gradient(135deg,#2563EB,#7C3AED)",
             display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
-            🎓
+            <i className="ti ti-school" style={{ color:"#fff", fontSize:17 }} aria-hidden="true" />
           </div>
           <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
             <div style={{ fontSize:13, fontWeight:700, color:"#F1F5F9", whiteSpace:"nowrap" }}>
@@ -385,7 +386,7 @@ export default function App() {
           {expanded && (
             <button className={`pin-btn ${pinned ? "pinned" : ""}`} onClick={togglePin}
               title={pinned ? "Desfijar sidebar" : "Fijar sidebar"}>
-              {pinned ? "📌" : "📍"}
+              <i className={`ti ${pinned ? "ti-pinned" : "ti-pin"}`} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -399,13 +400,13 @@ export default function App() {
               cursor: modoConsulta ? "pointer" : "default" }}
               onClick={() => modoConsulta && handleCambiarLapso(getCurrentLapso())}
               title={modoConsulta ? `Historial: ${lapso}` : `Trimestre activo: ${lapso}`}>
-              {modoConsulta ? "📂" : "📅"}
+              <i className={`ti ${modoConsulta ? "ti-archive" : "ti-calendar-event"}`} aria-hidden="true" />
             </div>
           ) : (
             <div>
               <div style={{ fontSize:9, fontWeight:700, color:"#334155", textTransform:"uppercase",
                 letterSpacing:"0.08em", marginBottom:3 }}>
-                {modoConsulta ? "📂 Consultando historial" : "📅 Trimestre activo"}
+                {modoConsulta ? "Consultando historial" : "Trimestre activo"}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 <span style={{ fontSize:13, fontWeight:700,
@@ -416,8 +417,9 @@ export default function App() {
                   <button onClick={() => handleCambiarLapso(getCurrentLapso())}
                     style={{ fontSize:10, padding:"2px 7px", borderRadius:5,
                       border:"1px solid #334155", background:"#1E293B",
-                      color:"#60A5FA", cursor:"pointer", fontWeight:600, flexShrink:0 }}>
-                    ↩
+                      color:"#60A5FA", cursor:"pointer", fontWeight:600, flexShrink:0,
+                      display:"flex", alignItems:"center" }}>
+                    <i className="ti ti-arrow-back-up" style={{ fontSize:12 }} aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -450,7 +452,7 @@ export default function App() {
               display:"flex", alignItems:"center", justifyContent:"center",
               fontSize:13, color:"#475569" }}
               title={`Programa: ${appData.selectedPrograma === "todos" ? "Todos" : appData.selectedPrograma}`}>
-              🎓
+              <i className="ti ti-school" aria-hidden="true" />
             </div>
           )}
         </div>
@@ -478,9 +480,7 @@ export default function App() {
                     className={`nav-item ${active ? "active" : ""}`}
                     onClick={() => { setView(item.id); setMobileOpen(false); }}
                   >
-                    <span style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }}>
-                      {item.emoji}
-                    </span>
+                    <i className={`ti ${item.icon}`} style={{ fontSize:16, flexShrink:0, width:20, textAlign:"center" }} aria-hidden="true" />
                     <span className="sb-label" style={{ flex:1 }}>{item.label}</span>
                     {badge > 0 && <span className="badge-red">{badge}</span>}
                     <span className="tooltip">
@@ -526,7 +526,7 @@ export default function App() {
               style={{ marginBottom: 4, color: "#64748B" }}
               title="Cambiar módulo"
             >
-              <span style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }}>🔀</span>
+              <i className="ti ti-switch-horizontal" style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }} aria-hidden="true" />
               <span className="sb-label" style={{ flex:1 }}>Cambiar módulo</span>
               <span className="tooltip">Cambiar módulo</span>
             </button>
@@ -541,7 +541,7 @@ export default function App() {
                 background: adminOpen ? "#1E293B" : "transparent" }}
               title="Administración"
             >
-              <span style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }}>⚙️</span>
+              <i className="ti ti-settings" style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }} aria-hidden="true" />
               <span className="sb-label" style={{ flex:1 }}>Administración</span>
               {appData.uploading && (
                 <span style={{ width:8, height:8, borderRadius:"50%", border:"1.5px solid #3B82F6",
@@ -574,8 +574,8 @@ export default function App() {
               <button onClick={handleLogout} title="Cerrar sesión"
                 style={{ background:"none", border:"1px solid #1E293B", borderRadius:6,
                   cursor:"pointer", color:"#475569", fontSize:12,
-                  padding:"3px 7px", flexShrink:0 }}>
-                ⏏
+                  padding:"3px 7px", flexShrink:0, display:"flex", alignItems:"center" }}>
+                <i className="ti ti-logout" style={{ fontSize:13 }} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -592,7 +592,7 @@ export default function App() {
             style={{ display:"none", background:"none", border:"1px solid #E5E7EB",
               borderRadius:6, padding:"5px 9px", cursor:"pointer", fontSize:17,
               color:"#374151", flexShrink:0, alignItems:"center" }}>
-            ☰
+            <i className="ti ti-menu-2" aria-hidden="true" />
           </button>
 
           <div style={{ flex:1, maxWidth:420 }}>
@@ -616,8 +616,8 @@ export default function App() {
           </div>
 
           {appData.isSyncing && (
-            <span style={{ fontSize:11, color:"#94A3B8", whiteSpace:"nowrap", flexShrink:0 }}>
-              🔄 Actualizando…
+            <span style={{ fontSize:11, color:"#94A3B8", whiteSpace:"nowrap", flexShrink:0, display:"flex", alignItems:"center", gap:5 }}>
+              <i className="ti ti-refresh" style={{ animation:"spin 1.1s linear infinite" }} aria-hidden="true" /> Actualizando…
             </span>
           )}
         </header>
@@ -626,14 +626,14 @@ export default function App() {
         {modoConsulta && (
           <div style={{ background:"#FFFBEB", borderBottom:"1px solid #FDE68A",
             padding:"7px 20px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
-            <span style={{ fontSize:13, color:"#92400E", fontWeight:600 }}>
-              📂 Modo consulta — estás viendo el trimestre {formatLapso(lapso)} (solo lectura)
+            <span style={{ fontSize:13, color:"#92400E", fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
+              <i className="ti ti-archive" aria-hidden="true" /> Modo consulta — estás viendo el trimestre {formatLapso(lapso)} (solo lectura)
             </span>
             <button onClick={() => handleCambiarLapso(getCurrentLapso())}
               style={{ marginLeft:"auto", fontSize:12, padding:"4px 12px", borderRadius:6,
                 border:"1px solid #FDE68A", background:"#fff", color:"#92400E",
-                cursor:"pointer", fontWeight:600, flexShrink:0 }}>
-              ↩ Volver al trimestre activo
+                cursor:"pointer", fontWeight:600, flexShrink:0, display:"flex", alignItems:"center", gap:5 }}>
+              <i className="ti ti-arrow-back-up" aria-hidden="true" /> Volver al trimestre activo
             </button>
           </div>
         )}
