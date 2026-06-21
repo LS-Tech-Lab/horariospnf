@@ -386,13 +386,11 @@ export default function AdminQRPanel({
               type="date"
               value={fecha}
               min={hoy}
+              max={hoy}
               onChange={e => setFecha(e.target.value)}
               disabled={activa}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 13, color: "#111827", background: activa ? "#F9FAFB" : "#fff", cursor: activa ? "not-allowed" : "auto", boxSizing: "border-box" }}
             />
-            {fecha < hoy && (
-              <p style={{ margin: "4px 0 0", fontSize: 11, color: "#DC2626" }}>⚠️ No se pueden registrar asistencias en fechas pasadas.</p>
-            )}
           </label>
 
           {/* Turno */}
