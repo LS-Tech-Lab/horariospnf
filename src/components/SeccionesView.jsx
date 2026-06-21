@@ -52,7 +52,7 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
           {ALL_TRAYECTOS.map(t => <option key={t} value={t}>Trayecto {t}</option>)}
         </select>
         <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
-          <div style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>{filteredSecciones.length} secciones</div>
+          <div style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: "#64748B", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid #E2E8F0", background: "#F8FAFC" }}>{filteredSecciones.length} secciones</div>
           {filteredSecciones.map(s => {
             const tray = getTrayectoIndicador(s);
             return (
@@ -61,8 +61,8 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
                   padding: "10px 14px", cursor: "pointer", fontSize: 14,
                   fontWeight: selSheet === s ? 600 : 400,
                   background: selSheet === s ? "#EFF6FF" : "transparent",
-                  color: selSheet === s ? "#1D4ED8" : "#374151",
-                  borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 8
+                  color: selSheet === s ? "#1D4ED8" : "#334155",
+                  borderBottom: "1px solid #F1F5F9", display: "flex", alignItems: "center", gap: 8
                 }}
               >
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: TRAYECTO_COLORS[tray] || "#ccc", flexShrink: 0 }} />
@@ -78,8 +78,8 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
             <div style={{ ...S.card, padding: "18px 22px", marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
                 <div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{selSheet}</div>
-                  <div style={{ fontSize: 14, color: "#6B7280", marginTop: 2, fontWeight: 500 }}>{programaSeccion}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>{selSheet}</div>
+                  <div style={{ fontSize: 14, color: "#64748B", marginTop: 2, fontWeight: 500 }}>{programaSeccion}</div>
                 </div>
                 <span style={{ background: TRAYECTO_BG[info.trayecto] || "#f3f4f6", color: TRAYECTO_COLORS[info.trayecto] || "#555", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>Trayecto {info.trayecto}</span>
               </div>
@@ -92,23 +92,23 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
                   ["Total clases", entries.length]
                 ].filter(Boolean).map(([l, v]) => (
                   <div key={l}>
-                    <div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#111827", marginTop: 3 }}>{v}</div>
+                    <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginTop: 3 }}>{v}</div>
                   </div>
                 ))}
               </div>
             </div>
             <div style={S.card}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", borderBottom: "2px solid #E5E7EB" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", borderBottom: "2px solid #E2E8F0" }}>
                 {DAYS.map(day => (
-                  <div key={day} style={{ padding: "12px 14px", borderRight: "1px solid #E5E7EB", fontWeight: 700, fontSize: 12, color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em", background: "#F9FAFB" }}>
+                  <div key={day} style={{ padding: "12px 14px", borderRight: "1px solid #E2E8F0", fontWeight: 700, fontSize: 12, color: "#334155", textTransform: "uppercase", letterSpacing: "0.05em", background: "#F8FAFC" }}>
                     {day.slice(0, 3)}
                   </div>
                 ))}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)" }}>
                 {DAYS.map(day => (
-                  <div key={day} style={{ padding: "10px 10px", borderRight: "1px solid #F3F4F6", minHeight: 130 }}>
+                  <div key={day} style={{ padding: "10px 10px", borderRight: "1px solid #F1F5F9", minHeight: 130 }}>
                     {(byDay[day] || []).map((e, i) => {
                       const { materia: rm, docente: rd } = parseClase(e.clase);
                       const materia = getMateriaName(rm), docente = getDocName(rd);
@@ -121,7 +121,7 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
                         </div>
                       );
                     })}
-                    {!byDay[day]?.length && <div style={{ fontSize: 12, color: "#D1D5DB", textAlign: "center", marginTop: 30, fontWeight: 500 }}>—</div>}
+                    {!byDay[day]?.length && <div style={{ fontSize: 12, color: "#CBD5E1", textAlign: "center", marginTop: 30, fontWeight: 500 }}>—</div>}
                   </div>
                 ))}
               </div>
