@@ -60,7 +60,8 @@ export default function ConfirmModal({
       <div style={modal} onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         {/* Ícono + Título */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 22 }}>{danger ? "⚠️" : "❓"}</span>
+          <i className={`ti ${danger ? "ti-alert-triangle" : "ti-help-circle"}`}
+            style={{ fontSize: 22, color: danger ? "#DC2626" : "#2563EB" }} aria-hidden="true" />
           <h2 id="confirm-modal-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>{title}</h2>
         </div>
 
