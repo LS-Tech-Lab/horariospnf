@@ -157,14 +157,11 @@ export default function LoginScreen() {
         border: "1px solid rgba(148,163,184,0.15)",
       }}>
         <div style={{ textAlign: "center", marginBottom: 30 }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 14, margin: "0 auto 18px",
-            background: "linear-gradient(135deg,#1E3A8A 0%,#2563EB 100%)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 10px 24px rgba(37,99,235,0.3)",
-          }}>
-            <i className="ti ti-school" style={{ fontSize: 26, color: "#fff" }} aria-hidden="true" />
-          </div>
+          <img
+            src="/logo-coordinacion.png"
+            alt="Logo Coordinación"
+            style={{ width: 90, height: 90, objectFit: "contain", margin: "0 auto 18px", display: "block" }}
+          />
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#0F172A", letterSpacing: "-0.01em", lineHeight: 1.3 }}>
             Gestión de Horarios Académicos y Asistencias Docentes
           </h1>
