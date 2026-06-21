@@ -40,24 +40,27 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
   }, [data, byDocente, byMateria, conflicts]);
 
   const TABS = [
-    { id: 'general', label: '🏠 Vista general' },
-    { id: 'analisis', label: '📈 Análisis detallado' },
+    { id: 'general', icon: 'ti-home', label: 'Vista general' },
+    { id: 'analisis', icon: 'ti-chart-histogram', label: 'Análisis detallado' },
   ];
 
   return (
     <div style={{ padding: 20 }}>
       {/* Header con tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#111827' }}>📊 Resumen</h1>
-        <div style={{ display: 'flex', gap: 4, background: '#F3F4F6', borderRadius: 10, padding: 4 }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <i className="ti ti-layout-dashboard" style={{ fontSize: 19, color: '#2563EB' }} aria-hidden="true" /> Resumen
+        </h1>
+        <div style={{ display: 'flex', gap: 4, background: '#F1F5F9', borderRadius: 10, padding: 4 }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               padding: '7px 16px', borderRadius: 7, border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
+              display: 'flex', alignItems: 'center', gap: 6,
               background: tab === t.id ? '#fff' : 'transparent',
-              color: tab === t.id ? '#111827' : '#6B7280',
-              boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
-            }}>{t.label}</button>
+              color: tab === t.id ? '#0F172A' : '#64748B',
+              boxShadow: tab === t.id ? '0 1px 4px rgba(15,23,42,0.10)' : 'none',
+            }}><i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label}</button>
           ))}
         </div>
       </div>
@@ -66,37 +69,39 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
       {tab === 'general' && (
         <>
           <div className="stats-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
-            <StatCard label="Conflictos activos" value={conflicts.length} icon="⚠️" color={conflicts.length > 0 ? '#DC2626' : '#059669'} />
-            <StatCard label="Trayectos activos" value={metricas?.trayectosActivos || 0} icon="📊" color="#8B5CF6" />
-            <StatCard label="Prom. clases/día" value={metricas?.promedioClasesDia || 0} icon="📈" color="#0EA5E9" />
-            <StatCard label="Docentes con conflictos" value={metricas?.docentesConConflicto || 0} icon="🔴" color={metricas?.docentesConConflicto > 0 ? '#DC2626' : '#059669'} />
+            <StatCard label="Conflictos activos" value={conflicts.length} icon="ti-alert-triangle" color={conflicts.length > 0 ? '#DC2626' : '#059669'} />
+            <StatCard label="Trayectos activos" value={metricas?.trayectosActivos || 0} icon="ti-chart-bar" color="#8B5CF6" />
+            <StatCard label="Prom. clases/día" value={metricas?.promedioClasesDia || 0} icon="ti-trending-up" color="#0EA5E9" />
+            <StatCard label="Docentes con conflictos" value={metricas?.docentesConConflicto || 0} icon="ti-user-exclamation" color={metricas?.docentesConConflicto > 0 ? '#DC2626' : '#059669'} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             {conflicts.length > 0 && (
               <div style={{ ...S.card, padding: '16px 20px', background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#991B1B', marginBottom: 8 }}>⚠️ Conflictos detectados</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#991B1B', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <i className="ti ti-alert-triangle" aria-hidden="true" /> Conflictos detectados
+                </div>
                 <div style={{ fontSize: 13, color: '#B91C1C', marginBottom: 10, fontWeight: 500 }}>
                   Hay {conflicts.length} conflicto(s) de horario que requieren atención.
                 </div>
-                <button onClick={onGoToConflictos} style={{ padding: '6px 14px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                  Ver detalles
+                <button onClick={onGoToConflictos} style={{ padding: '6px 14px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  Ver detalles <i className="ti ti-arrow-right" aria-hidden="true" />
                 </button>
               </div>
             )}
             {metricas && (
               <div style={{ ...S.card, padding: '16px 20px', gridColumn: conflicts.length > 0 ? 'auto' : '1 / -1' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Distribución por turno</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#334155', marginBottom: 12 }}>Distribución por turno</div>
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div style={{ flex: 1, textAlign: 'center', padding: 14, background: '#EFF6FF', borderRadius: 8 }}>
-                    <div style={{ fontSize: 28 }}>☀️</div>
+                    <i className="ti ti-sun-high" style={{ fontSize: 26, color: '#2563EB' }} aria-hidden="true" />
                     <div style={{ fontSize: 22, fontWeight: 700, color: '#1D4ED8' }}>{metricas.diurno}</div>
-                    <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>Diurno</div>
+                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>Diurno</div>
                   </div>
                   <div style={{ flex: 1, textAlign: 'center', padding: 14, background: '#FDF2F8', borderRadius: 8 }}>
-                    <div style={{ fontSize: 28 }}>🌙</div>
+                    <i className="ti ti-moon-stars" style={{ fontSize: 26, color: '#BE185D' }} aria-hidden="true" />
                     <div style={{ fontSize: 22, fontWeight: 700, color: '#BE185D' }}>{metricas.vespertino}</div>
-                    <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>Vespertino</div>
+                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>Vespertino</div>
                   </div>
                 </div>
               </div>
@@ -106,21 +111,25 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {metricas?.topDocente && (
               <div style={{ ...S.card, padding: '16px 20px' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 8 }}>👨‍🏫 Docente con mayor carga</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#334155', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <i className="ti ti-user-star" aria-hidden="true" /> Docente con mayor carga
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Avatar name={getDocName(metricas.topDocente[0])} size={44} />
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{getDocName(metricas.topDocente[0])}</div>
-                    <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>{metricas.topDocente[1].length} clases asignadas</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{getDocName(metricas.topDocente[0])}</div>
+                    <div style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>{metricas.topDocente[1].length} clases asignadas</div>
                   </div>
                 </div>
               </div>
             )}
             {metricas?.topMateria && (
               <div style={{ ...S.card, padding: '16px 20px' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 8 }}>📖 Materia más frecuente</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{getMateriaName(metricas.topMateria[0])}</div>
-                <div style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>{metricas.topMateria[1].length} clases</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#334155', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <i className="ti ti-book-2" aria-hidden="true" /> Materia más frecuente
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{getMateriaName(metricas.topMateria[0])}</div>
+                <div style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>{metricas.topMateria[1].length} clases</div>
               </div>
             )}
           </div>
@@ -135,10 +144,10 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
             {Object.entries(metricas.trayectoCount).sort().map(([t, c]) => (
               <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <span style={{ background: TRAYECTO_BG[t] || '#f3f4f6', color: TRAYECTO_COLORS[t] || '#555', borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>{t}</span>
-                <div style={{ flex: 1, background: '#F3F4F6', borderRadius: 4, height: 12, overflow: 'hidden' }}>
+                <div style={{ flex: 1, background: '#F1F5F9', borderRadius: 4, height: 12, overflow: 'hidden' }}>
                   <div style={{ width: `${(c/stats.total)*100}%`, height: '100%', background: TRAYECTO_COLORS[t] || '#888', borderRadius: 4 }} />
                 </div>
-                <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: '#6B7280', fontWeight: 600 }}>{c}</span>
+                <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: '#64748B', fontWeight: 600 }}>{c}</span>
               </div>
             ))}
           </div>
@@ -147,11 +156,11 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Distribución por día</div>
             {DAYS.map(d => (
               <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 13, width: 80, color: '#6B7280', fontWeight: 500 }}>{d.charAt(0)+d.slice(1).toLowerCase()}</span>
-                <div style={{ flex: 1, background: '#F3F4F6', borderRadius: 4, height: 12, overflow: 'hidden' }}>
+                <span style={{ fontSize: 13, width: 80, color: '#64748B', fontWeight: 500 }}>{d.charAt(0)+d.slice(1).toLowerCase()}</span>
+                <div style={{ flex: 1, background: '#F1F5F9', borderRadius: 4, height: 12, overflow: 'hidden' }}>
                   <div style={{ width: `${(metricas.dayCount[d]/metricas.maxDay)*100}%`, height: '100%', background: '#059669', borderRadius: 4 }} />
                 </div>
-                <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: '#6B7280', fontWeight: 600 }}>{metricas.dayCount[d]}</span>
+                <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: '#64748B', fontWeight: 600 }}>{metricas.dayCount[d]}</span>
               </div>
             ))}
           </div>
@@ -160,12 +169,12 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Docentes con mayor carga</div>
             {metricas.top8Docentes.map(([doc, entries], idx) => (
               <div key={doc} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#D1D5DB', width: 16 }}>{idx+1}</span>
-                <span style={{ fontSize: 13, flex: 1, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{getDocName(doc)}</span>
-                <div style={{ width: 100, background: '#F3F4F6', borderRadius: 4, height: 10, overflow: 'hidden' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#CBD5E1', width: 16 }}>{idx+1}</span>
+                <span style={{ fontSize: 13, flex: 1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{getDocName(doc)}</span>
+                <div style={{ width: 100, background: '#F1F5F9', borderRadius: 4, height: 10, overflow: 'hidden' }}>
                   <div style={{ width: `${(entries.length/metricas.maxLoadDocente)*100}%`, height: '100%', background: '#7C3AED', borderRadius: 4 }} />
                 </div>
-                <span style={{ fontSize: 13, width: 24, textAlign: 'right', color: '#6B7280', fontWeight: 600 }}>{entries.length}</span>
+                <span style={{ fontSize: 13, width: 24, textAlign: 'right', color: '#64748B', fontWeight: 600 }}>{entries.length}</span>
               </div>
             ))}
           </div>
@@ -176,14 +185,14 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
               const cnt = entries.length;
               return (
                 <div key={mat} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#D1D5DB', width: 16 }}>{idx+1}</span>
-                  <span style={{ fontSize: 13, flex: 1, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }} title={getMateriaName(mat)}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#CBD5E1', width: 16 }}>{idx+1}</span>
+                  <span style={{ fontSize: 13, flex: 1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }} title={getMateriaName(mat)}>
                     {getMateriaName(mat).length > 28 ? getMateriaName(mat).slice(0,26)+'…' : getMateriaName(mat)}
                   </span>
-                  <div style={{ width: 100, background: '#F3F4F6', borderRadius: 4, height: 10, overflow: 'hidden' }}>
+                  <div style={{ width: 100, background: '#F1F5F9', borderRadius: 4, height: 10, overflow: 'hidden' }}>
                     <div style={{ width: `${(cnt/metricas.maxMat)*100}%`, height: '100%', background: '#D97706', borderRadius: 4 }} />
                   </div>
-                  <span style={{ fontSize: 13, width: 24, textAlign: 'right', color: '#6B7280', fontWeight: 600 }}>{cnt}</span>
+                  <span style={{ fontSize: 13, width: 24, textAlign: 'right', color: '#64748B', fontWeight: 600 }}>{cnt}</span>
                 </div>
               );
             })}
@@ -196,11 +205,11 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
               const colors = { DIURNO: '#2563EB', VESPERTINO: '#DB2777' };
               return (
                 <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <span style={{ fontSize: 13, width: 90, color: '#6B7280', fontWeight: 500 }}>{t.charAt(0)+t.slice(1).toLowerCase()}</span>
-                  <div style={{ flex: 1, background: '#F3F4F6', borderRadius: 4, height: 14, overflow: 'hidden' }}>
+                  <span style={{ fontSize: 13, width: 90, color: '#64748B', fontWeight: 500 }}>{t.charAt(0)+t.slice(1).toLowerCase()}</span>
+                  <div style={{ flex: 1, background: '#F1F5F9', borderRadius: 4, height: 14, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: colors[t] || '#888', borderRadius: 4 }} />
                   </div>
-                  <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600, width: 60, textAlign: 'right' }}>{cnt} ({pct}%)</span>
+                  <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600, width: 60, textAlign: 'right' }}>{cnt} ({pct}%)</span>
                 </div>
               );
             })}
@@ -214,10 +223,10 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
               return (
                 <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <span style={{ background: TRAYECTO_BG[t] || '#f3f4f6', color: TRAYECTO_COLORS[t] || '#555', borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>{t}</span>
-                  <div style={{ flex: 1, background: '#F3F4F6', borderRadius: 4, height: 12, overflow: 'hidden' }}>
+                  <div style={{ flex: 1, background: '#F1F5F9', borderRadius: 4, height: 12, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: TRAYECTO_COLORS[t] || '#888', borderRadius: 4 }} />
                   </div>
-                  <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: '#6B7280', fontWeight: 600 }}>{cnt}</span>
+                  <span style={{ fontSize: 13, width: 32, textAlign: 'right', color: '#64748B', fontWeight: 600 }}>{cnt}</span>
                 </div>
               );
             })}
@@ -226,7 +235,7 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
       )}
 
       {!metricas && (
-        <div style={{ ...S.card, padding: '60px 20px', textAlign: 'center', color: '#9CA3AF', fontSize: 15, fontWeight: 500 }}>
+        <div style={{ ...S.card, padding: '60px 20px', textAlign: 'center', color: '#94A3B8', fontSize: 15, fontWeight: 500 }}>
           Carga un archivo Excel para ver el resumen.
         </div>
       )}
