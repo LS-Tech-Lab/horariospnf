@@ -77,7 +77,7 @@ const hex2rgba = (hex, a) => {
 };
 
 const COLORES_PRESET = [
-  "#7C3AED","#1D4ED8","#0F766E","#374151","#059669",
+  "#7C3AED","#1D4ED8","#0F766E","#334155","#059669",
   "#DC2626","#D97706","#0891B2","#9333EA","#BE185D",
 ];
 
@@ -172,7 +172,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           entidad: "usuarios",
           resumen: `Usuario creado: ${form.email.trim()} (${form.rol}${programa ? ` - ${programa}` : ""})`,
         });
-        showToast?.(`✅ Usuario ${form.email.trim()} creado.`, "success");
+        showToast?.(`Usuario ${form.email.trim()} creado correctamente.`, "success");
 
       } else {
         // Actualizar perfil via RPC
@@ -195,7 +195,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           if (pwFnError || pwResult?.error) {
             // El perfil ya se actualizó — avisar sin tirar todo
             showToast?.(
-              "⚠️ Perfil actualizado pero no se pudo cambiar la contraseña: " +
+              "Perfil actualizado pero no se pudo cambiar la contraseña: " +
                 (pwResult?.error || pwFnError.message),
               "warning"
             );
@@ -210,7 +210,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           entidad_id: usuario.id,
           resumen: `Usuario editado: ${form.email.trim()} (${form.rol}${programa ? ` - ${programa}` : ""})`,
         });
-        showToast?.(`✅ Usuario ${form.email.trim()} actualizado.`, "success");
+        showToast?.(`Usuario ${form.email.trim()} actualizado correctamente.`, "success");
       }
       onSave();
     } catch (e) {
@@ -269,7 +269,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
             {rolSeleccionado && (
               <p style={{ margin:"6px 0 0", fontSize:11, color:"#64748B" }}>
                 {rolSeleccionado.restringe_programa
-                  ? "⚠️ Este rol restringe la vista a un solo programa — debes asignar uno."
+                  ? <><i className="ti ti-alert-triangle" style={{fontSize:13,marginRight:5,color:"#D97706"}} aria-hidden="true"/>Este rol restringe la vista a un solo programa — debes asignar uno.</>
                   : "✓ Acceso sin restricción de programa."}
               </p>
             )}
@@ -584,10 +584,10 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
         entidad_id: u.id,
         resumen:    `Usuario ${accion}do: ${u.email}`,
       });
-      toast(nuevoActivo ? `✅ ${u.nombre} activado.` : `${u.nombre} desactivado.`, "success");
+      toast(nuevoActivo ? `${u.nombre} activado.` : `${u.nombre} desactivado.`, "success");
       cargar();
     } catch (e) {
-      toast(`⚠️ ${e.message}`, "error");
+      toast(`${e.message}`, "error");
     }
   };
 
@@ -789,7 +789,7 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
       toast("✓ Rol eliminado.");
       cargar();
     } catch (e) {
-      toast(`⚠️ ${e.message}`);
+      toast(`${e.message}`);
     }
   };
 
