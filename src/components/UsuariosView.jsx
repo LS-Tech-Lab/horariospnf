@@ -86,9 +86,9 @@ const EMOJIS_PRESET = ["👤","👑","🏛️","📋","📷","🔑","🛡️","�
 function Badge({ color, children }) {
   return (
     <span style={{
-      background: hex2rgba(color || "#374151", 0.12),
-      color: color || "#374151",
-      border: `1px solid ${hex2rgba(color || "#374151", 0.25)}`,
+      background: hex2rgba(color || "#475569", 0.12),
+      color: color || "#475569",
+      border: `1px solid ${hex2rgba(color || "#475569", 0.25)}`,
       borderRadius: 999, padding: "2px 10px",
       fontSize: 12, fontWeight: 600,
       display: "inline-flex", alignItems: "center", gap: 4,
@@ -232,7 +232,8 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
             {esNuevo ? "Nuevo usuario" : "Editar usuario"}
           </h2>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
-            fontSize:20, color:"#94A3B8", lineHeight:1 }}>✕</button>
+            fontSize:20, color:"#94A3B8", lineHeight:1 }}>
+            <i className="ti ti-x" style={{ fontSize:16 }} aria-hidden="true" /></button>
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -315,8 +316,8 @@ function ModalRol({ rol, onSave, onClose }) {
   const [form, setForm] = useState({
     nombre:             rol?.nombre             || "",
     label:              rol?.label              || "",
-    emoji:              rol?.emoji              || "👤",
-    color:              rol?.color              || "#374151",
+    emoji:              rol?.emoji              || "",
+    color:              rol?.color              || "#475569",
     restringe_programa: rol?.restringe_programa || false,
     permisos:           { ...Object.fromEntries(TODOS_LOS_PERMISOS.map(k => [k, false])),
                           ...(rol?.permisos || {}) },
@@ -369,7 +370,8 @@ function ModalRol({ rol, onSave, onClose }) {
             {esNuevo ? "Nuevo rol" : `Editar rol: ${rol.label}`}
           </h2>
           <button onClick={onClose} style={{ background:"none", border:"none",
-            cursor:"pointer", fontSize:20, color:"#94A3B8" }}>✕</button>
+            cursor:"pointer", fontSize:20, color:"#94A3B8" }}>
+            <i className="ti ti-x" style={{ fontSize:16 }} aria-hidden="true" /></button>
         </div>
 
         {/* Campos básicos */}
@@ -665,7 +667,10 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
                     </td>
                     <td style={S.td}>
                       <Badge color={rolInfo?.color}>
-                        {rolInfo?.emoji || "👤"} {rolInfo?.label || u.rol}
+                        {rolInfo?.emoji
+                          ? <>{rolInfo.emoji} {rolInfo?.label || u.rol}</>
+                          : <><i className="ti ti-user" style={{ fontSize:12 }} aria-hidden="true" /> {rolInfo?.label || u.rol}</>
+                        }
                       </Badge>
                     </td>
                     <td style={S.td}>
@@ -686,7 +691,7 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
                             <button onClick={() => setModalEditar(u)}
                               title="Editar"
                               style={{ background:"none", border:"1px solid #E2E8F0", borderRadius:7,
-                                padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#374151" }}>
+                                padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#475569" }}>
                               <i className="ti ti-pencil" />
                             </button>
                             <button
@@ -792,7 +797,7 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
         <p style={{ margin:0, fontSize:13, color:"#64748B" }}>
-          Los roles del sistema (marcados con 🔒) no se pueden eliminar ni renombrar, pero sí puedes
+          Los roles del sistema (marcados con <i className="ti ti-lock" style={{ fontSize:11, color:"#94A3B8" }} aria-hidden="true" />) no se pueden eliminar ni renombrar, pero sí puedes
           editar sus permisos. Los roles personalizados son totalmente gestionables.
         </p>
         {permisosUsuario.puedeGestionarRoles && (
@@ -827,7 +832,9 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                       <span style={{ fontSize:14, fontWeight:700, color:"#0F172A" }}>{r.label}</span>
                       {r.es_sistema && (
-                        <span title="Rol del sistema" style={{ fontSize:11, color:"#94A3B8" }}>🔒</span>
+                        <span title="Rol del sistema" style={{ fontSize:11, color:"#94A3B8" }}>
+                          <i className="ti ti-lock" style={{ fontSize:11 }} aria-hidden="true" />
+                        </span>
                       )}
                       {r.restringe_programa && (
                         <span style={{ ...S.badge("#FEF3C7","#92400E"), fontSize:11 }}>
@@ -847,7 +854,7 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
                       <>
                         <button onClick={() => setModalRol(r)} title="Editar"
                           style={{ background:"none", border:"1px solid #E2E8F0", borderRadius:7,
-                            padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#374151" }}>
+                            padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#475569" }}>
                           <i className="ti ti-pencil" />
                         </button>
                         {!r.es_sistema && (
