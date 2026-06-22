@@ -69,26 +69,11 @@ Deno.serve(async (req) => {
   // operaciones privilegiadas de Auth Admin.
   const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { data: callerProfile, error: profileError } = await adminClient
-    .from("user_profiles")
-    .select("rol, activo")
-    .eq("id", caller.id)
-    .single();
+  const { data: puedeGestionar, error: permError } = await adminClient
+    .rpc("admin_caller_puede_gestionar_usuarios", { p_user_id: caller.id });
 
-  if (profileError) return fail(`[1] Sin perfil: ${profileError.message}`);
-  if (!callerProfile) return fail("[1] El usuario no tiene perfil en user_profiles.");
-  if (!callerProfile.activo) return fail("[1] Cuenta desactivada.");
-
-  const { data: callerRole, error: roleError } = await adminClient
-    .from("roles")
-    .select("permisos")
-    .eq("nombre", callerProfile.rol)
-    .single();
-
-  if (roleError) return fail(`[2] Error leyendo rol "${callerProfile.rol}": ${roleError.message}`);
-  if (!callerRole) return fail(`[2] El rol "${callerProfile.rol}" no existe en la tabla roles.`);
-  if (callerRole.permisos?.puedeGestionarUsuarios !== true) {
-    return fail(`[2] El rol "${callerProfile.rol}" no tiene puedeGestionarUsuarios. Permisos: ${JSON.stringify(callerRole.permisos)}`);
+  if (permError || !puedeGestionar) {
+    return fail("No tienes permiso para gestionar usuarios.");
   }
 
   let body: Record<string, unknown>;
@@ -153,7 +138,7 @@ Deno.serve(async (req) => {
           rol,
           programa: rolData.restringe_programa ? programa : null,
           activo:   true,
-          creado_por: callerProfile ? caller.email : null,
+          creado_por: caller.email ?? null,
         });
 
       if (profileError) {
