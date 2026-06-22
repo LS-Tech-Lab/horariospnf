@@ -66,7 +66,7 @@ function calcularPermisos(profile) {
 export default function useAuth() {
   const [user,    setUser]    = useState(undefined); // undefined = cargando
   const [profile, setProfile] = useState(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true); // true hasta que getSession resuelva
 
   // Cargar perfil extendido desde user_profiles, con el rol embebido
   // (label/emoji/color/permisos/restringe_programa) para no necesitar
