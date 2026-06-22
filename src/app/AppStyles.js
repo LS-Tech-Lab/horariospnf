@@ -83,7 +83,7 @@ const GLOBAL_CSS = `
   .pin-btn.pinned { color: #60A5FA; }
 
   /* Header */
-  .topbar { background: #fff; border-bottom: 1px solid #E5E7EB;
+  .topbar { background: #fff; border-bottom: 1px solid #E2E8F0;
              display: flex; align-items: center; gap: 10px;
              padding: 0 20px; height: 52px; flex-shrink: 0; }
 
