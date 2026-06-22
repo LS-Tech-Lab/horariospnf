@@ -110,14 +110,14 @@ function ModalTrimestre({ modo, lapsoSugerido, onConfirm, onCancel, loading }) {
 
         <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
           <button onClick={onCancel}
-            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #E5E7EB", background: "#F8FAFC", color: "#475569", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#475569", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
             Cancelar
           </button>
           <button
             onClick={() => onConfirm({ lapso: esCrear ? lapso : lapsoSugerido, fechaInicio, fechaFin, observacion })}
             disabled={!valido || loading}
             style={{ flex: 2, padding: "10px 0", borderRadius: 8, border: "none",
-              background: valido ? (esCrear ? "#2563EB" : "#DC2626") : "#E5E7EB",
+              background: valido ? (esCrear ? "#2563EB" : "#DC2626") : "#E2E8F0",
               color: valido ? "#fff" : "#94A3B8",
               cursor: valido ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
@@ -188,8 +188,8 @@ function ComparadorPanel({ trimestres, detalles }) {
 
       {selA && selB && selA !== selB ? (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: "#E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
-            <div style={thComp("#F9FAFB", "#475569")}>Métrica</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, background: "#E2E8F0", borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+            <div style={thComp("#F8FAFC", "#475569")}>Métrica</div>
             <div style={thComp("#EFF6FF", "#1D4ED8")}>{formatLapso(selA)}</div>
             <div style={thComp("#F5F3FF", "#6D28D9")}>{formatLapso(selB)}</div>
 
@@ -280,7 +280,7 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
       .select("*")
       .order("anio", { ascending: false })
       .order("numero", { ascending: false });
-    if (error) showToast("❌ Error al cargar historial: " + error.message, "error");
+    if (error) showToast("Error al cargar historial: " + error.message, "error");
     else setTrimestres(data || []);
     setLoading(false);
   }, [showToast]);
@@ -331,8 +331,8 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
       },
       { onConflict: "lapso" }
     );
-    if (error) { showToast("❌ Error al cerrar: " + error.message, "error"); setProcesando(false); return; }
-    showToast(`✅ Trimestre ${formatLapso(lapso)} cerrado y archivado.`, "success");
+    if (error) { showToast("Error al cerrar: " + error.message, "error"); setProcesando(false); return; }
+    showToast(`Trimestre ${formatLapso(lapso)} cerrado y archivado.`, "success");
     logAudit?.({ accion: "CERRAR_TRIMESTRE", entidad: "trimestres", lapso, resumen: `Trimestre cerrado: ${formatLapso(lapso)}` });
     setModal(null);
     await cargarTrimestres();
@@ -342,9 +342,9 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
   };
 
   const handleCrear = async ({ lapso, fechaInicio, fechaFin, observacion }) => {
-    if (!isValidLapso(lapso)) { showToast("❌ Formato inválido (ej: 3-2026)", "error"); return; }
+    if (!isValidLapso(lapso)) { showToast("Formato inválido (ej: 3-2026)", "error"); return; }
     const yaActivo = trimestres.find(t => t.lapso === lapso && t.estado === "activo");
-    if (yaActivo) { showToast("⚠️ Ese trimestre ya está activo.", "warning"); return; }
+    if (yaActivo) { showToast("Ese trimestre ya está activo.", "warning"); return; }
     setProcesando(true);
     const [num, anio] = lapso.split("-").map(Number);
     const { error } = await supabase.from("trimestres").upsert(
@@ -359,8 +359,8 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
       },
       { onConflict: "lapso" }
     );
-    if (error) { showToast("❌ Error al crear: " + error.message, "error"); setProcesando(false); return; }
-    showToast(`✅ Trimestre ${formatLapso(lapso)} activado.`, "success");
+    if (error) { showToast("Error al crear: " + error.message, "error"); setProcesando(false); return; }
+    showToast(`Trimestre ${formatLapso(lapso)} activado.`, "success");
     logAudit?.({ accion: "CREAR_TRIMESTRE", entidad: "trimestres", lapso, resumen: `Nuevo trimestre activado: ${formatLapso(lapso)}` });
     setModal(null);
     onCambiarLapso(lapso);
@@ -463,7 +463,7 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "2px solid #E5E7EB", paddingBottom: 0 }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "2px solid #E2E8F0", paddingBottom: 0 }}>
           {[
             { id: "lista",    icon: "ti-list",        label: "Historial" },
             { id: "comparar", icon: "ti-chart-bar",   label: "Comparar trimestres" },
@@ -505,7 +505,7 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
                   const d = detalles[t.lapso];
                   const esCurrent = t.lapso === lapsoActivo;
                   return (
-                    <div key={t.lapso} style={{ ...S.card, border: esCurrent ? "1.5px solid #3B82F6" : "1px solid #E5E7EB", borderRadius: 10 }}>
+                    <div key={t.lapso} style={{ ...S.card, border: esCurrent ? "1.5px solid #3B82F6" : "1px solid #E2E8F0", borderRadius: 10 }}>
 
                       {/* Cabecera */}
                       <div onClick={() => isOpen ? setExpandido(null) : cargarDetalle(t.lapso)}
