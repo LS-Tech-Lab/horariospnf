@@ -75,22 +75,20 @@ Deno.serve(async (req) => {
     .eq("id", caller.id)
     .single();
 
-  if (profileError || !callerProfile || !callerProfile.activo) {
-    return fail("No tienes permiso para gestionar usuarios.");
-  }
+  if (profileError) return fail(`[1] Sin perfil: ${profileError.message}`);
+  if (!callerProfile) return fail("[1] El usuario no tiene perfil en user_profiles.");
+  if (!callerProfile.activo) return fail("[1] Cuenta desactivada.");
 
-  // El rol ya no es un valor fijo ("admin"): cualquier rol —incluido uno
-  // personalizado creado desde el panel— puede tener el permiso
-  // puedeGestionarUsuarios. Se valida contra `roles.permisos`, no contra
-  // el nombre del rol.
   const { data: callerRole, error: roleError } = await adminClient
     .from("roles")
     .select("permisos")
     .eq("nombre", callerProfile.rol)
     .single();
 
-  if (roleError || !callerRole || callerRole.permisos?.puedeGestionarUsuarios !== true) {
-    return fail("No tienes permiso para gestionar usuarios.");
+  if (roleError) return fail(`[2] Error leyendo rol "${callerProfile.rol}": ${roleError.message}`);
+  if (!callerRole) return fail(`[2] El rol "${callerProfile.rol}" no existe en la tabla roles.`);
+  if (callerRole.permisos?.puedeGestionarUsuarios !== true) {
+    return fail(`[2] El rol "${callerProfile.rol}" no tiene puedeGestionarUsuarios. Permisos: ${JSON.stringify(callerRole.permisos)}`);
   }
 
   let body: Record<string, unknown>;
