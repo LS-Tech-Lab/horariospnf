@@ -237,7 +237,7 @@ export default function App() {
     const rolColor = profile.rol_info?.color || "#34D399";
 
     return (
-      <div style={{ minHeight: "100vh", background: "#F3F4F6", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "system-ui, -apple-system, sans-serif" }}>
         <style>{`@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
         {cambiarPwdOpen && (
           <ModalCambiarPassword
@@ -246,13 +246,13 @@ export default function App() {
           />
         )}
         {/* Topbar */}
-        <header style={{ background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12, padding: "0 20px", height: 52, flexShrink: 0 }}>
+        <header style={{ background: "#fff", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", gap: 12, padding: "0 20px", height: 52, flexShrink: 0 }}>
 
           {/* Volver al selector — solo si también tiene acceso a horarios */}
           {tieneHorarios && (
             <button
               onClick={() => { qrSession.cerrarSesion(); setModuloActivo(null); }}
-              style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151", display: "flex", alignItems: "center", gap: 6 }}
+              style={{ background: "none", border: "1px solid #E2E8F0", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#334155", display: "flex", alignItems: "center", gap: 6 }}
             >
               <i className="ti ti-arrow-left" aria-hidden="true" /> Módulos
             </button>
@@ -271,7 +271,7 @@ export default function App() {
                 style={{
                   padding: "5px 14px", borderRadius: 7, border: "none",
                   background: asistenciasSubView === tab.id ? "#EFF6FF" : "transparent",
-                  color:      asistenciasSubView === tab.id ? "#1D4ED8" : "#6B7280",
+                  color:      asistenciasSubView === tab.id ? "#1D4ED8" : "#64748B",
                   fontWeight: asistenciasSubView === tab.id ? 700 : 500,
                   fontSize: 13, cursor: "pointer", transition: "all 0.12s",
                   display: "flex", alignItems: "center", gap: 6,
@@ -298,7 +298,7 @@ export default function App() {
               title="Menú de usuario"
               style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer",
                 background: asistUserMenuOpen ? "#F1F5F9" : "transparent",
-                border: "1px solid " + (asistUserMenuOpen ? "#CBD5E1" : "#E5E7EB"),
+                border: "1px solid " + (asistUserMenuOpen ? "#CBD5E1" : "#E2E8F0"),
                 borderRadius: 8, padding: "4px 10px 4px 6px",
                 transition: "background .13s, border-color .13s" }}>
               <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
@@ -308,7 +308,7 @@ export default function App() {
                 {profile.nombre?.[0]?.toUpperCase() ?? "?"}
               </div>
               <div style={{ textAlign: "left", lineHeight: 1.3 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#111827", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#0F172A", whiteSpace: "nowrap" }}>
                   {profile.nombre && profile.nombre !== rolLabel ? profile.nombre : rolLabel}
                 </div>
                 <div style={{ fontSize: 10, color: rolColor, fontWeight: 600, whiteSpace: "nowrap" }}>
@@ -325,21 +325,21 @@ export default function App() {
                 <div onClick={() => setAsistUserMenuOpen(false)}
                   style={{ position: "fixed", inset: 0, zIndex: 398 }} />
                 <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, minWidth: 200,
-                  background: "#fff", border: "1px solid #E5E7EB", borderRadius: 10,
+                  background: "#fff", border: "1px solid #E2E8F0", borderRadius: 10,
                   boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 399, overflow: "hidden" }}>
                   <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #F1F5F9" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0F172A" }}>
                       {profile.nombre && profile.nombre !== rolLabel ? profile.nombre : rolLabel}
                     </div>
-                    <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>{profile.email}</div>
+                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>{profile.email}</div>
                   </div>
                   <button onClick={() => { setCambiarPwdOpen(true); setAsistUserMenuOpen(false); }}
                     style={{ display: "flex", alignItems: "center", gap: 9, width: "100%",
                       padding: "9px 14px", border: "none", background: "transparent",
-                      cursor: "pointer", fontSize: 13, color: "#374151", textAlign: "left" }}
+                      cursor: "pointer", fontSize: 13, color: "#334155", textAlign: "left" }}
                     onMouseEnter={e => e.currentTarget.style.background = "#F8FAFC"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <i className="ti ti-key" style={{ fontSize: 15, color: "#6B7280" }} aria-hidden="true" />
+                    <i className="ti ti-key" style={{ fontSize: 15, color: "#64748B" }} aria-hidden="true" />
                     Cambiar contraseña
                   </button>
                   <div style={{ height: 1, background: "#F1F5F9" }} />
@@ -409,7 +409,7 @@ export default function App() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display:"flex", height:"100dvh", fontFamily:"system-ui,-apple-system,sans-serif",
-      background:"#F3F4F6", overflow:"hidden" }}>
+      background:"#F1F5F9", overflow:"hidden" }}>
       <style>{GLOBAL_CSS + `@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
       {cambiarPwdOpen && (
@@ -674,9 +674,9 @@ export default function App() {
         <header className="topbar">
           <button className="hamburger"
             onClick={() => setMobileOpen(o => !o)}
-            style={{ display:"none", background:"none", border:"1px solid #E5E7EB",
+            style={{ display:"none", background:"none", border:"1px solid #E2E8F0",
               borderRadius:6, padding:"5px 9px", cursor:"pointer", fontSize:17,
-              color:"#374151", flexShrink:0, alignItems:"center" }}>
+              color:"#334155", flexShrink:0, alignItems:"center" }}>
             <i className="ti ti-menu-2" aria-hidden="true" />
           </button>
 
@@ -696,7 +696,7 @@ export default function App() {
               title="Menú de usuario"
               style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer",
                 background: userMenuOpen ? "#F1F5F9" : "transparent",
-                border:"1px solid " + (userMenuOpen ? "#CBD5E1" : "#E5E7EB"),
+                border:"1px solid " + (userMenuOpen ? "#CBD5E1" : "#E2E8F0"),
                 borderRadius:8, padding:"4px 10px 4px 6px",
                 transition:"background .13s, border-color .13s" }}>
               <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0,
@@ -706,7 +706,7 @@ export default function App() {
                 {profile.nombre?.[0]?.toUpperCase() ?? "?"}
               </div>
               <div style={{ textAlign:"left", lineHeight:1.3 }}>
-                <div style={{ fontSize:12, fontWeight:700, color:"#111827", whiteSpace:"nowrap" }}>
+                <div style={{ fontSize:12, fontWeight:700, color:"#0F172A", whiteSpace:"nowrap" }}>
                   {profile.nombre && profile.nombre !== rolInfo.label ? profile.nombre : rolInfo.label}
                 </div>
                 <div style={{ fontSize:10, color: rolInfo.color, fontWeight:600, whiteSpace:"nowrap" }}>
@@ -723,33 +723,33 @@ export default function App() {
                 <div onClick={() => setUserMenuOpen(false)}
                   style={{ position:"fixed", inset:0, zIndex:398 }} />
                 <div style={{ position:"absolute", top:"calc(100% + 6px)", right:0, minWidth:200,
-                  background:"#fff", border:"1px solid #E5E7EB", borderRadius:10,
+                  background:"#fff", border:"1px solid #E2E8F0", borderRadius:10,
                   boxShadow:"0 8px 24px rgba(0,0,0,0.12)", zIndex:399, overflow:"hidden",
                   animation:"fadeDown .15s ease" }}>
                   <div style={{ padding:"12px 14px 10px", borderBottom:"1px solid #F1F5F9" }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:"#111827" }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:"#0F172A" }}>
                       {profile.nombre && profile.nombre !== rolInfo.label ? profile.nombre : rolInfo.label}
                     </div>
-                    <div style={{ fontSize:11, color:"#6B7280", marginTop:2 }}>{profile.email}</div>
+                    <div style={{ fontSize:11, color:"#64748B", marginTop:2 }}>{profile.email}</div>
                   </div>
                   {tieneHorarios && tieneQR && (
                     <button onClick={() => { setModuloActivo(null); setUserMenuOpen(false); }}
                       style={{ display:"flex", alignItems:"center", gap:9, width:"100%",
                         padding:"9px 14px", border:"none", background:"transparent",
-                        cursor:"pointer", fontSize:13, color:"#374151", textAlign:"left" }}
+                        cursor:"pointer", fontSize:13, color:"#334155", textAlign:"left" }}
                       onMouseEnter={e => e.currentTarget.style.background="#F8FAFC"}
                       onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                      <i className="ti ti-switch-horizontal" style={{ fontSize:15, color:"#6B7280" }} aria-hidden="true" />
+                      <i className="ti ti-switch-horizontal" style={{ fontSize:15, color:"#64748B" }} aria-hidden="true" />
                       Cambiar módulo
                     </button>
                   )}
                   <button onClick={() => { setCambiarPwdOpen(true); setUserMenuOpen(false); }}
                     style={{ display:"flex", alignItems:"center", gap:9, width:"100%",
                       padding:"9px 14px", border:"none", background:"transparent",
-                      cursor:"pointer", fontSize:13, color:"#374151", textAlign:"left" }}
+                      cursor:"pointer", fontSize:13, color:"#334155", textAlign:"left" }}
                     onMouseEnter={e => e.currentTarget.style.background="#F8FAFC"}
                     onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                    <i className="ti ti-key" style={{ fontSize:15, color:"#6B7280" }} aria-hidden="true" />
+                    <i className="ti ti-key" style={{ fontSize:15, color:"#64748B" }} aria-hidden="true" />
                     Cambiar contraseña
                   </button>
                   <div style={{ height:1, background:"#F1F5F9" }} />
