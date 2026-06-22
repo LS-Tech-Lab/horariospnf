@@ -75,7 +75,21 @@ Deno.serve(async (req) => {
     .eq("id", caller.id)
     .single();
 
-  if (profileError || !callerProfile || callerProfile.rol !== "admin" || !callerProfile.activo) {
+  if (profileError || !callerProfile || !callerProfile.activo) {
+    return fail("No tienes permiso para gestionar usuarios.");
+  }
+
+  // El rol ya no es un valor fijo ("admin"): cualquier rol —incluido uno
+  // personalizado creado desde el panel— puede tener el permiso
+  // puedeGestionarUsuarios. Se valida contra `roles.permisos`, no contra
+  // el nombre del rol.
+  const { data: callerRole, error: roleError } = await adminClient
+    .from("roles")
+    .select("permisos")
+    .eq("nombre", callerProfile.rol)
+    .single();
+
+  if (roleError || !callerRole || callerRole.permisos?.puedeGestionarUsuarios !== true) {
     return fail("No tienes permiso para gestionar usuarios.");
   }
 
