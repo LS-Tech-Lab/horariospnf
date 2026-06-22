@@ -128,18 +128,39 @@ Deno.serve(async (req) => {
       const userId = created.user?.id;
       if (!userId) return fail("No se obtuvo el ID del usuario creado.");
 
-      const { error: rpcError } = await adminClient.rpc("admin_upsert_user_profile", {
-        p_user_id: userId,
-        p_email: email,
-        p_nombre: nombre,
-        p_rol: rol,
-        p_programa: programa,
-      });
-
-      if (rpcError) {
-        // No dejar un usuario huérfano en Auth si el perfil no se pudo crear.
+      // Verificar que el rol existe antes de insertar
+      const { data: rolData } = await adminClient
+        .from("roles")
+        .select("nombre, restringe_programa")
+        .eq("nombre", rol)
+        .single();
+      if (!rolData) {
         await adminClient.auth.admin.deleteUser(userId);
-        return fail(rpcError.message);
+        return fail(`El rol "${rol}" no existe.`);
+      }
+      if (rolData.restringe_programa && !programa) {
+        await adminClient.auth.admin.deleteUser(userId);
+        return fail("Este rol requiere un programa asignado.");
+      }
+
+      // INSERT directo con service_role (bypasea RLS sin necesitar auth.uid()).
+      // La RPC admin_upsert_user_profile chequea auth.uid() con SECURITY DEFINER,
+      // que es NULL cuando la llama service_role desde una Edge Function.
+      const { error: profileError } = await adminClient
+        .from("user_profiles")
+        .insert({
+          id:       userId,
+          email,
+          nombre,
+          rol,
+          programa: rolData.restringe_programa ? programa : null,
+          activo:   true,
+          creado_por: callerProfile ? caller.email : null,
+        });
+
+      if (profileError) {
+        await adminClient.auth.admin.deleteUser(userId);
+        return fail(profileError.message);
       }
 
       return ok({ user_id: userId });
