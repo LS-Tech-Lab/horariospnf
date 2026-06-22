@@ -99,7 +99,7 @@ export const responsiveCSS = `
 export const TURNOS_CONFIG = [
   {
     id:         "DIURNO",
-    label:      "☀️ Diurno",
+    label:      "Diurno",
     hora:       "7:30 AM – 12:00 PM",
     finMin:     720,   // 12:00 en minutos desde medianoche
     habilitado: true,
@@ -113,7 +113,7 @@ export const TURNOS_CONFIG = [
   },
   {
     id:         "NOCTURNO",
-    label:      "🌙 Nocturno",
+    label:      "Nocturno",
     hora:       "6:00 PM – 9:30 PM",
     finMin:     1290,  // 21:30
     habilitado: false, // Cambiar a true cuando la institución active este turno
