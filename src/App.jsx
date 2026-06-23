@@ -693,33 +693,6 @@ export default function App() {
             </button>
           )}
 
-          {/* Usuario + rol */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"4px 4px 0" }}>
-            <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
-              background:"linear-gradient(135deg,#2563EB,#7C3AED)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:12, fontWeight:700, color:"#fff" }}>
-              {profile.nombre?.[0]?.toUpperCase() ?? "?"}
-            </div>
-            <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
-              <div style={{ fontSize:11, color:"#E2E8F0", overflow:"hidden",
-                textOverflow:"ellipsis", whiteSpace:"nowrap", fontWeight:600 }}>
-                {profile.nombre}
-              </div>
-              <div style={{ fontSize:10, color: rolInfo.color, fontWeight:600, whiteSpace:"nowrap" }}>
-                {rolInfo.label}
-                {profile.programa ? ` · ${profile.programa.replace("PNF ", "")}` : ""}
-              </div>
-            </div>
-            {expanded && (
-              <button onClick={handleLogout} title="Cerrar sesión"
-                style={{ background:"none", border:"1px solid #1E293B", borderRadius:6,
-                  cursor:"pointer", color:"#475569", fontSize:12,
-                  padding:"3px 7px", flexShrink:0, display:"flex", alignItems:"center" }}>
-                <i className="ti ti-logout" style={{ fontSize:13 }} aria-hidden="true" />
-              </button>
-            )}
-          </div>
         </div>
       </aside>
 
