@@ -74,6 +74,26 @@ export default function App() {
     localStorage.setItem("sb_pinned", next ? "1" : "0");
   };
 
+  // ── Reset de navegación al cambiar de usuario ────────────────────────────
+  // Cuando user.id cambia (logout/login de otra cuenta), resetear toda la
+  // navegación para que el nuevo usuario empiece desde cero sin heredar
+  // la vista ni los permisos de la sesión anterior.
+  const prevUserIdRef = useRef(null);
+  useEffect(() => {
+    const currentId = user?.id ?? null;
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== currentId) {
+      setView("resumen");
+      setModuloActivo(null);
+      setAsistenciasSubView("panel");
+      setDocenteNav(null);
+      setMateriaNav(null);
+      setAdminOpen(false);
+      setUserMenuOpen(false);
+      setAsistUserMenuOpen(false);
+    }
+    prevUserIdRef.current = currentId;
+  }, [user?.id]);
+
   // Detectar modo consulta histórica
   useEffect(() => {
     const check = async () => {
