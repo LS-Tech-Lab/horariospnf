@@ -77,7 +77,7 @@ export default function useAuth() {
     try {
       const { data, error } = await supabase
         .from("user_profiles")
-        .select("*, rol_info:roles(nombre, label, emoji, color, restringe_programa, permisos)")
+        .select("*, rol_info:roles!user_profiles_rol_fk(nombre, label, emoji, color, restringe_programa, permisos)")
         .eq("id", authUser.id)
         .single();
 
