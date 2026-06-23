@@ -31,7 +31,7 @@ import { supabase, supabaseConfigError } from "./lib/supabase";
 
 // ── Piezas extraídas a archivos propios (ver src/app/) ────────────────────────
 import buildNavGroups from "./app/buildNavGroups";
-import GLOBAL_CSS from "./app/AppStyles";
+// AppStyles.js eliminado — estilos consolidados en index.css (auditoría §7.1)
 import AdminMenu from "./app/AdminMenu";
 import CuentaDesactivada from "./app/CuentaDesactivada";
 import SinPerfilAsignado from "./app/SinPerfilAsignado";
@@ -296,7 +296,7 @@ export default function App() {
 
     return (
       <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "var(--font-sans)" }}>
-        <style>{`@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        {/* @keyframes fadeDown ahora en index.css */}
         {cambiarPwdOpen && (
           <ModalCambiarPassword
             onCerrar={() => setCambiarPwdOpen(false)}
@@ -468,7 +468,7 @@ export default function App() {
   return (
     <div style={{ display:"flex", height:"100dvh", fontFamily:"var(--font-sans)",
       background:"#F1F5F9", overflow:"hidden" }}>
-      <style>{GLOBAL_CSS + `@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      {/* Estilos globales ahora en index.css — AppStyles.js eliminado */}
 
       {cambiarPwdOpen && (
         <ModalCambiarPassword
