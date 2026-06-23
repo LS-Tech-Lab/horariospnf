@@ -28,7 +28,7 @@ export default class ErrorBoundary extends React.Component {
         height: "100vh", gap: 16, padding: 32, fontFamily: "system-ui, sans-serif",
         background: "#0F172A", color: "#E2E8F0", textAlign: "center",
       }}>
-        <span style={{ fontSize: 48 }}>⚠️</span>
+        <i className="ti ti-alert-triangle" style={{ fontSize: 48, color: "#FBBF24" }} aria-hidden="true" />
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#F1F5F9" }}>
           Algo salió mal
         </h2>
