@@ -19,6 +19,7 @@ export default function useDataSync({
   lapso, selectedPrograma, showToast,
   fetchDocenteNames, fetchMateriaNames, fetchProgramas,
   setConflictsRefreshKey,
+  userId,
 }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ export default function useDataSync({
   const cacheKey = lapso ? `${CACHE_KEYS.horarios}_${lapso}` : CACHE_KEYS.horarios;
 
   const fetchHorarios = useCallback(async (programa = selectedPrograma) => {
-    const cachedHorarios = cargarDeCache(cacheKey);
+    const cachedHorarios = cargarDeCache(cacheKey, userId);
     if (cachedHorarios?.length > 0) {
       setData(cachedHorarios);
       setLoading(false);
@@ -82,7 +83,7 @@ export default function useDataSync({
       }
 
       setData(todasLasFilas);
-      guardarEnCache(cacheKey, todasLasFilas);
+      guardarEnCache(cacheKey, todasLasFilas, userId);
       localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
       setLastSync(obtenerUltimaSincronizacion());
     } catch (err) {
@@ -95,7 +96,7 @@ export default function useDataSync({
 
     setLoading(false);
     setIsSyncing(false);
-  }, [selectedPrograma, lapso, cacheKey, showToast]);
+  }, [selectedPrograma, lapso, cacheKey, showToast, userId]);
 
   useEffect(() => { fetchProgramas(lapso); fetchDocenteNames(); fetchMateriaNames(); }, [lapso]);
   useEffect(() => { fetchHorarios(selectedPrograma); }, [selectedPrograma, lapso, fetchHorarios]);
@@ -117,7 +118,7 @@ export default function useDataSync({
       cancelar = suscribirCambiosRemotos({
         lapso,
         onHorariosChange: () => {
-          limpiarCache();
+          limpiarCache(userId);
           fetchHorarios(selectedPrograma);
           setConflictsRefreshKey(k => k + 1);
           showToast("🔄 Horarios actualizados por otro usuario.", "info");
