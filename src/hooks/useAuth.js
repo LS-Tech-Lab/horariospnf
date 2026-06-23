@@ -136,20 +136,22 @@ export default function useAuth() {
         }
 
         setUser(authUser);
-        cargarProfile(authUser);
 
-        // Registrar eventos de sesión
+        // Fix #18: el log de SIGNED_IN se registra DESPUÉS de que
+        // cargarProfile resuelva exitosamente, para evitar huecos en
+        // la auditoría cuando el perfil falla (como ocurrió con el
+        // error PGRST201 del fix #3). El setTimeout anterior no
+        // garantizaba esto — solo añadía un delay arbitrario.
         if (event === "SIGNED_IN" && authUser) {
-          // Pequeño delay para que el perfil ya esté cargado
-          setTimeout(async () => {
-            try {
-              await supabase.rpc("log_session_event", {
-                p_evento:     "login",
-                p_user_agent: navigator.userAgent,
-                p_detalles:   {},
-              });
-            } catch { /* no-op: los logs no deben bloquear */ }
-          }, 800);
+          cargarProfile(authUser).then(() => {
+            supabase.rpc("log_session_event", {
+              p_evento:     "login",
+              p_user_agent: navigator.userAgent,
+              p_detalles:   {},
+            }).catch(() => { /* no-op: los logs no deben bloquear */ });
+          });
+        } else {
+          cargarProfile(authUser);
         }
 
         if (event === "SIGNED_OUT") {
