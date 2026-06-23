@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import useAppData from "./hooks/useAppData";
 import useHorariosFilters from "./hooks/useHorariosFilters";
 import useAuth from "./hooks/useAuth";
@@ -13,9 +13,11 @@ import MateriasView from "./components/MateriasView";
 import AsistenciasView from "./components/AsistenciasView";
 import ConfirmModal from "./components/ConfirmModal";
 import ModalCambiarPassword from "./components/ModalCambiarPassword";
-import HistorialView from "./components/HistorialView";
-import UsuariosView from "./components/UsuariosView";
-import LogsView from "./components/LogsView";
+
+// Vistas pesadas cargadas de forma diferida (~200-300 KB fuera del chunk inicial)
+const HistorialView = lazy(() => import("./components/HistorialView"));
+const UsuariosView  = lazy(() => import("./components/UsuariosView"));
+const LogsView      = lazy(() => import("./components/LogsView"));
 // ── Módulo de Asistencias QR ──────────────────────────────────────────────────
 import ModuleSelector from "./components/ModuleSelector";
 import AdminQRPanel from "./components/asistencias/AdminQRPanel";
@@ -526,7 +528,8 @@ export default function App() {
           </div>
           {expanded && (
             <button className={`pin-btn ${pinned ? "pinned" : ""}`} onClick={togglePin}
-              title={pinned ? "Desfijar sidebar" : "Fijar sidebar"}>
+              title={pinned ? "Desfijar sidebar" : "Fijar sidebar"}
+              aria-label={pinned ? "Desfijar sidebar" : "Fijar sidebar"}>
               <i className={`ti ${pinned ? "ti-pinned" : "ti-pin"}`} aria-hidden="true" />
             </button>
           )}
@@ -703,6 +706,8 @@ export default function App() {
         <header className="topbar">
           <button className="hamburger"
             onClick={() => setMobileOpen(o => !o)}
+            aria-label={mobileOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}
+            aria-expanded={mobileOpen}
             style={{ display:"none", background:"none", border:"1px solid #E2E8F0",
               borderRadius:6, padding:"5px 9px", cursor:"pointer", fontSize:17,
               color:"#334155", flexShrink:0, alignItems:"center" }}>
@@ -723,6 +728,9 @@ export default function App() {
             <button
               onClick={() => setUserMenuOpen(o => !o)}
               title="Menú de usuario"
+              aria-label="Menú de usuario"
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
               style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer",
                 background: userMenuOpen ? "#F1F5F9" : "transparent",
                 border:"1px solid " + (userMenuOpen ? "#CBD5E1" : "#E2E8F0"),
@@ -890,26 +898,53 @@ export default function App() {
             />
           )}
           {view === "historial" && (
-            <HistorialView
-              lapsoActivo={lapso}
-              onCambiarLapso={handleCambiarLapso}
-              showToast={appData.showToast}
-              openConfirm={appData.openConfirm}
-              closeConfirm={appData.closeConfirm}
-              user={user}
-              modoConsulta={!permisos.puedeGestionarTrimestres}
-            />
+            <Suspense fallback={
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                height:240, color:"#64748B", fontSize:13, gap:8 }}>
+                <i className="ti ti-loader-2" style={{ fontSize:20,
+                  animation:"spin 1s linear infinite" }} aria-hidden="true" />
+                Cargando historial…
+              </div>
+            }>
+              <HistorialView
+                lapsoActivo={lapso}
+                onCambiarLapso={handleCambiarLapso}
+                showToast={appData.showToast}
+                openConfirm={appData.openConfirm}
+                closeConfirm={appData.closeConfirm}
+                user={user}
+                modoConsulta={!permisos.puedeGestionarTrimestres}
+              />
+            </Suspense>
           )}
           {view === "logs" && permisos.puedeVerLogs && (
-            <LogsView permisos={permisos} />
+            <Suspense fallback={
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                height:240, color:"#64748B", fontSize:13, gap:8 }}>
+                <i className="ti ti-loader-2" style={{ fontSize:20,
+                  animation:"spin 1s linear infinite" }} aria-hidden="true" />
+                Cargando registros…
+              </div>
+            }>
+              <LogsView permisos={permisos} />
+            </Suspense>
           )}
           {view === "usuarios" && (permisos.puedeGestionarUsuarios || permisos.puedeGestionarRoles) && (
-            <UsuariosView
-              permisos={permisos}
-              programas={appData.data?.programas || []}
-              logAudit={logAudit}
-              showToast={appData.showToast}
-            />
+            <Suspense fallback={
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                height:240, color:"#64748B", fontSize:13, gap:8 }}>
+                <i className="ti ti-loader-2" style={{ fontSize:20,
+                  animation:"spin 1s linear infinite" }} aria-hidden="true" />
+                Cargando usuarios…
+              </div>
+            }>
+              <UsuariosView
+                permisos={permisos}
+                programas={appData.data?.programas || []}
+                logAudit={logAudit}
+                showToast={appData.showToast}
+              />
+            </Suspense>
           )}
         </main>
       </div>
