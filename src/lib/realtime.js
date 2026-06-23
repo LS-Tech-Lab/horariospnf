@@ -56,36 +56,70 @@ export function suscribirCambiosRemotos({ lapso, onHorariosChange, onDocentesCha
   const triggerDocentes = debounced(docentesTimerRef, () => onDocentesChange?.());
   const triggerMaterias = debounced(materiasTimerRef, () => onMateriasChange?.());
 
-  const channel = supabase
-    .channel(`horarios-sync-${lapso || "todos"}`)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "horarios" },
-      (payload) => {
-        // Si conocemos el lapso afectado y no coincide con el activo, ignorar.
-        const lapsoFila = payload.new?.lapso ?? payload.old?.lapso;
-        if (lapso && lapsoFila !== undefined && lapsoFila !== null && lapsoFila !== lapso) {
-          return;
+  const RECONNECT_DELAY_MS  = 3_000;  // espera antes del primer reintento
+  const RECONNECT_MAX_DELAY = 30_000; // techo exponencial
+  let reconnectTimer   = null;
+  let reconnectAttempt = 0;
+  let cancelled        = false;
+
+  let channel;
+
+  const conectar = () => {
+    channel = supabase
+      .channel(`horarios-sync-${lapso || "todos"}-${Date.now()}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "horarios" },
+        (payload) => {
+          const lapsoFila = payload.new?.lapso ?? payload.old?.lapso;
+          if (lapso && lapsoFila !== undefined && lapsoFila !== null && lapsoFila !== lapso) {
+            return;
+          }
+          triggerHorarios();
         }
-        triggerHorarios();
-      }
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "docentes" },
-      () => triggerDocentes()
-    )
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "materias" },
-      () => triggerMaterias()
-    )
-    .subscribe();
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "docentes" },
+        () => triggerDocentes()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "materias" },
+        () => triggerMaterias()
+      )
+      .subscribe((status) => {
+        // Fix #15: reconexión automática en redes inestables.
+        // Supabase emite CHANNEL_ERROR o CLOSED cuando el WebSocket cae.
+        // Reintentamos con backoff exponencial hasta que el componente
+        // se desmonte (cancelled = true).
+        if (status === "CHANNEL_ERROR" || status === "CLOSED") {
+          if (cancelled) return;
+          supabase.removeChannel(channel);
+          const delay = Math.min(
+            RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempt),
+            RECONNECT_MAX_DELAY
+          );
+          reconnectAttempt += 1;
+          console.warn(`[realtime] Canal caído (${status}). Reintento ${reconnectAttempt} en ${delay}ms…`);
+          reconnectTimer = setTimeout(() => {
+            if (!cancelled) conectar();
+          }, delay);
+        } else if (status === "SUBSCRIBED") {
+          // Reconexión exitosa — reiniciar el contador
+          reconnectAttempt = 0;
+        }
+      });
+  };
+
+  conectar();
 
   return () => {
+    cancelled = true;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
     if (horariosTimerRef.current) clearTimeout(horariosTimerRef.current);
     if (docentesTimerRef.current) clearTimeout(docentesTimerRef.current);
     if (materiasTimerRef.current) clearTimeout(materiasTimerRef.current);
-    supabase.removeChannel(channel);
+    if (channel) supabase.removeChannel(channel);
   };
 }
