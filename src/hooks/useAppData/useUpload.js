@@ -17,6 +17,8 @@ export default function useUpload({
 }) {
   const [uploading, setUploading] = useState(false);
 
+  const UPLOAD_TIMEOUT_MS = 60_000; // 60 s — si la operación no resuelve, liberar la UI
+
   const handleFileUpload = async (file) => {
     setError(null);
     if (!file) return;
@@ -37,6 +39,14 @@ export default function useUpload({
     }
 
     setUploading(true);
+
+    // Timeout de seguridad: si la operación cuelga (red caída, Supabase lento),
+    // libera el estado uploading para no bloquear la UI indefinidamente.
+    const timeoutId = setTimeout(() => {
+      setUploading(false);
+      setError("La operación tardó demasiado. Verifica tu conexión e intenta de nuevo.");
+      showToast("❌ Tiempo de espera agotado. Verifica tu conexión.", "error");
+    }, UPLOAD_TIMEOUT_MS);
 
     let allRows, advertencias;
     try {
@@ -93,6 +103,7 @@ export default function useUpload({
       await fetchMateriaNames();
       setConflictsRefreshKey(k => k + 1);
     }
+    clearTimeout(timeoutId);
     setUploading(false);
   };
 
