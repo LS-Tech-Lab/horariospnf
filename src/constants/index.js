@@ -62,15 +62,7 @@ export const ROL_SIDEBAR = {
   operador_qr:    { label: "Operador QR",    color: "#34D399" },
 };
 
-export const NAV_ITEMS = [
-  { id: "resumen",    icon: "ti-layout-dashboard", label: "Resumen" },
-  { id: "horarios",  icon: "ti-calendar-event",   label: "Horarios" },
-  { id: "secciones", icon: "ti-school",           label: "Secciones" },
-  { id: "docentes",  icon: "ti-users",            label: "Docentes" },
-  { id: "materias",  icon: "ti-book-2",           label: "Materias" },
-  { id: "asistencias", icon: "ti-printer",        label: "Asistencias" },
-  { id: "conflictos", icon: "ti-alert-triangle",  label: "Conflictos", hasBadge: true }, // badge = nº de conflictos detectados
-];
+// NAV_ITEMS eliminado — reemplazado por buildNavGroups.js (código muerto, auditoría §5.4)
 
 export const S = {
   card: { background: "#fff", borderRadius: 12, border: "1px solid #E2E8F0", boxShadow: "0 1px 2px rgba(15,23,42,0.04)", overflow: "hidden" },
@@ -87,11 +79,7 @@ export const S = {
   input: { fontSize: 13, padding: "7px 12px", borderRadius: 8, border: "1px solid #CBD5E1", background: "#fff", color: "#0F172A", outline: "none", fontWeight: 500 },
 };
 
-export const responsiveCSS = `
- @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
- @media(max-width:768px){.hamburger-btn{display:block!important}.sidebar-aside{transform:translateX(-100%);position:fixed!important;z-index:300;height:100vh;transition:transform .25s}.sidebar-aside.open{transform:translateX(0)}.sidebar-overlay{display:block!important}.main-content{margin-left:0!important}.stats-grid-4{grid-template-columns:repeat(2,1fr)!important}.stats-grid-2{grid-template-columns:1fr!important}.docentes-layout,.materias-layout,.secciones-layout{flex-direction:column!important;height:auto!important}.docentes-left-panel,.materias-left-panel,.secciones-left-panel{width:100%!important;max-height:220px}.global-search{width:160px!important}}
- @media(max-width:480px){.stats-grid-4{grid-template-columns:1fr 1fr!important}.header-stats{display:none}}
-`;
+// responsiveCSS eliminado — nunca inyectado; el responsive vive en AppStyles.js (auditoría §5.5)
 
 // ── MEJORA #11: Configuración de turnos ─────────────────────────────────────
 // Para activar el turno NOCTURNO, cambia `habilitado: false` a `true`.
@@ -106,7 +94,7 @@ export const TURNOS_CONFIG = [
   },
   {
     id:         "VESPERTINO",
-    label:      "🌆 Vespertino",
+    label:      "Vespertino",
     hora:       "1:00 PM – 5:30 PM",
     finMin:     1050,  // 17:30
     habilitado: true,
