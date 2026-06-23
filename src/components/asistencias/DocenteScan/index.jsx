@@ -29,21 +29,49 @@ export default function DocenteScan() {
   const [loading,   setLoading]   = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
+    // Fix #11: antes de mostrar datos guardados, verificar que el token QR
+    // del URL corresponde al día actual consultando la BD. Si el token es de
+    // un día anterior (sesión QR vencida) o no existe, ir directo al formulario
+    // para evitar que el próximo docente en el dispositivo vea datos del anterior.
+    const cargarConValidacion = async () => {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) { setPaso("formulario"); return; }
+
         const datos = JSON.parse(raw);
-        if (datos?.cedula && datos?.nombre) {
-          setDatosGuardados(datos);
-          setCedula(datos.cedula);
-          setNombre(datos.nombre);
-          setPaso("confirmar");
+        if (!datos?.cedula || !datos?.nombre) { setPaso("formulario"); return; }
+
+        // Verificar que el token QR sigue activo hoy
+        const { data: sesionActiva, error } = await supabase
+          .from("qr_sessions")
+          .select("id, fecha")
+          .eq("token", token)
+          .eq("activo", true)
+          .eq("fecha", fechaHoyVE())
+          .maybeSingle();
+
+        if (error || !sesionActiva) {
+          // Token vencido o de otro día — no pre-cargar datos
+          setPaso("formulario");
           return;
         }
+
+        // Token válido y del día de hoy — mostrar datos guardados
+        setDatosGuardados(datos);
+        setCedula(datos.cedula);
+        setNombre(datos.nombre);
+        setPaso("confirmar");
+      } catch {
+        setPaso("formulario");
       }
-    } catch {}
-    setPaso("formulario");
-  }, []);
+    };
+
+    if (token) {
+      cargarConValidacion();
+    } else {
+      setPaso("formulario");
+    }
+  }, [token]);
 
   const guardarDatos = (c, n) => {
     try {
