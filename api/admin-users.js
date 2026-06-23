@@ -184,7 +184,7 @@ export default async function handler(req, res) {
       }
     );
 
-    if (!delAuthRes.ok) {
+    if (!delAuthRes.ok && delAuthRes.status !== 404) {
       const delAuthErr = await delAuthRes.json().catch(() => ({}));
       return res.status(400).json({
         error: delAuthErr.msg || delAuthErr.message || "Error al eliminar el usuario de Auth.",
@@ -218,7 +218,7 @@ export default async function handler(req, res) {
       }
     );
 
-    if (!delAuthRes.ok) {
+    if (!delAuthRes.ok && delAuthRes.status !== 404) {
       const delAuthErr = await delAuthRes.json().catch(() => ({}));
       return res.status(400).json({
         error: delAuthErr.msg || delAuthErr.message || "Error al eliminar el usuario.",
