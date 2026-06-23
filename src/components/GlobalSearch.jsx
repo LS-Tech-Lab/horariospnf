@@ -50,9 +50,10 @@ export default function GlobalSearch({ onNavigate, docenteNames, materiaNames, d
           onFocus={() => setOpen(true)}
           onKeyDown={e => { if (e.key === "Escape") { setOpen(false); setQ(""); } }}
           placeholder="Buscar materia, docente…"
+          aria-label="Buscar materia o docente"
           style={{ border: "none", background: "transparent", outline: "none", fontSize: 14, color: "#0F172A", width: "100%", fontWeight: 500 }}
         />
-        {q && <button onClick={() => setQ("")} style={{ border: "none", background: "none", cursor: "pointer", color: "#94A3B8", fontSize: 16 }}>×</button>}
+        {q && <button onClick={() => setQ("")} aria-label="Limpiar búsqueda" style={{ border: "none", background: "none", cursor: "pointer", color: "#94A3B8", fontSize: 16 }}>×</button>}
       </div>
       {open && results.length > 0 && (
         <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, minWidth: 280, background: "#fff", borderRadius: 10, border: "1px solid #E2E8F0", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 200, overflow: "hidden" }}>
@@ -73,4 +74,4 @@ export default function GlobalSearch({ onNavigate, docenteNames, materiaNames, d
       )}
     </div>
   );
-} 
+}
