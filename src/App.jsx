@@ -203,7 +203,7 @@ export default function App() {
   if (supabaseDown) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       height:"100vh", background:"#0F172A", color:"#E2E8F0", gap:16, padding:32,
-      textAlign:"center", fontFamily:"system-ui,sans-serif" }}>
+      textAlign:"center", fontFamily:"var(--font-sans)" }}>
       <i className="ti ti-wifi-off" style={{ fontSize:44, color:"#F87171" }} aria-hidden="true" />
       <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"#F1F5F9" }}>Servicio no disponible</h2>
       <p style={{ margin:0, fontSize:14, color:"#94A3B8", maxWidth:460, lineHeight:1.6 }}>
@@ -221,7 +221,7 @@ export default function App() {
   if (supabaseConfigError) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       height:"100vh", background:"#0F172A", color:"#E2E8F0", gap:16, padding:32,
-      textAlign:"center", fontFamily:"system-ui,sans-serif" }}>
+      textAlign:"center", fontFamily:"var(--font-sans)" }}>
       <i className="ti ti-alert-triangle" style={{ fontSize:44, color:"#FBBF24" }} aria-hidden="true" />
       <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"#F1F5F9" }}>Configuración incompleta</h2>
       <p style={{ margin:0, fontSize:14, color:"#94A3B8", maxWidth:460, lineHeight:1.6 }}>
@@ -295,7 +295,7 @@ export default function App() {
     const rolColor = profile.rol_info?.color || "#34D399";
 
     return (
-      <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "var(--font-sans)" }}>
         <style>{`@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
         {cambiarPwdOpen && (
           <ModalCambiarPassword
@@ -466,7 +466,7 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:"flex", height:"100dvh", fontFamily:"system-ui,-apple-system,sans-serif",
+    <div style={{ display:"flex", height:"100dvh", fontFamily:"var(--font-sans)",
       background:"#F1F5F9", overflow:"hidden" }}>
       <style>{GLOBAL_CSS + `@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
@@ -662,20 +662,6 @@ export default function App() {
 
         {/* Footer: botón admin + usuario */}
         <div style={{ borderTop:"1px solid #1E293B", padding:"8px 8px", flexShrink:0 }}>
-          {/* Botón "Cambiar módulo" — solo si el rol tiene acceso a horarios y QR */}
-          {tieneHorarios && tieneQR && (
-            <button
-              onClick={() => setModuloActivo(null)}
-              className="nav-item"
-              style={{ marginBottom: 4, color: "#64748B" }}
-              title="Cambiar módulo"
-            >
-              <i className="ti ti-switch-horizontal" style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }} aria-hidden="true" />
-              <span className="sb-label" style={{ flex:1 }}>Cambiar módulo</span>
-              <span className="tooltip">Cambiar módulo</span>
-            </button>
-          )}
-
           {/* Botón de administración — visible solo si tiene algo que hacer */}
           {(permisos.puedeImportarExcel || permisos.puedeHacerBackup || permisos.puedeBorrarHorarios) && (
             <button
@@ -880,6 +866,8 @@ export default function App() {
               getDocCedula={appData.getDocCedula}
               getDocCedulaFuente={appData.getDocCedulaFuente}
               onSaveDocenteCedula={permisos.puedeEditarDocentes ? appData.saveDocenteCedula : null}
+              modoConsulta={modoConsulta}
+              lapso={lapso}
             />
           )}
           {view === "materias" && (
@@ -889,6 +877,8 @@ export default function App() {
               getMateriaName={appData.getMateriaName}
               onSaveMateriaName={permisos.puedeEditarMaterias ? appData.saveMateriaName : null}
               data={appData.data} getDocName={appData.getDocName}
+              modoConsulta={modoConsulta}
+              lapso={lapso}
             />
           )}
           {view === "asistencias" && (
