@@ -53,7 +53,7 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
       return;
     }
 
-    showToast?.("✅ Contraseña actualizada correctamente.", "success");
+    showToast?.("Contraseña actualizada correctamente.", "success");
     setGuardando(false);
     onCerrar();
   };
@@ -92,7 +92,7 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
       }}>
         {/* Cabecera */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 28, marginBottom: 6 }}>🔑</div>
+          <i className="ti ti-key" style={{ fontSize: 28, color: "#2563EB", marginBottom: 6, display: "block" }} aria-hidden="true" />
           <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
             Cambiar contraseña
           </h2>
@@ -171,7 +171,7 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
               background: "#FEF2F2", color: "#DC2626", borderRadius: 8,
               padding: "10px 14px", fontSize: 13,
             }}>
-              ⚠️ {error}
+              <i className="ti ti-alert-circle" style={{ fontSize: 14, verticalAlign: "middle", marginRight: 6 }} aria-hidden="true" />{error}
             </div>
           )}
         </div>
@@ -194,7 +194,10 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
               cursor: valido && !guardando ? "pointer" : "not-allowed",
               fontSize: 13, fontWeight: 700,
             }}>
-            {guardando ? "Actualizando…" : "🔑 Actualizar contraseña"}
+            {guardando
+              ? "Actualizando…"
+              : <><i className="ti ti-key" style={{ fontSize: 14, verticalAlign: "middle", marginRight: 6 }} aria-hidden="true" />Actualizar contraseña</>
+            }
           </button>
         </div>
       </div>
