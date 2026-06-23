@@ -78,7 +78,7 @@ export default function ModuleSelector({ profile, onSelectModule, onLogout }) {
         <p style={{ margin: "10px 0 0", fontSize: 14, color: "#94A3B8" }}>
           Bienvenido,{" "}
           <span style={{ color: "#93C5FD", fontWeight: 600 }}>
-            {profile?.nombre || "Administrador"}
+            {profile?.nombre || profile?.email || "Usuario"}
           </span>
         </p>
         <p style={{ margin: "10px 0 0", fontSize: 13, color: "#64748B" }}>
