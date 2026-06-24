@@ -20,6 +20,7 @@ const UsuariosView  = lazy(() => import("./components/UsuariosView"));
 const LogsView      = lazy(() => import("./components/LogsView"));
 // ── Módulo de Asistencias QR ──────────────────────────────────────────────────
 import ModuleSelector from "./components/ModuleSelector";
+import ProgramaLogo from "./components/ProgramaLogo";
 import AdminQRPanel from "./components/asistencias/AdminQRPanel";
 import QRProyeccion from "./components/asistencias/QRProyeccion";
 import ReporteAsistencias from "./components/asistencias/ReporteAsistencias";
@@ -552,11 +553,7 @@ export default function App() {
         {/* Marca + pin */}
         <div style={{ display:"flex", alignItems:"center", gap:8, padding:"14px 10px 12px",
           borderBottom:"1px solid var(--navy-800)", flexShrink:0 }}>
-          <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
-            background:"linear-gradient(135deg,var(--brand-500),var(--color-role-coord))",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
-            <i className="ti ti-school" style={{ color:"#fff", fontSize:17 }} aria-hidden="true" />
-          </div>
+          <ProgramaLogo programa={appData.selectedPrograma ?? "todos"} size={32} />
           <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
             <div style={{ fontSize:13, fontWeight:700, color:"var(--color-background-tertiary)", whiteSpace:"nowrap" }}>
               SIGMA
@@ -631,12 +628,7 @@ export default function App() {
               }
             </select>
           ) : (
-            <div style={{ width:32, height:32, borderRadius:7, background:"var(--navy-800)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:13, color:"var(--color-text-secondary)" }}
-              title={`Programa: ${appData.selectedPrograma === "todos" ? "Todos" : appData.selectedPrograma}`}>
-              <i className="ti ti-school" aria-hidden="true" />
-            </div>
+            <ProgramaLogo programa={appData.selectedPrograma ?? "todos"} size={32} />
           )}
         </div>
 
