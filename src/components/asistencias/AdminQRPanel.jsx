@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { DEFAULT_PROGRAMAS, TURNOS_CONFIG } from "../../constants";
+import { playRegistroSound, useFlashFeed } from "./useRegistroSound";
 import { supabase } from "../../lib/supabase";
 import { fechaHoyVE } from "../../utils/time";
 
@@ -79,11 +80,12 @@ export function QRDisplay({ qrUrl, segundos, ttlMinutes, size = 280 }) {
 }
 
 // ── Feed de actividad reciente ───────────────────────────────────────────────
-function FeedActividad({ registros }) {
+function FeedActividad({ registros, flash }) {
   if (registros.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 16, background: "#F8FAFC", borderRadius: 10, border: "1px solid #E2E8F0", overflow: "hidden" }}>
+    <style>{`@keyframes feedFlash{0%{background:#DCFCE7}100%{background:#F8FAFC}}`}</style>
+    <div style={{ marginTop: 16, background: "#F8FAFC", borderRadius: 10, border: flash ? "1px solid #86EFAC" : "1px solid #E2E8F0", overflow: "hidden", animation: flash ? "feedFlash 0.8s ease-out" : "none", transition: "border-color 0.3s" }}>
       <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.07em", borderBottom: "1px solid #E2E8F0", background: "#F1F5F9" }}>
         Actividad reciente
       </div>
@@ -288,6 +290,9 @@ export default function AdminQRPanel({
   const [fecha,    setFecha]    = useState(hoy);
 
   const [feedRegistros, setFeedRegistros] = useState([]);
+  const feedRegistrosRef = useRef([]);
+  const { flash: feedFlash, trigger: flashTrigger } = useFlashFeed();
+  const [confirmCierre, setConfirmCierre] = useState(false);
 
   const esHoy = fecha === hoy;
   function turnoDisponible(tId) {
@@ -306,7 +311,14 @@ export default function AdminQRPanel({
         .eq("qr_session_id", sessionId)
         .order("hora_registro", { ascending: false })
         .limit(10);
-      setFeedRegistros(data || []);
+      const prev = feedRegistrosRef.current;
+      const next = data || [];
+      if (prev.length > 0 && next.length > prev.length) {
+        playRegistroSound();
+        flashTrigger();
+      }
+      feedRegistrosRef.current = next;
+      setFeedRegistros(next);
     };
 
     fetchFeed();
@@ -447,15 +459,55 @@ export default function AdminQRPanel({
                 <i className="ti ti-refresh" style={{ fontSize: 14 }} aria-hidden="true" />
                 Regenerar QR ahora
               </button>
-              <button onClick={cerrarSesion} style={{ width: "100%", padding: "10px 0", background: "#FFF1F2", color: "#BE123C", border: "1.5px solid #FECDD3", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <button
+                onClick={() => {
+                  const sinSalida = feedRegistros.filter ? undefined : undefined; // checked via ContadorSesion
+                  setConfirmCierre(true);
+                }}
+                style={{ width: "100%", padding: "10px 0", background: "#FFF1F2", color: "#BE123C", border: "1.5px solid #FECDD3", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
                 <i className="ti ti-player-stop" style={{ fontSize: 14 }} aria-hidden="true" />
                 Cerrar sesión
               </button>
+
+              {confirmCierre && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <i className="ti ti-alert-triangle" style={{ fontSize: 22, color: "#DC2626" }} aria-hidden="true" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>¿Cerrar la sesión QR?</div>
+                        <div style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>Esta acción no se puede deshacer</div>
+                      </div>
+                    </div>
+                    <p style={{ margin: "0 0 20px", fontSize: 14, color: "#334155", lineHeight: 1.6 }}>
+                      Los docentes que solo marcaron <strong>entrada</strong> quedarán sin registro de salida.
+                      Asegúrate de que todos hayan completado su marca antes de cerrar.
+                    </p>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        onClick={() => setConfirmCierre(false)}
+                        style={{ flex: 1, padding: "10px 0", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, color: "#334155", cursor: "pointer" }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => { setConfirmCierre(false); cerrarSesion(); }}
+                        style={{ flex: 1, padding: "10px 0", background: "#DC2626", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}
+                      >
+                        Sí, cerrar sesión
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {activa && <ContadorSesion sessionId={sessionId} />}
-          {activa && <FeedActividad registros={feedRegistros} />}
+          {activa && <FeedActividad registros={feedRegistros} flash={feedFlash} />}
           <HistorialSesiones fecha={fecha} sessionIdActiva={sessionId} />
         </div>
 
@@ -488,15 +540,25 @@ export default function AdminQRPanel({
                 <div style={{ fontSize: 13, color: "#64748B", maxWidth: 300, margin: "0 auto 18px" }}>
                   Para mantener este panel de control fuera del alcance de los docentes, el QR y las instrucciones se muestran solo en la pestaña de proyección.
                 </div>
-                {onVerProyeccion && (
+                <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  {onVerProyeccion && (
+                    <button
+                      onClick={onVerProyeccion}
+                      style={{ padding: "10px 18px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    >
+                      <i className="ti ti-device-desktop" style={{ fontSize: 15 }} aria-hidden="true" />
+                      Proyección aquí
+                    </button>
+                  )}
                   <button
-                    onClick={onVerProyeccion}
-                    style={{ padding: "10px 20px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    onClick={() => window.open(window.location.href + "?proyeccion=1", "_blank", "noopener")}
+                    title="Abre la proyección en una ventana separada (ideal para segundo monitor o proyector)"
+                    style={{ padding: "10px 18px", background: "#F8FAFC", color: "#334155", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
-                    <i className="ti ti-device-desktop" style={{ fontSize: 15 }} aria-hidden="true" />
-                    Abrir Proyección
+                    <i className="ti ti-external-link" style={{ fontSize: 15 }} aria-hidden="true" />
+                    Nueva ventana
                   </button>
-                )}
+                </div>
               </div>
             </div>
           )}
