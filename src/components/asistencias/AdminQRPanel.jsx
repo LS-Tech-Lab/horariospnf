@@ -84,6 +84,7 @@ function FeedActividad({ registros, flash }) {
   if (registros.length === 0) return null;
 
   return (
+    <>
     <style>{`@keyframes feedFlash{0%{background:#DCFCE7}100%{background:#F8FAFC}}`}</style>
     <div style={{ marginTop: 16, background: "#F8FAFC", borderRadius: 10, border: flash ? "1px solid #86EFAC" : "1px solid #E2E8F0", overflow: "hidden", animation: flash ? "feedFlash 0.8s ease-out" : "none", transition: "border-color 0.3s" }}>
       <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.07em", borderBottom: "1px solid #E2E8F0", background: "#F1F5F9" }}>
@@ -126,6 +127,7 @@ function FeedActividad({ registros, flash }) {
         ))}
       </div>
     </div>
+    </>
   );
 }
 
