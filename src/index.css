@@ -285,3 +285,29 @@ textarea:focus-visible,
     max-height: 220px;
   }
 }
+
+/* ── Tokens adicionales migrados desde hex hardcodeado en componentes ── */
+:root {
+  /* Accent blue (sidebar active, botones secundarios) */
+  --color-accent:       #3B82F6;
+  --color-accent-light: #60A5FA;
+  --brand-400: #60A5FA;
+
+  /* Amber (banners modo consulta, warnings de borde) */
+  --color-warning-border: #FDE68A;
+  --color-warning-text:   #92400E;
+
+  /* Danger extras */
+  --color-danger-light: #FCA5A5;
+  --color-danger-dark:  #B91C1C;
+  --color-danger-mid:   #EF4444;
+
+  /* Violet (rol coordinador) */
+  --color-role-coord: #7C3AED;
+
+  /* Gray mid (texto gris neutro) */
+  --color-text-mid: #374151;
+
+  /* Gray light (fondos neutros muy claros) */
+  --color-background-subtle: #f3f4f6;
+}
