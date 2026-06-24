@@ -201,6 +201,39 @@ export default function useQRSession() {
 
   useEffect(() => () => limpiarIntervalos(), [limpiarIntervalos]);
 
+  // ── Recuperar sesión activa al montar (ej. tras recargar la página) ───────
+  useEffect(() => {
+    const recuperar = async () => {
+      // Solo intentar si no hay sesión en memoria
+      if (activa) return;
+      try {
+        const { data } = await supabase
+          .from("qr_sessions")
+          .select("id, token, expires_at, turno, programa, fecha")
+          .eq("activa", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!data) return;
+
+        // Verificar que el token aún no haya expirado
+        const expira = new Date(data.expires_at);
+        if (expira <= new Date()) return;
+
+        setSessionId(data.id);
+        sessionIdRef.current = data.id;
+        setToken(data.token);
+        setExpiresAt(data.expires_at);
+        setActiva(true);
+        iniciarCountdown(data.expires_at);
+        iniciarAutoRenovado(data.id);
+      } catch { /* silencioso */ }
+    };
+    recuperar();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // solo al montar
+
   const qrUrl = token ? `${window.location.origin}/scan?token=${token}` : null;
 
   return {
