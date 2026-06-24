@@ -8,7 +8,7 @@ import { normalizarPrograma } from "../../utils/parsing";
 import { supabase } from "../../lib/supabase";
 import { guardarEnCache, cargarDeCache, CACHE_KEYS } from "../../utils/cache";
 
-export default function useNombresCache() {
+export default function useNombresCache(userId = null) {
   const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
   const [docenteNames, setDocenteNames] = useState({});
   const [docenteCedulas, setDocenteCedulas] = useState({});
@@ -29,9 +29,9 @@ export default function useNombresCache() {
   }, []);
 
   const fetchDocenteNames = useCallback(async () => {
-    const cachedDocentes = cargarDeCache(CACHE_KEYS.docentes);
+    const cachedDocentes = cargarDeCache(CACHE_KEYS.docentes, userId);
     if (cachedDocentes) setDocenteNames(cachedDocentes);
-    const cachedCedulas = cargarDeCache(CACHE_KEYS.docenteCedulas);
+    const cachedCedulas = cargarDeCache(CACHE_KEYS.docenteCedulas, userId);
     if (cachedCedulas) setDocenteCedulas(cachedCedulas);
     try {
       // Usar docentes_con_cedula() que incluye cédulas vinculadas automáticamente
@@ -48,8 +48,8 @@ export default function useNombresCache() {
         setDocenteNames(m);
         setDocenteCedulas(c);
         setDocenteCedulaFuentes(f);
-        guardarEnCache(CACHE_KEYS.docentes, m);
-        guardarEnCache(CACHE_KEYS.docenteCedulas, c);
+        guardarEnCache(CACHE_KEYS.docentes, m, userId);
+        guardarEnCache(CACHE_KEYS.docenteCedulas, c, userId);
       }
     } catch (err) {
       // Fallback: consulta directa a la tabla si la RPC aún no existe
@@ -62,8 +62,8 @@ export default function useNombresCache() {
           setDocenteNames(m);
           setDocenteCedulas(c);
           setDocenteCedulaFuentes({});  // fallback no tiene fuente
-          guardarEnCache(CACHE_KEYS.docentes, m);
-          guardarEnCache(CACHE_KEYS.docenteCedulas, c);
+          guardarEnCache(CACHE_KEYS.docentes, m, userId);
+          guardarEnCache(CACHE_KEYS.docenteCedulas, c, userId);
         }
       } catch (fallbackErr) {
         console.warn("Error fetching docentes:", fallbackErr);
@@ -71,10 +71,10 @@ export default function useNombresCache() {
         if (cachedCedulas) setDocenteCedulas(cachedCedulas);
       }
     }
-  }, []);
+  }, [userId]);
 
   const fetchMateriaNames = useCallback(async () => {
-    const cachedMaterias = cargarDeCache(CACHE_KEYS.materias);
+    const cachedMaterias = cargarDeCache(CACHE_KEYS.materias, userId);
     if (cachedMaterias) setMateriaNames(cachedMaterias);
     try {
       const { data: materias } = await supabase.from("materias").select("*");
@@ -82,13 +82,13 @@ export default function useNombresCache() {
         const m = {};
         materias.forEach(d => { m[d.nombre_raw] = d.nombre_display; });
         setMateriaNames(m);
-        guardarEnCache(CACHE_KEYS.materias, m);
+        guardarEnCache(CACHE_KEYS.materias, m, userId);
       }
     } catch (err) {
       console.warn("Error fetching materias:", err);
       if (cachedMaterias) setMateriaNames(cachedMaterias);
     }
-  }, []);
+  }, [userId]);
 
   const getDocName = useCallback((raw) => docenteNames[raw] || raw, [docenteNames]);
   const getDocCedula = useCallback((raw) => docenteCedulas[raw] || "", [docenteCedulas]);
