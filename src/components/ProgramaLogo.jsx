@@ -25,8 +25,7 @@ const PROGRAMA_META = {
     label:   "Informática",
     color1:  "#1D4ED8",
     color2:  "#38BDF8",
-    useImg:  true,
-    img:     "/logo-informatica.png",
+    icon:    IconInformatica,
   },
   "PNF Contaduría Pública": {
     label:   "Contaduría",
@@ -38,8 +37,7 @@ const PROGRAMA_META = {
     label:   "Agroalimentación",
     color1:  "#14532D",
     color2:  "#86EFAC",
-    useImg:  true,
-    img:     "/logo-agroalimentacion.png",
+    icon:    IconAgroalimentacion,
   },
   "PNF Educación Especial": {
     label:   "Educ. Especial",
@@ -154,11 +152,16 @@ export default function ProgramaLogo({ programa = "todos", size = 32, expanded =
 
   if (meta.useImg) {
     return (
-      <div style={{ ...containerStyle, background: "#fff", padding: 1 }}>
+      <div style={{ ...containerStyle, background: "transparent", padding: 0 }}>
         <img
           src={meta.img}
           alt={meta.label}
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            filter: "drop-shadow(0 2px 8px rgba(37,99,235,0.45))",
+          }}
           draggable={false}
         />
       </div>
@@ -167,7 +170,13 @@ export default function ProgramaLogo({ programa = "todos", size = 32, expanded =
 
   const Icon = meta.icon;
   return (
-    <div style={containerStyle} title={meta.label}>
+    <div
+      style={{
+        ...containerStyle,
+        boxShadow: `0 2px 10px ${meta.color1}66`,
+      }}
+      title={meta.label}
+    >
       <Icon size={size * 0.78} />
     </div>
   );
