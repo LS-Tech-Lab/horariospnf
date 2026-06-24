@@ -25,7 +25,8 @@ const PROGRAMA_META = {
     label:   "Informática",
     color1:  "#1D4ED8",
     color2:  "#38BDF8",
-    icon:    IconInformatica,
+    useImg:  true,
+    img:     "/logo-informatica.png",
   },
   "PNF Contaduría Pública": {
     label:   "Contaduría",
@@ -37,7 +38,8 @@ const PROGRAMA_META = {
     label:   "Agroalimentación",
     color1:  "#14532D",
     color2:  "#86EFAC",
-    icon:    IconAgroalimentacion,
+    useImg:  true,
+    img:     "/logo-agroalimentacion.png",
   },
   "PNF Educación Especial": {
     label:   "Educ. Especial",
