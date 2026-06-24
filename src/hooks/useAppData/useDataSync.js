@@ -35,9 +35,11 @@ export default function useDataSync({
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [lastSync, setLastSync] = useState(obtenerUltimaSincronizacion());
 
-  const cacheKey = lapso ? `${CACHE_KEYS.horarios}_${lapso}` : CACHE_KEYS.horarios;
+  // Fix #12: usar siempre una clave explícita para evitar colisiones entre
+  // "sin lapso" y futuros lapsos: `horarios_nolap` vs `horarios_2025-1`.
+  const cacheKey = lapso ? `${CACHE_KEYS.horarios}_${lapso}` : `${CACHE_KEYS.horarios}_nolap`;
 
-  const fetchHorarios = useCallback(async (programa = selectedPrograma) => {
+  const fetchHorarios = useCallback(async (programa) => {
     const cachedHorarios = cargarDeCache(cacheKey, userId);
     if (cachedHorarios?.length > 0) {
       setData(cachedHorarios);
@@ -103,7 +105,7 @@ export default function useDataSync({
 
     setLoading(false);
     setIsSyncing(false);
-  }, [selectedPrograma, lapso, cacheKey, showToast, userId]);
+  }, [lapso, cacheKey, showToast, userId]);
 
   useEffect(() => { fetchProgramas(lapso); fetchDocenteNames(); fetchMateriaNames(); }, [lapso, fetchProgramas, fetchDocenteNames, fetchMateriaNames]);
   useEffect(() => { fetchHorarios(selectedPrograma); }, [selectedPrograma, lapso, fetchHorarios]);
