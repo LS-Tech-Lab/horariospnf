@@ -32,7 +32,7 @@ export function createNameEditingActions({
         if (!rpcError) {
           const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
           const unificado = !!result?.unificado_con;
-          showToast(unificado ? "✅ Docente unificado." : "✅ Docente actualizado.", "success");
+          showToast(unificado ? "Docente unificado." : "Docente actualizado.", "success");
           logAudit?.({ accion: unificado ? "UNIFICAR_DOCENTE" : "EDITAR_DOCENTE", entidad: "docentes", resumen: unificado ? `Docente unificado: "${rawName}" → "${displayName}"` : `Docente renombrado: "${rawName}" → "${displayName}"` });
           await fetchDocenteNames();
           await fetchHorarios(selectedPrograma);
@@ -42,13 +42,13 @@ export function createNameEditingActions({
         console.warn("renombrar_docente no disponible, usando flujo legacy:", rpcError.message);
       }
       const unified = await unifyNameLegacy("docentes", rawName, displayName);
-      if (unified) { showToast("✅ Docente unificado.", "success"); logAudit?.({ accion: "UNIFICAR_DOCENTE", entidad: "docentes", resumen: `Docente unificado: "${rawName}" → "${displayName}"` }); await fetchDocenteNames(); await fetchHorarios(selectedPrograma); setConflictsRefreshKey(k => k + 1); return { success: true, targetRaw: unified.targetRaw }; }
+      if (unified) { showToast("Docente unificado.", "success"); logAudit?.({ accion: "UNIFICAR_DOCENTE", entidad: "docentes", resumen: `Docente unificado: "${rawName}" → "${displayName}"` }); await fetchDocenteNames(); await fetchHorarios(selectedPrograma); setConflictsRefreshKey(k => k + 1); return { success: true, targetRaw: unified.targetRaw }; }
       await supabase.from("docentes").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
       setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
-      showToast("✅ Docente actualizado.", "success");
+      showToast("Docente actualizado.", "success");
       logAudit?.({ accion: "EDITAR_DOCENTE", entidad: "docentes", resumen: `Docente actualizado: "${rawName}" → "${displayName}"` });
       return { success: true };
-    } catch (err) { showToast("❌ Error: " + err.message, "error"); return { success: false }; }
+    } catch (err) { showToast("Error: " + err.message, "error"); return { success: false }; }
   };
 
   // Vincula manualmente la cédula de un docente (nombre_raw -> cedula),
@@ -66,16 +66,16 @@ export function createNameEditingActions({
         .eq("nombre_raw", rawName);
       if (updateError) {
         if (updateError.code === "23505") {
-          showToast("❌ Esa cédula ya está vinculada a otro docente.", "error");
+          showToast("Esa cédula ya está vinculada a otro docente.", "error");
         } else {
-          showToast("❌ Error: " + updateError.message, "error");
+          showToast("Error: " + updateError.message, "error");
         }
         return { success: false };
       }
-      showToast(cedulaLimpia ? "✅ Cédula vinculada." : "✅ Cédula desvinculada.", "success");
+      showToast(cedulaLimpia ? "Cédula vinculada." : "Cédula desvinculada.", "success");
       logAudit?.({ accion: "EDITAR_DOCENTE", entidad: "docentes", resumen: `Cédula de "${rawName}" actualizada a "${cedulaLimpia || "(vacío)"}"` });
       return { success: true, cedulaLimpia };
-    } catch (err) { showToast("❌ Error: " + err.message, "error"); return { success: false }; }
+    } catch (err) { showToast("Error: " + err.message, "error"); return { success: false }; }
   };
 
   const saveMateriaName = async (rawName, displayName) => {
@@ -88,7 +88,7 @@ export function createNameEditingActions({
         if (!rpcError) {
           const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
           const unificada = !!result?.unificado_con;
-          showToast(unificada ? "✅ Materia unificada." : "✅ Materia actualizada.", "success");
+          showToast(unificada ? "Materia unificada." : "Materia actualizada.", "success");
           logAudit?.({ accion: unificada ? "UNIFICAR_MATERIA" : "EDITAR_MATERIA", entidad: "materias", resumen: unificada ? `Materia unificada: "${rawName}" → "${displayName}"` : `Materia renombrada: "${rawName}" → "${displayName}"` });
           await fetchMateriaNames();
           await fetchHorarios(selectedPrograma);
@@ -97,13 +97,13 @@ export function createNameEditingActions({
         console.warn("renombrar_materia no disponible, usando flujo legacy:", rpcError.message);
       }
       const unified = await unifyNameLegacy("materias", rawName, displayName);
-      if (unified) { showToast("✅ Materia unificada.", "success"); logAudit?.({ accion: "UNIFICAR_MATERIA", entidad: "materias", resumen: `Materia unificada: "${rawName}" → "${displayName}"` }); await fetchMateriaNames(); await fetchHorarios(selectedPrograma); return { success: true, targetRaw: unified.targetRaw }; }
+      if (unified) { showToast("Materia unificada.", "success"); logAudit?.({ accion: "UNIFICAR_MATERIA", entidad: "materias", resumen: `Materia unificada: "${rawName}" → "${displayName}"` }); await fetchMateriaNames(); await fetchHorarios(selectedPrograma); return { success: true, targetRaw: unified.targetRaw }; }
       await supabase.from("materias").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
       setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
-      showToast("✅ Materia actualizada.", "success");
+      showToast("Materia actualizada.", "success");
       logAudit?.({ accion: "EDITAR_MATERIA", entidad: "materias", resumen: `Materia actualizada: "${rawName}" → "${displayName}"` });
       return { success: true };
-    } catch (err) { showToast("❌ Error: " + err.message, "error"); return { success: false }; }
+    } catch (err) { showToast("Error: " + err.message, "error"); return { success: false }; }
   };
 
   return { saveDocenteName, saveDocenteCedula, saveMateriaName };
