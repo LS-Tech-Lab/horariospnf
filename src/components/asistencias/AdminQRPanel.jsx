@@ -44,7 +44,7 @@ function CountdownBar({ segundos, total }) {
 }
 
 // ── QR canvas ───────────────────────────────────────────────────────────────
-export function QRDisplay({ qrUrl, segundos, ttlMinutes }) {
+export function QRDisplay({ qrUrl, segundos, ttlMinutes, size = 280 }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export function QRDisplay({ qrUrl, segundos, ttlMinutes }) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       window.QRCode.toCanvas(canvas, qrUrl, {
-        width: 280, margin: 2,
+        width: size, margin: 2,
         color: { dark: "#0F172A", light: "#FFFFFF" },
       });
     };
@@ -65,13 +65,11 @@ export function QRDisplay({ qrUrl, segundos, ttlMinutes }) {
       s.onload = render;
       document.head.appendChild(s);
     }
-  }, [qrUrl]);
+  }, [qrUrl, size]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 12, boxShadow: "0 2px 16px rgba(0,0,0,0.1)" }}>
-        <canvas ref={canvasRef} style={{ display: "block", borderRadius: 6 }} />
-      </div>
+      <canvas ref={canvasRef} style={{ display: "block", borderRadius: 6 }} />
       <CountdownBar segundos={segundos} total={ttlMinutes * 60} />
       <p style={{ marginTop: 6, fontSize: 11, color: "#64748B", textAlign: "center" }}>
         Se regenera automáticamente tras cada escaneo. Las fotos compartidas no son válidas.
