@@ -74,10 +74,11 @@ export function createBackupActions({
       if (lapso) horariosQuery = horariosQuery.eq("lapso", lapso);
       if (selectedPrograma !== "todos") horariosQuery = horariosQuery.eq("programa", selectedPrograma);
 
-      const [horariosRes, docentesRes, materiasRes] = await Promise.all([
+      const [horariosRes, docentesRes, materiasRes, asistenciasRes] = await Promise.all([
         horariosQuery,
         supabase.from("docentes").select("*"),
         supabase.from("materias").select("*"),
+        supabase.from("asistencias").select("*"),
       ]);
       const backup = {
         version: "2.0",
@@ -87,6 +88,8 @@ export function createBackupActions({
         horarios: horariosRes.data || [],
         docentes: docentesRes.data || [],
         materias: materiasRes.data || [],
+        asistencias: asistenciasRes.data || [],
+        asistencias_incluidas: true,
       };
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -120,6 +123,11 @@ export function createBackupActions({
           // Validación superficial: claves principales
           if (!backup.horarios || !backup.docentes || !backup.materias)
             throw new Error("El archivo no tiene el formato correcto de backup (faltan claves horarios / docentes / materias)");
+
+          // Fix #16: rechazar backups de versiones incompatibles para evitar
+          // importar datos con un esquema distinto sin advertencia.
+          if (backup.version !== "2.0")
+            throw new Error(`Versión de backup no compatible. Se esperaba 2.0, se recibió: ${backup.version ?? "(sin versión)"}`);
 
           // Validación profunda: deben ser arrays
           if (!Array.isArray(backup.horarios))
