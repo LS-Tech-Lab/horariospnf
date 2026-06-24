@@ -14,6 +14,7 @@ export default function useUpload({
   lapso, selectedPrograma, showToast, setError,
   fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames,
   setConflictsRefreshKey,
+  logAudit,
 }) {
   const [uploading, setUploading] = useState(false);
 
@@ -40,9 +41,14 @@ export default function useUpload({
 
     setUploading(true);
 
+    // Fix #14: AbortController para cancelar la operación en curso si vence el timeout,
+    // evitando inserciones parciales silenciosas después de que la UI se haya liberado.
+    const controller = new AbortController();
+
     // Timeout de seguridad: si la operación cuelga (red caída, Supabase lento),
-    // libera el estado uploading para no bloquear la UI indefinidamente.
+    // cancela la petición y libera el estado uploading.
     const timeoutId = setTimeout(() => {
+      controller.abort();
       setUploading(false);
       setError("La operación tardó demasiado. Verifica tu conexión e intenta de nuevo.");
       showToast("Tiempo de espera agotado. Verifica tu conexión.", "error");
@@ -86,14 +92,22 @@ export default function useUpload({
 
     if (!newRows.length) { showToast("Sin registros nuevos.", "warning"); setUploading(false); return; }
 
-    const { error: insertError } = await supabase.from("horarios").insert(newRows);
+    const { error: insertError } = await supabase.from("horarios").insert(newRows).abortSignal(controller.signal);
     if (insertError) {
-      showToast("Error al guardar.", "error");
       clearTimeout(timeoutId);
+      // Si el error fue provocado por el timeout (abort), la UI ya se liberó arriba.
+      if (controller.signal.aborted) return;
+      showToast("Error al guardar.", "error");
       setUploading(false);
       return;
     }
     showToast(`${newRows.length} clases cargadas.`, "success");
+    // Fix #10: registrar la importación masiva en auditoría
+    logAudit?.({
+      accion: "IMPORTAR_EXCEL",
+      entidad: "horarios",
+      resumen: `${newRows.length} clases importadas. Lapso: ${lapso}. Programa: ${selectedPrograma}.`,
+    });
     await fetchHorarios(selectedPrograma);
     await fetchProgramas(lapso);
     const docs = new Set(), mats = new Set();
