@@ -151,7 +151,7 @@ export default function LoginScreen() {
       minHeight: "100dvh",
       overflowY: "auto",
       padding: "24px 16px",
-      background: "radial-gradient(circle at 18% 14%, #1E3A8A 0%, #0F172A 42%, #0B1220 100%)",
+      background: "radial-gradient(circle at 18% 14%, var(--brand-700) 0%, var(--color-text-primary) 42%, var(--navy-950) 100%)",
       fontFamily: "var(--font-sans, system-ui, sans-serif)",
     }}>
       <div style={{
@@ -169,20 +169,20 @@ export default function LoginScreen() {
             alt="Logo Coordinación"
             style={{ width: 180, height: 180, objectFit: "contain", margin: "0 auto 10px", display: "block" }}
           />
-          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, color: "#0F172A", letterSpacing: "0.05em", lineHeight: 1.2 }}>
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "0.05em", lineHeight: 1.2 }}>
             SIGMA
           </h1>
-          <p style={{ margin: "6px 0 0", fontSize: 12, color: "#94A3B8", fontWeight: 500, letterSpacing: "0.01em" }}>
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--color-text-tertiary)", fontWeight: 500, letterSpacing: "0.01em" }}>
             Sistema Integrado de Gestión y Módulos Académicos
           </p>
-          <p style={{ margin: "14px 0 0", fontSize: 13, color: "#64748B", fontWeight: 500 }}>
+          <p style={{ margin: "14px 0 0", fontSize: 13, color: "var(--color-text-tertiary)", fontWeight: 500 }}>
             Inicia sesión para continuar
           </p>
         </div>
 
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--navy-700)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Correo electrónico
             </label>
             <input
@@ -193,19 +193,19 @@ export default function LoginScreen() {
               disabled={isLocked}
               placeholder="tucorreo@dominio.com"
               autoComplete="email"
-              onFocus={e => { e.target.style.borderColor = "#2563EB"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
-              onBlur={e  => { e.target.style.borderColor = "#CBD5E1"; e.target.style.boxShadow = "none"; }}
+              onFocus={e => { e.target.style.borderColor = "var(--brand-500)"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
+              onBlur={e  => { e.target.style.borderColor = "var(--color-border-secondary)"; e.target.style.boxShadow = "none"; }}
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 9,
-                border: "1px solid #CBD5E1", fontSize: 14,
+                border: "1px solid var(--color-border-secondary)", fontSize: 14,
                 outline: "none", boxSizing: "border-box", transition: "border-color .15s, box-shadow .15s",
-                background: isLocked ? "#F1F5F9" : "#fff", fontFamily: "inherit",
+                background: isLocked ? "var(--color-background-tertiary)" : "#fff", fontFamily: "inherit",
               }}
             />
           </div>
 
           <div style={{ marginBottom: 22 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--navy-700)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Contraseña
             </label>
             <input
@@ -216,21 +216,21 @@ export default function LoginScreen() {
               disabled={isLocked}
               placeholder="••••••••"
               autoComplete="current-password"
-              onFocus={e => { e.target.style.borderColor = "#2563EB"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
-              onBlur={e  => { e.target.style.borderColor = "#CBD5E1"; e.target.style.boxShadow = "none"; }}
+              onFocus={e => { e.target.style.borderColor = "var(--brand-500)"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
+              onBlur={e  => { e.target.style.borderColor = "var(--color-border-secondary)"; e.target.style.boxShadow = "none"; }}
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 9,
-                border: "1px solid #CBD5E1", fontSize: 14,
+                border: "1px solid var(--color-border-secondary)", fontSize: 14,
                 outline: "none", boxSizing: "border-box", transition: "border-color .15s, box-shadow .15s",
-                background: isLocked ? "#F1F5F9" : "#fff", fontFamily: "inherit",
+                background: isLocked ? "var(--color-background-tertiary)" : "#fff", fontFamily: "inherit",
               }}
             />
           </div>
 
           {error && !isLocked && (
             <div style={{
-              background: "#FEF2F2",
-              color: "#DC2626",
+              background: "var(--color-danger-bg)",
+              color: "var(--color-danger)",
               padding: "10px 14px",
               borderRadius: 9,
               fontSize: 13,
@@ -242,7 +242,7 @@ export default function LoginScreen() {
               <div>
                 {error}
                 {failedAttempts > 0 && failedAttempts < MAX_ATTEMPTS && (
-                  <div style={{ marginTop: 4, fontSize: 12, color: "#B91C1C" }}>
+                  <div style={{ marginTop: 4, fontSize: 12, color: "var(--color-danger-dark)" }}>
                     Intento {failedAttempts} de {MAX_ATTEMPTS}.
                   </div>
                 )}
@@ -252,8 +252,8 @@ export default function LoginScreen() {
 
           {isLocked && (
             <div style={{
-              background: "#FFFBEB",
-              color: "#92400E",
+              background: "var(--color-warning-bg)",
+              color: "var(--color-warning-text)",
               padding: "10px 14px",
               borderRadius: 9,
               fontSize: 13,
@@ -272,7 +272,7 @@ export default function LoginScreen() {
             style={{
               width: "100%",
               padding: "11px 0",
-              background: (loading || isLocked) ? "#93C5FD" : "#2563EB",
+              background: (loading || isLocked) ? "var(--color-border-info)" : "var(--brand-500)",
               color: "#fff",
               border: "none",
               borderRadius: 9,
