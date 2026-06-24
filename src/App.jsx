@@ -123,7 +123,7 @@ export default function App() {
   }, [lapso]);
 
   // Restringir programa automáticamente para secretarios
-  const appData = useAppData(lapso);
+  const appData = useAppData(lapso, logAudit, user?.id);
 
   useEffect(() => {
     if (permisos.puedeVerSoloSuPrograma && permisos.programaRestringido) {
