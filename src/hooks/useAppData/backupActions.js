@@ -9,6 +9,7 @@ import { limpiarCache } from "../../utils/cache";
 export function createBackupActions({
   lapso, selectedPrograma, showToast, openConfirm, closeConfirm,
   setLoading, fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames,
+  logAudit,
 }) {
   const clearAllData = () => {
     const scope = selectedPrograma !== "todos" ? `el programa "${selectedPrograma}"` : "TODOS los programas";
@@ -44,10 +45,20 @@ export function createBackupActions({
           }
         }
 
+        // Fix #8: registrar la operación destructiva en auditoría
+        logAudit?.({
+          accion: "BORRAR_HORARIOS",
+          entidad: "horarios",
+          resumen: `Horarios eliminados. Lapso: ${lapso || "todos"}. Programa: ${scope}.`,
+        });
+
         showToast("Datos eliminados.", "success");
         limpiarCache();
         await fetchHorarios(selectedPrograma);
         await fetchProgramas(lapso);
+        // Fix #6: refrescar nombres para que la UI no muestre docentes/materias huérfanas
+        await fetchDocenteNames();
+        await fetchMateriaNames();
         setLoading(false);
       },
     });
@@ -56,10 +67,15 @@ export function createBackupActions({
   const exportarDatos = async () => {
     try {
       showToast("📦 Preparando backup...", "info");
+
+      // Fix #5: filtrar horarios por programa cuando no es "todos",
+      // para que usuarios con restringe_programa no exporten datos ajenos.
+      let horariosQuery = supabase.from("horarios").select("*");
+      if (lapso) horariosQuery = horariosQuery.eq("lapso", lapso);
+      if (selectedPrograma !== "todos") horariosQuery = horariosQuery.eq("programa", selectedPrograma);
+
       const [horariosRes, docentesRes, materiasRes] = await Promise.all([
-        lapso
-          ? supabase.from("horarios").select("*").eq("lapso", lapso)
-          : supabase.from("horarios").select("*"),
+        horariosQuery,
         supabase.from("docentes").select("*"),
         supabase.from("materias").select("*"),
       ]);
@@ -172,6 +188,12 @@ export function createBackupActions({
 
           const insertados = rpcData?.horarios_insertados ?? horariosConLapso.length;
           limpiarCache();
+          // Fix #8: registrar la restauración en auditoría
+          logAudit?.({
+            accion: "RESTAURAR_BACKUP",
+            entidad: "horarios",
+            resumen: `Backup restaurado: ${insertados} clases. Lapso: ${lapso || backup.lapso || "desconocido"}.`,
+          });
           showToast(`Backup restaurado: ${insertados} clases.`, "success");
           await fetchHorarios(selectedPrograma);
           await fetchProgramas(lapso);
