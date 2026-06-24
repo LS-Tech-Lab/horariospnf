@@ -62,8 +62,33 @@ export default function App() {
   const [asistUserMenuOpen, setAsistUserMenuOpen] = useState(false);
   const [cambiarPwdOpen,    setCambiarPwdOpen]    = useState(false);
 
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const headerTimerRef = useRef(null);
+
   const fileRef   = useRef(null);
   const backupRef = useRef(null);
+
+  // ── Auto-ocultar header en modo proyección ───────────────────────────────
+  useEffect(() => {
+    if (asistenciasSubView !== "proyeccion") {
+      setHeaderVisible(true);
+      clearTimeout(headerTimerRef.current);
+      return;
+    }
+    const show = () => {
+      setHeaderVisible(true);
+      clearTimeout(headerTimerRef.current);
+      headerTimerRef.current = setTimeout(() => setHeaderVisible(false), 4000);
+    };
+    show();
+    window.addEventListener("mousemove", show);
+    window.addEventListener("touchstart", show);
+    return () => {
+      clearTimeout(headerTimerRef.current);
+      window.removeEventListener("mousemove", show);
+      window.removeEventListener("touchstart", show);
+    };
+  }, [asistenciasSubView]);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { user, profile, permisos, loadingProfile, handleLogin, handleLogout, logAudit } = useAuth();
@@ -304,7 +329,7 @@ export default function App() {
           />
         )}
         {/* Topbar */}
-        <header style={{ background: "#fff", borderBottom: "1px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 12, padding: "0 20px", height: 52, flexShrink: 0 }}>
+        <header style={{ background: "#fff", borderBottom: "1px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 12, padding: "0 20px", height: 52, flexShrink: 0, position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, transition: "transform 0.35s ease", transform: headerVisible ? "translateY(0)" : "translateY(-100%)" }}>
 
           {/* Volver al selector — solo si también tiene acceso a horarios */}
           {tieneHorarios && (
@@ -417,7 +442,7 @@ export default function App() {
         </header>
 
         {/* Sub-vistas */}
-        <main>
+        <main style={{ paddingTop: asistenciasSubView === "proyeccion" ? 0 : 52 }}>
           {asistenciasSubView === "panel" && (
             <AdminQRPanel
               profile={profile}
