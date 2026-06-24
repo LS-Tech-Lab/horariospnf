@@ -77,8 +77,8 @@ const hex2rgba = (hex, a) => {
 };
 
 const COLORES_PRESET = [
-  "#7C3AED","#1D4ED8","#0F766E","#374151","#059669",
-  "#DC2626","#D97706","#0891B2","#9333EA","#BE185D",
+  "var(--color-role-coord)","var(--brand-600)","#0F766E","var(--color-text-mid)","var(--color-success)",
+  "var(--color-danger)","var(--color-warning)","#0891B2","#9333EA","#BE185D",
 ];
 
 const EMOJIS_PRESET = ["👤","👑","🏛️","📋","📷","🔑","🛡️","📊","🎓","🖥️","📌","⚙️"];
@@ -86,9 +86,9 @@ const EMOJIS_PRESET = ["👤","👑","🏛️","📋","📷","🔑","🛡️","�
 function Badge({ color, children }) {
   return (
     <span style={{
-      background: hex2rgba(color || "#374151", 0.12),
-      color: color || "#374151",
-      border: `1px solid ${hex2rgba(color || "#374151", 0.25)}`,
+      background: hex2rgba(color || "var(--color-text-mid)", 0.12),
+      color: color || "var(--color-text-mid)",
+      border: `1px solid ${hex2rgba(color || "var(--color-text-mid)", 0.25)}`,
       borderRadius: 999, padding: "2px 10px",
       fontSize: 12, fontWeight: 600,
       display: "inline-flex", alignItems: "center", gap: 4,
@@ -100,7 +100,7 @@ function Badge({ color, children }) {
 
 function Spinner() {
   return (
-    <div style={{ width:20, height:20, border:"2px solid #E2E8F0", borderTop:"2px solid #2563EB",
+    <div style={{ width:20, height:20, border:"2px solid var(--color-border-tertiary)", borderTop:"2px solid var(--brand-500)",
       borderRadius:"50%", animation:"spin 0.7s linear infinite", flexShrink:0 }} />
   );
 }
@@ -112,13 +112,13 @@ function ModalConfirm({ titulo, mensaje, onConfirm, onCancel, peligro = true }) 
       alignItems:"center", justifyContent:"center", zIndex:1100, padding:16 }}>
       <div style={{ background:"#fff", borderRadius:12, padding:28, maxWidth:380, width:"100%",
         boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
-        <h3 style={{ margin:"0 0 8px", fontSize:16, color:"#0F172A" }}>{titulo}</h3>
-        <p style={{ margin:"0 0 24px", fontSize:13, color:"#475569", lineHeight:1.6 }}>{mensaje}</p>
+        <h3 style={{ margin:"0 0 8px", fontSize:16, color:"var(--color-text-primary)" }}>{titulo}</h3>
+        <p style={{ margin:"0 0 24px", fontSize:13, color:"var(--color-text-secondary)", lineHeight:1.6 }}>{mensaje}</p>
         <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
           <button onClick={onCancel} style={{ ...S.btn(false), padding:"8px 18px" }}>Cancelar</button>
           <button onClick={onConfirm} style={{
             padding:"8px 18px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:600,
-            background: peligro ? "#DC2626" : "#2563EB", color:"#fff",
+            background: peligro ? "var(--color-danger)" : "var(--brand-500)", color:"#fff",
           }}>Confirmar</button>
         </div>
       </div>
@@ -183,7 +183,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           entidad: "usuarios",
           resumen: `Usuario creado: ${form.email.trim()} (${form.rol}${rolSeleccionado?.restringe_programa ? ` - ${form.programa}` : ""})`,
         });
-        showToast?.(`✅ Usuario ${form.email.trim()} creado.`, "success");
+        showToast?.(`Usuario ${form.email.trim()} creado.`, "success");
 
       } else {
         // Actualizar perfil via RPC
@@ -212,7 +212,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           const pwJson = await pwRes.json();
           if (!pwRes.ok) {
             showToast?.(
-              "⚠️ Perfil actualizado pero no se pudo cambiar la contraseña: " + pwJson.error,
+              "Perfil actualizado pero no se pudo cambiar la contraseña: " + pwJson.error,
               "warning"
             );
             onSave();
@@ -226,7 +226,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           entidad_id: usuario.id,
           resumen: `Usuario editado: ${form.email.trim()} (${form.rol}${programa ? ` - ${programa}` : ""})`,
         });
-        showToast?.(`✅ Usuario ${form.email.trim()} actualizado.`, "success");
+        showToast?.(`Usuario ${form.email.trim()} actualizado.`, "success");
       }
       onSave();
     } catch (e) {
@@ -244,27 +244,27 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
         boxShadow:"0 20px 60px rgba(0,0,0,0.25)", display:"flex", flexDirection:"column", gap:18 }}>
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h2 style={{ margin:0, fontSize:17, color:"#0F172A", fontWeight:700 }}>
+          <h2 style={{ margin:0, fontSize:17, color:"var(--color-text-primary)", fontWeight:700 }}>
             {esNuevo ? "Nuevo usuario" : "Editar usuario"}
           </h2>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
-            fontSize:20, color:"#94A3B8", lineHeight:1 }}>✕</button>
+            fontSize:20, color:"var(--color-text-tertiary)", lineHeight:1 }}>✕</button>
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569", textTransform:"uppercase",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase",
               letterSpacing:"0.05em", display:"block", marginBottom:5 }}>Nombre completo</label>
             <input style={inputStyle} value={form.nombre} onChange={set("nombre")} placeholder="Ej: María González" />
           </div>
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569", textTransform:"uppercase",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase",
               letterSpacing:"0.05em", display:"block", marginBottom:5 }}>Email</label>
             <input style={inputStyle} value={form.email} onChange={set("email")}
               placeholder="correo@ejemplo.com" type="email" disabled={!esNuevo} />
           </div>
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569", textTransform:"uppercase",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase",
               letterSpacing:"0.05em", display:"block", marginBottom:5 }}>
               {esNuevo ? "Contraseña inicial" : "Nueva contraseña (dejar vacío para no cambiar)"}
             </label>
@@ -272,7 +272,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
               type="password" placeholder={esNuevo ? "Mínimo 8 caracteres" : "••••••••"} />
           </div>
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569", textTransform:"uppercase",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase",
               letterSpacing:"0.05em", display:"block", marginBottom:5 }}>Rol</label>
             <select style={{ ...S.select, width:"100%" }} value={form.rol} onChange={set("rol")}>
               {roles.map(r => (
@@ -282,16 +282,16 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
               ))}
             </select>
             {rolSeleccionado && (
-              <p style={{ margin:"6px 0 0", fontSize:11, color:"#64748B" }}>
+              <p style={{ margin:"6px 0 0", fontSize:11, color:"var(--color-text-tertiary)" }}>
                 {rolSeleccionado.restringe_programa
-                  ? "⚠️ Este rol restringe la vista a un solo programa — debes asignar uno."
+                  ? "Este rol restringe la vista a un solo programa — debes asignar uno."
                   : "✓ Acceso sin restricción de programa."}
               </p>
             )}
           </div>
           {rolSeleccionado?.restringe_programa && (
             <div>
-              <label style={{ fontSize:12, fontWeight:600, color:"#475569", textTransform:"uppercase",
+              <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase",
                 letterSpacing:"0.05em", display:"block", marginBottom:5 }}>Programa asignado</label>
               <select style={{ ...S.select, width:"100%" }} value={form.programa} onChange={set("programa")}>
                 <option value="">— Seleccionar programa —</option>
@@ -302,8 +302,8 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
         </div>
 
         {error && (
-          <div style={{ background:"#FEF2F2", border:"1px solid #FCA5A5", borderRadius:8,
-            padding:"10px 14px", color:"#DC2626", fontSize:13 }}>
+          <div style={{ background:"var(--color-danger-bg)", border:"1px solid var(--color-danger-light)", borderRadius:8,
+            padding:"10px 14px", color:"var(--color-danger)", fontSize:13 }}>
             {error}
           </div>
         )}
@@ -314,7 +314,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
           </button>
           <button onClick={handleSave} disabled={saving}
             style={{ padding:"9px 20px", borderRadius:8, border:"none", cursor: saving ? "not-allowed" : "pointer",
-              background:"#2563EB", color:"#fff", fontSize:13, fontWeight:600,
+              background:"var(--brand-500)", color:"#fff", fontSize:13, fontWeight:600,
               display:"flex", alignItems:"center", gap:8, opacity: saving ? 0.7 : 1 }}>
             {saving && <Spinner />}
             {saving ? "Guardando…" : (esNuevo ? "Crear usuario" : "Guardar cambios")}
@@ -332,7 +332,7 @@ function ModalRol({ rol, onSave, onClose }) {
     nombre:             rol?.nombre             || "",
     label:              rol?.label              || "",
     emoji:              rol?.emoji              || "👤",
-    color:              rol?.color              || "#374151",
+    color:              rol?.color              || "var(--color-text-mid)",
     restringe_programa: rol?.restringe_programa || false,
     permisos:           { ...Object.fromEntries(TODOS_LOS_PERMISOS.map(k => [k, false])),
                           ...(rol?.permisos || {}) },
@@ -381,20 +381,20 @@ function ModalRol({ rol, onSave, onClose }) {
 
         {/* Cabecera */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h2 style={{ margin:0, fontSize:17, fontWeight:700, color:"#0F172A" }}>
+          <h2 style={{ margin:0, fontSize:17, fontWeight:700, color:"var(--color-text-primary)" }}>
             {esNuevo ? "Nuevo rol" : `Editar rol: ${rol.label}`}
           </h2>
           <button onClick={onClose} style={{ background:"none", border:"none",
-            cursor:"pointer", fontSize:20, color:"#94A3B8" }}>✕</button>
+            cursor:"pointer", fontSize:20, color:"var(--color-text-tertiary)" }}>✕</button>
         </div>
 
         {/* Campos básicos */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
           {esNuevo && (
             <div style={{ gridColumn:"1/-1" }}>
-              <label style={{ fontSize:12, fontWeight:600, color:"#475569",
+              <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)",
                 textTransform:"uppercase", letterSpacing:"0.05em", display:"block", marginBottom:5 }}>
-                Identificador (slug) <span style={{ color:"#94A3B8", fontWeight:400 }}>— no se puede cambiar luego</span>
+                Identificador (slug) <span style={{ color:"var(--color-text-tertiary)", fontWeight:400 }}>— no se puede cambiar luego</span>
               </label>
               <input style={{ ...S.input, width:"100%", boxSizing:"border-box" }}
                 value={form.nombre}
@@ -403,7 +403,7 @@ function ModalRol({ rol, onSave, onClose }) {
             </div>
           )}
           <div style={{ gridColumn:"1/-1" }}>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)",
               textTransform:"uppercase", letterSpacing:"0.05em", display:"block", marginBottom:5 }}>
               Nombre visible
             </label>
@@ -414,15 +414,15 @@ function ModalRol({ rol, onSave, onClose }) {
 
           {/* Emoji */}
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)",
               textTransform:"uppercase", letterSpacing:"0.05em", display:"block", marginBottom:5 }}>
               Emoji
             </label>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
               {EMOJIS_PRESET.map(e => (
                 <button key={e} onClick={() => set("emoji")(e)}
-                  style={{ fontSize:18, cursor:"pointer", background: form.emoji===e ? "#EFF6FF" : "#F8FAFC",
-                    border: `2px solid ${form.emoji===e ? "#2563EB" : "#E2E8F0"}`,
+                  style={{ fontSize:18, cursor:"pointer", background: form.emoji===e ? "var(--color-background-info)" : "var(--color-background-secondary)",
+                    border: `2px solid ${form.emoji===e ? "var(--brand-500)" : "var(--color-border-tertiary)"}`,
                     borderRadius:8, padding:"4px 8px", lineHeight:1 }}>
                   {e}
                 </button>
@@ -432,7 +432,7 @@ function ModalRol({ rol, onSave, onClose }) {
 
           {/* Color */}
           <div>
-            <label style={{ fontSize:12, fontWeight:600, color:"#475569",
+            <label style={{ fontSize:12, fontWeight:600, color:"var(--color-text-secondary)",
               textTransform:"uppercase", letterSpacing:"0.05em", display:"block", marginBottom:5 }}>
               Color
             </label>
@@ -441,7 +441,7 @@ function ModalRol({ rol, onSave, onClose }) {
                 <button key={c} onClick={() => set("color")(c)}
                   title={c}
                   style={{ width:24, height:24, borderRadius:6, background:c, cursor:"pointer",
-                    border: `3px solid ${form.color===c ? "#0F172A" : "transparent"}`,
+                    border: `3px solid ${form.color===c ? "var(--color-text-primary)" : "transparent"}`,
                     boxSizing:"border-box" }} />
               ))}
               <input type="color" value={form.color}
@@ -454,13 +454,13 @@ function ModalRol({ rol, onSave, onClose }) {
 
         {/* Restricción de programa */}
         <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer",
-          background:"#F8FAFC", border:"1px solid #E2E8F0", borderRadius:10, padding:"12px 14px" }}>
+          background:"var(--color-background-secondary)", border:"1px solid var(--color-border-tertiary)", borderRadius:10, padding:"12px 14px" }}>
           <input type="checkbox" checked={form.restringe_programa}
             onChange={e => set("restringe_programa")(e.target.checked)}
-            style={{ width:16, height:16, cursor:"pointer", accentColor:"#2563EB" }} />
+            style={{ width:16, height:16, cursor:"pointer", accentColor:"var(--brand-500)" }} />
           <div>
-            <div style={{ fontSize:13, fontWeight:600, color:"#0F172A" }}>Restringir a un programa</div>
-            <div style={{ fontSize:12, color:"#64748B", marginTop:2 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)" }}>Restringir a un programa</div>
+            <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:2 }}>
               Los usuarios con este rol solo verán los datos del programa que se les asigne al crearlos.
             </div>
           </div>
@@ -468,14 +468,14 @@ function ModalRol({ rol, onSave, onClose }) {
 
         {/* Vista previa del badge */}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:12, color:"#64748B" }}>Vista previa:</span>
+          <span style={{ fontSize:12, color:"var(--color-text-tertiary)" }}>Vista previa:</span>
           <Badge color={form.color}>{form.emoji} {form.label || "Nombre del rol"}</Badge>
         </div>
 
         {/* Permisos */}
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:"#0F172A" }}>
+            <h3 style={{ margin:0, fontSize:14, fontWeight:700, color:"var(--color-text-primary)" }}>
               Permisos ({contarPermisos}/{TODOS_LOS_PERMISOS.length})
             </h3>
             <div style={{ display:"flex", gap:8 }}>
@@ -492,14 +492,14 @@ function ModalRol({ rol, onSave, onClose }) {
 
           <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
             {GRUPOS_PERMISOS.map(g => (
-              <div key={g.grupo} style={{ background:"#F8FAFC", border:"1px solid #E2E8F0",
+              <div key={g.grupo} style={{ background:"var(--color-background-secondary)", border:"1px solid var(--color-border-tertiary)",
                 borderRadius:10, overflow:"hidden" }}>
-                <div style={{ padding:"10px 14px", borderBottom:"1px solid #E2E8F0",
+                <div style={{ padding:"10px 14px", borderBottom:"1px solid var(--color-border-tertiary)",
                   display:"flex", alignItems:"center", gap:8 }}>
-                  <i className={`ti ${g.icono}`} style={{ color:"#64748B", fontSize:14 }} />
-                  <span style={{ fontSize:12, fontWeight:700, color:"#475569",
+                  <i className={`ti ${g.icono}`} style={{ color:"var(--color-text-tertiary)", fontSize:14 }} />
+                  <span style={{ fontSize:12, fontWeight:700, color:"var(--color-text-secondary)",
                     textTransform:"uppercase", letterSpacing:"0.05em" }}>{g.grupo}</span>
-                  <span style={{ marginLeft:"auto", fontSize:11, color:"#94A3B8" }}>
+                  <span style={{ marginLeft:"auto", fontSize:11, color:"var(--color-text-tertiary)" }}>
                     {g.items.filter(i => form.permisos[i.key]).length}/{g.items.length}
                   </span>
                 </div>
@@ -508,7 +508,7 @@ function ModalRol({ rol, onSave, onClose }) {
                     <label key={item.key} style={{
                       display:"flex", alignItems:"flex-start", gap:12, padding:"10px 14px",
                       cursor:"pointer",
-                      borderTop: idx > 0 ? "1px solid #F1F5F9" : "none",
+                      borderTop: idx > 0 ? "1px solid var(--color-background-tertiary)" : "none",
                       background: form.permisos[item.key] ? hex2rgba(form.color, 0.05) : "transparent",
                       transition:"background 0.1s",
                     }}>
@@ -517,8 +517,8 @@ function ModalRol({ rol, onSave, onClose }) {
                         style={{ width:15, height:15, marginTop:1, cursor:"pointer",
                           accentColor: form.color, flexShrink:0 }} />
                       <div>
-                        <div style={{ fontSize:13, fontWeight:600, color:"#0F172A" }}>{item.label}</div>
-                        <div style={{ fontSize:11, color:"#64748B", marginTop:1 }}>{item.desc}</div>
+                        <div style={{ fontSize:13, fontWeight:600, color:"var(--color-text-primary)" }}>{item.label}</div>
+                        <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:1 }}>{item.desc}</div>
                       </div>
                     </label>
                   ))}
@@ -529,8 +529,8 @@ function ModalRol({ rol, onSave, onClose }) {
         </div>
 
         {error && (
-          <div style={{ background:"#FEF2F2", border:"1px solid #FCA5A5", borderRadius:8,
-            padding:"10px 14px", color:"#DC2626", fontSize:13 }}>
+          <div style={{ background:"var(--color-danger-bg)", border:"1px solid var(--color-danger-light)", borderRadius:8,
+            padding:"10px 14px", color:"var(--color-danger)", fontSize:13 }}>
             {error}
           </div>
         )}
@@ -542,7 +542,7 @@ function ModalRol({ rol, onSave, onClose }) {
           <button onClick={handleSave} disabled={saving}
             style={{ padding:"9px 20px", borderRadius:8, border:"none",
               cursor: saving ? "not-allowed" : "pointer",
-              background:"#2563EB", color:"#fff", fontSize:13, fontWeight:600,
+              background:"var(--brand-500)", color:"#fff", fontSize:13, fontWeight:600,
               display:"flex", alignItems:"center", gap:8, opacity: saving ? 0.7 : 1 }}>
             {saving && <Spinner />}
             {saving ? "Guardando…" : (esNuevo ? "Crear rol" : "Guardar cambios")}
@@ -606,10 +606,10 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
         entidad_id: u.id,
         resumen:    `Usuario ${accion}do: ${u.email}`,
       });
-      toast(nuevoActivo ? `✅ ${u.nombre} activado.` : `${u.nombre} desactivado.`, "success");
+      toast(nuevoActivo ? `${u.nombre} activado.` : `${u.nombre} desactivado.`, "success");
       cargar();
     } catch (e) {
-      toast(`⚠️ ${e.message}`, "error");
+      toast(`${e.message}`, "error");
     }
   };
 
@@ -632,10 +632,10 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
         entidad_id: u.id,
         resumen:    `Usuario eliminado permanentemente: ${u.email}`,
       });
-      toast(`🗑️ Usuario ${u.email} eliminado.`, "success");
+      toast(`Usuario ${u.email} eliminado.`, "success");
       cargar();
     } catch (e) {
-      toast(`⚠️ ${e.message}`, "error");
+      toast(`${e.message}`, "error");
     }
   };
 
@@ -652,10 +652,10 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Error al eliminar.");
-      toast(`🗑️ Usuario huérfano ${u.email} eliminado.`, "success");
+      toast(`Usuario huérfano ${u.email} eliminado.`, "success");
       cargar();
     } catch (e) {
-      toast(`⚠️ ${e.message}`, "error");
+      toast(`${e.message}`, "error");
     }
   };
 
@@ -685,7 +685,7 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
         {permisos.puedeGestionarUsuarios && (
           <button onClick={() => setModalNuevo(true)}
             style={{ padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer",
-              background:"#2563EB", color:"#fff", fontSize:13, fontWeight:600,
+              background:"var(--brand-500)", color:"#fff", fontSize:13, fontWeight:600,
               display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap" }}>
             <i className="ti ti-user-plus" /> Nuevo usuario
           </button>
@@ -695,9 +695,9 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
       {/* Estadística rápida */}
       <div style={{ display:"flex", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         {[
-          { label:"Total", value: usuarios.length, color:"#2563EB", bg:"#EFF6FF" },
-          { label:"Activos", value: totalActivos, color:"#059669", bg:"#ECFDF5" },
-          { label:"Inactivos", value: usuarios.length - totalActivos, color:"#DC2626", bg:"#FEF2F2" },
+          { label:"Total", value: usuarios.length, color:"var(--brand-500)", bg:"var(--color-background-info)" },
+          { label:"Activos", value: totalActivos, color:"var(--color-success)", bg:"var(--color-success-bg)" },
+          { label:"Inactivos", value: usuarios.length - totalActivos, color:"var(--color-danger)", bg:"var(--color-danger-bg)" },
         ].map(s => (
           <div key={s.label} style={{ background:s.bg, border:`1px solid ${hex2rgba(s.color, 0.2)}`,
             borderRadius:10, padding:"10px 16px", display:"flex", alignItems:"center", gap:10 }}>
@@ -712,8 +712,8 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
         <div style={{ background:"#FEF9EC", border:"1px solid #F59E0B", borderRadius:10,
           padding:"12px 16px", marginBottom:16, display:"flex", flexDirection:"column", gap:8 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <i className="ti ti-alert-triangle" style={{ color:"#D97706", fontSize:16 }} />
-            <span style={{ fontSize:13, fontWeight:700, color:"#92400E" }}>
+            <i className="ti ti-alert-triangle" style={{ color:"var(--color-warning)", fontSize:16 }} />
+            <span style={{ fontSize:13, fontWeight:700, color:"var(--color-warning-text)" }}>
               {huerfanos.length} usuario{huerfanos.length !== 1 ? "s" : ""} sin perfil detectado{huerfanos.length !== 1 ? "s" : ""}
             </span>
           </div>
@@ -725,10 +725,10 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
             {huerfanos.map(h => (
               <div key={h.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-                background:"#FFFBEB", border:"1px solid #FDE68A", borderRadius:7, padding:"6px 10px" }}>
+                background:"var(--color-warning-bg)", border:"1px solid var(--color-warning-border)", borderRadius:7, padding:"6px 10px" }}>
                 <div>
-                  <span style={{ fontSize:12, fontWeight:600, color:"#0F172A" }}>{h.email}</span>
-                  <span style={{ fontSize:11, color:"#92400E", marginLeft:8 }}>
+                  <span style={{ fontSize:12, fontWeight:600, color:"var(--color-text-primary)" }}>{h.email}</span>
+                  <span style={{ fontSize:11, color:"var(--color-warning-text)", marginLeft:8 }}>
                     Creado: {new Date(h.created_at).toLocaleDateString("es-VE")}
                   </span>
                 </div>
@@ -760,7 +760,7 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
             </thead>
             <tbody>
               {usuariosFiltrados.length === 0 ? (
-                <tr><td colSpan={5} style={{ ...S.td, textAlign:"center", padding:32, color:"#94A3B8" }}>
+                <tr><td colSpan={5} style={{ ...S.td, textAlign:"center", padding:32, color:"var(--color-text-tertiary)" }}>
                   Sin resultados
                 </td></tr>
               ) : usuariosFiltrados.map(u => {
@@ -768,8 +768,8 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
                 return (
                   <tr key={u.id} style={{ opacity: u.activo ? 1 : 0.5 }}>
                     <td style={S.td}>
-                      <div style={{ fontWeight:600, color:"#0F172A", fontSize:13 }}>{u.nombre}</div>
-                      <div style={{ fontSize:12, color:"#64748B", marginTop:2 }}>{u.email}</div>
+                      <div style={{ fontWeight:600, color:"var(--color-text-primary)", fontSize:13 }}>{u.nombre}</div>
+                      <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:2 }}>{u.email}</div>
                     </td>
                     <td style={S.td}>
                       <Badge color={rolInfo?.color}>
@@ -777,12 +777,12 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
                       </Badge>
                     </td>
                     <td style={S.td}>
-                      <span style={{ fontSize:13, color:"#475569" }}>{u.programa || "—"}</span>
+                      <span style={{ fontSize:13, color:"var(--color-text-secondary)" }}>{u.programa || "—"}</span>
                     </td>
                     <td style={S.td}>
                       <span style={{ ...S.badge(
-                        u.activo ? "#ECFDF5" : "#F1F5F9",
-                        u.activo ? "#059669" : "#64748B"
+                        u.activo ? "var(--color-success-bg)" : "var(--color-background-tertiary)",
+                        u.activo ? "var(--color-success)" : "var(--color-text-tertiary)"
                       ) }}>
                         {u.activo ? "Activo" : "Inactivo"}
                       </span>
@@ -793,23 +793,23 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
                           <>
                             <button onClick={() => setModalEditar(u)}
                               title="Editar"
-                              style={{ background:"none", border:"1px solid #E2E8F0", borderRadius:7,
-                                padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#374151" }}>
+                              style={{ background:"none", border:"1px solid var(--color-border-tertiary)", borderRadius:7,
+                                padding:"5px 10px", cursor:"pointer", fontSize:13, color:"var(--color-text-mid)" }}>
                               <i className="ti ti-pencil" />
                             </button>
                             <button
                               onClick={() => setConfirm({ usuario: u, nuevoActivo: !u.activo })}
                               title={u.activo ? "Desactivar" : "Activar"}
-                              style={{ background:"none", border:"1px solid #E2E8F0", borderRadius:7,
+                              style={{ background:"none", border:"1px solid var(--color-border-tertiary)", borderRadius:7,
                                 padding:"5px 10px", cursor:"pointer", fontSize:13,
-                                color: u.activo ? "#DC2626" : "#059669" }}>
+                                color: u.activo ? "var(--color-danger)" : "var(--color-success)" }}>
                               <i className={u.activo ? "ti ti-user-off" : "ti ti-user-check"} />
                             </button>
                             <button
                               onClick={() => setConfirm({ usuario: u, accion: "delete" })}
                               title="Eliminar permanentemente"
-                              style={{ background:"none", border:"1px solid #FCA5A5", borderRadius:7,
-                                padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#DC2626" }}>
+                              style={{ background:"none", border:"1px solid var(--color-danger-light)", borderRadius:7,
+                                padding:"5px 10px", cursor:"pointer", fontSize:13, color:"var(--color-danger)" }}>
                               <i className="ti ti-trash" />
                             </button>
                           </>
@@ -873,7 +873,7 @@ function PestanaUsuarios({ permisos, roles, programas, showToast: showToastProp,
       {/* Toast */}
       {toastMsg && (
         <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
-          background:"#0F172A", color:"#fff", borderRadius:10, padding:"10px 20px",
+          background:"var(--color-text-primary)", color:"#fff", borderRadius:10, padding:"10px 20px",
           fontSize:13, fontWeight:500, zIndex:2000, boxShadow:"0 8px 24px rgba(0,0,0,0.3)",
           whiteSpace:"nowrap" }}>
           {toastMsg}
@@ -919,21 +919,21 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
       toast("✓ Rol eliminado.");
       cargar();
     } catch (e) {
-      toast(`⚠️ ${e.message}`);
+      toast(`${e.message}`);
     }
   };
 
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <p style={{ margin:0, fontSize:13, color:"#64748B" }}>
+        <p style={{ margin:0, fontSize:13, color:"var(--color-text-tertiary)" }}>
           Los roles del sistema (marcados con 🔒) no se pueden eliminar ni renombrar, pero sí puedes
           editar sus permisos. Los roles personalizados son totalmente gestionables.
         </p>
         {permisosUsuario.puedeGestionarRoles && (
           <button onClick={() => setModalRol(null)}
             style={{ padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer",
-              background:"#7C3AED", color:"#fff", fontSize:13, fontWeight:600,
+              background:"var(--color-role-coord)", color:"#fff", fontSize:13, fontWeight:600,
               display:"flex", alignItems:"center", gap:6, flexShrink:0, marginLeft:16 }}>
             <i className="ti ti-plus" /> Nuevo rol
           </button>
@@ -960,18 +960,18 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:14, fontWeight:700, color:"#0F172A" }}>{r.label}</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:"var(--color-text-primary)" }}>{r.label}</span>
                       {r.es_sistema && (
-                        <span title="Rol del sistema" style={{ fontSize:11, color:"#94A3B8" }}>🔒</span>
+                        <span title="Rol del sistema" style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>🔒</span>
                       )}
                       {r.restringe_programa && (
-                        <span style={{ ...S.badge("#FEF3C7","#92400E"), fontSize:11 }}>
+                        <span style={{ ...S.badge("#FEF3C7","var(--color-warning-text)"), fontSize:11 }}>
                           Restricción de programa
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize:12, color:"#64748B", marginTop:2 }}>
-                      <code style={{ background:"#F1F5F9", padding:"1px 5px", borderRadius:4,
+                    <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:2 }}>
+                      <code style={{ background:"var(--color-background-tertiary)", padding:"1px 5px", borderRadius:4,
                         fontSize:11 }}>{r.nombre}</code>
                       &nbsp;·&nbsp;{permsCounts} permiso{permsCounts !== 1 ? "s" : ""} activo{permsCounts !== 1 ? "s" : ""}
                       &nbsp;·&nbsp;{r.usuarios_count} usuario{r.usuarios_count !== 1 ? "s" : ""}
@@ -981,32 +981,32 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
                     {permisosUsuario.puedeGestionarRoles && (
                       <>
                         <button onClick={() => setModalRol(r)} title="Editar"
-                          style={{ background:"none", border:"1px solid #E2E8F0", borderRadius:7,
-                            padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#374151" }}>
+                          style={{ background:"none", border:"1px solid var(--color-border-tertiary)", borderRadius:7,
+                            padding:"5px 10px", cursor:"pointer", fontSize:13, color:"var(--color-text-mid)" }}>
                           <i className="ti ti-pencil" />
                         </button>
                         {!r.es_sistema && (
                           <button
                             onClick={() => setConfirm(r)} title="Eliminar"
-                            style={{ background:"none", border:"1px solid #E2E8F0", borderRadius:7,
-                              padding:"5px 10px", cursor:"pointer", fontSize:13, color:"#DC2626" }}>
+                            style={{ background:"none", border:"1px solid var(--color-border-tertiary)", borderRadius:7,
+                              padding:"5px 10px", cursor:"pointer", fontSize:13, color:"var(--color-danger)" }}>
                             <i className="ti ti-trash" />
                           </button>
                         )}
                       </>
                     )}
                     <i className={`ti ti-chevron-${abierto ? "up" : "down"}`}
-                      style={{ color:"#94A3B8", fontSize:16 }} />
+                      style={{ color:"var(--color-text-tertiary)", fontSize:16 }} />
                   </div>
                 </div>
 
                 {/* Detalle expandible: permisos */}
                 {abierto && (
-                  <div style={{ borderTop:"1px solid #F1F5F9", padding:"16px" }}>
+                  <div style={{ borderTop:"1px solid var(--color-background-tertiary)", padding:"16px" }}>
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap:12 }}>
                       {GRUPOS_PERMISOS.map(g => (
                         <div key={g.grupo}>
-                          <div style={{ fontSize:11, fontWeight:700, color:"#94A3B8",
+                          <div style={{ fontSize:11, fontWeight:700, color:"var(--color-text-tertiary)",
                             textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6,
                             display:"flex", alignItems:"center", gap:5 }}>
                             <i className={`ti ${g.icono}`} /> {g.grupo}
@@ -1017,9 +1017,9 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
                               <div key={item.key} style={{ display:"flex", alignItems:"center",
                                 gap:6, marginBottom:4 }}>
                                 <i className={`ti ti-${activo ? "check" : "x"}`}
-                                  style={{ fontSize:13, color: activo ? "#059669" : "#CBD5E1",
+                                  style={{ fontSize:13, color: activo ? "var(--color-success)" : "var(--color-border-secondary)",
                                     flexShrink:0 }} />
-                                <span style={{ fontSize:12, color: activo ? "#0F172A" : "#94A3B8" }}>
+                                <span style={{ fontSize:12, color: activo ? "var(--color-text-primary)" : "var(--color-text-tertiary)" }}>
                                   {item.label}
                                 </span>
                               </div>
@@ -1057,7 +1057,7 @@ function PestanaRoles({ permisos: permisosUsuario, onRolesChanged, showToast: sh
 
       {toastMsg && (
         <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
-          background:"#0F172A", color:"#fff", borderRadius:10, padding:"10px 20px",
+          background:"var(--color-text-primary)", color:"#fff", borderRadius:10, padding:"10px 20px",
           fontSize:13, fontWeight:500, zIndex:2000, boxShadow:"0 8px 24px rgba(0,0,0,0.3)",
           whiteSpace:"nowrap" }}>
           {toastMsg}
@@ -1093,7 +1093,7 @@ export default function UsuariosView({ permisos, programas, logAudit, showToast 
 
   if (!puedeUsuarios && !puedeRoles) {
     return (
-      <div style={{ padding:40, textAlign:"center", color:"#94A3B8" }}>
+      <div style={{ padding:40, textAlign:"center", color:"var(--color-text-tertiary)" }}>
         No tienes permiso para acceder a esta sección.
       </div>
     );
@@ -1103,11 +1103,11 @@ export default function UsuariosView({ permisos, programas, logAudit, showToast 
     <div style={{ padding:"24px", maxWidth:900, margin:"0 auto", fontFamily:"system-ui,-apple-system,sans-serif" }}>
       {/* Encabezado */}
       <div style={{ marginBottom:24 }}>
-        <h1 style={{ margin:0, fontSize:20, fontWeight:800, color:"#0F172A" }}>
-          <i className="ti ti-crown" style={{ marginRight:8, color:"#7C3AED" }} />
+        <h1 style={{ margin:0, fontSize:20, fontWeight:800, color:"var(--color-text-primary)" }}>
+          <i className="ti ti-crown" style={{ marginRight:8, color:"var(--color-role-coord)" }} />
           Gestión de Usuarios y Roles
         </h1>
-        <p style={{ margin:"6px 0 0", fontSize:13, color:"#64748B" }}>
+        <p style={{ margin:"6px 0 0", fontSize:13, color:"var(--color-text-tertiary)" }}>
           Administra quién puede acceder al sistema y qué puede hacer.
         </p>
       </div>
@@ -1115,7 +1115,7 @@ export default function UsuariosView({ permisos, programas, logAudit, showToast 
       {/* Pestañas */}
       {(puedeUsuarios && puedeRoles) && (
         <div style={{ display:"flex", gap:2, marginBottom:20,
-          background:"#F1F5F9", borderRadius:10, padding:3, width:"fit-content" }}>
+          background:"var(--color-background-tertiary)", borderRadius:10, padding:3, width:"fit-content" }}>
           {[
             { id:"usuarios", icon:"ti-users",      label:"Usuarios" },
             { id:"roles",    icon:"ti-shield-lock", label:"Roles y Permisos" },
@@ -1124,7 +1124,7 @@ export default function UsuariosView({ permisos, programas, logAudit, showToast 
               style={{ padding:"7px 18px", borderRadius:8, border:"none",
                 cursor:"pointer", fontSize:13, fontWeight:600, transition:"all 0.15s",
                 background: tab === t.id ? "#fff" : "transparent",
-                color: tab === t.id ? "#0F172A" : "#64748B",
+                color: tab === t.id ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
                 boxShadow: tab === t.id ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 display:"flex", alignItems:"center", gap:6 }}>
               <i className={`ti ${t.icon}`} /> {t.label}
