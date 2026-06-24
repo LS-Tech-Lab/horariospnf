@@ -8,7 +8,7 @@ import { normalizarPrograma } from "../../utils/parsing";
 import { supabase } from "../../lib/supabase";
 import { guardarEnCache, cargarDeCache, CACHE_KEYS } from "../../utils/cache";
 
-export default function useNombresCache(userId = null) {
+export default function useNombresCache(userId = null, showToast = null) {
   const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
   const [docenteNames, setDocenteNames] = useState({});
   const [docenteCedulas, setDocenteCedulas] = useState({});
@@ -66,7 +66,27 @@ export default function useNombresCache(userId = null) {
           guardarEnCache(CACHE_KEYS.docenteCedulas, c, userId);
         }
       } catch (fallbackErr) {
-        console.warn("Error fetching docentes:", fallbackErr);
+        // Fix #15: segundo intento tras 3 s antes de rendirse y avisar al usuario
+        console.warn("Fallback de docentes también falló, reintentando en 3 s:", fallbackErr);
+        setTimeout(async () => {
+          try {
+            const { data: docentesRetry } = await supabase.from("docentes").select("*");
+            if (docentesRetry) {
+              const m = {}, c = {};
+              docentesRetry.forEach(d => { m[d.nombre_raw] = d.nombre_display; if (d.cedula) c[d.nombre_raw] = d.cedula; });
+              setDocenteNames(m);
+              setDocenteCedulas(c);
+              setDocenteCedulaFuentes({});
+              guardarEnCache(CACHE_KEYS.docentes, m, userId);
+              guardarEnCache(CACHE_KEYS.docenteCedulas, c, userId);
+            }
+          } catch {
+            // Reintento también falló: usar caché y avisar
+            if (cachedDocentes) setDocenteNames(cachedDocentes);
+            if (cachedCedulas) setDocenteCedulas(cachedCedulas);
+            showToast?.("⚠️ No se pudieron actualizar los nombres de docentes. Podrían estar desactualizados.", "warning");
+          }
+        }, 3000);
         if (cachedDocentes) setDocenteNames(cachedDocentes);
         if (cachedCedulas) setDocenteCedulas(cachedCedulas);
       }
