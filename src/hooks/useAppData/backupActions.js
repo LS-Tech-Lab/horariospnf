@@ -36,15 +36,15 @@ export function createBackupActions({
             if (selectedPrograma !== "todos") query = query.eq("programa", selectedPrograma);
             else query = query.neq("id", 0);
             const { error: delError } = await query;
-            if (delError) { showToast("❌ Error al borrar.", "error"); setLoading(false); return; }
+            if (delError) { showToast("Error al borrar.", "error"); setLoading(false); return; }
           } else {
-            showToast("❌ Error al borrar.", "error");
+            showToast("Error al borrar.", "error");
             setLoading(false);
             return;
           }
         }
 
-        showToast("✅ Datos eliminados.", "success");
+        showToast("Datos eliminados.", "success");
         limpiarCache();
         await fetchHorarios(selectedPrograma);
         await fetchProgramas(lapso);
@@ -81,10 +81,10 @@ export function createBackupActions({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast("✅ Backup descargado correctamente", "success");
+      showToast("Backup descargado correctamente.", "success");
     } catch (err) {
       console.error("Error al exportar:", err);
-      showToast("❌ Error al crear backup: " + err.message, "error");
+      showToast("Error al crear backup: " + err.message, "error");
     }
   };
 
@@ -172,14 +172,14 @@ export function createBackupActions({
 
           const insertados = rpcData?.horarios_insertados ?? horariosConLapso.length;
           limpiarCache();
-          showToast(`✅ Backup restaurado: ${insertados} clases`, "success");
+          showToast(`Backup restaurado: ${insertados} clases.`, "success");
           await fetchHorarios(selectedPrograma);
           await fetchProgramas(lapso);
           await fetchDocenteNames();
           await fetchMateriaNames();
         } catch (err) {
           console.error("Error al importar:", err);
-          showToast("❌ Error al restaurar backup: " + err.message, "error");
+          showToast("Error al restaurar backup: " + err.message, "error");
         } finally {
           setUploading(false);
         }
