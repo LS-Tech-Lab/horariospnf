@@ -32,6 +32,9 @@ export function createNameEditingActions({
         if (!rpcError) {
           const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
           const unificado = !!result?.unificado_con;
+          // Actualización optimista: evita el flash del caché stale cuando
+          // fetchDocenteNames() aplica el caché viejo antes del fetch async.
+          if (!unificado) setDocenteNames(prev => ({ ...prev, [rawName]: displayName.trim() }));
           showToast(unificado ? "Docente unificado." : "Docente actualizado.", "success");
           logAudit?.({ accion: unificado ? "UNIFICAR_DOCENTE" : "EDITAR_DOCENTE", entidad: "docentes", resumen: unificado ? `Docente unificado: "${rawName}" → "${displayName}"` : `Docente renombrado: "${rawName}" → "${displayName}"` });
           await fetchDocenteNames();
@@ -42,6 +45,7 @@ export function createNameEditingActions({
         console.warn("renombrar_docente no disponible, usando flujo legacy:", rpcError.message);
       }
       const unified = await unifyNameLegacy("docentes", rawName, displayName);
+      // En unificación el rawName desaparece, no hace falta actualizar su entrada.
       if (unified) { showToast("Docente unificado.", "success"); logAudit?.({ accion: "UNIFICAR_DOCENTE", entidad: "docentes", resumen: `Docente unificado: "${rawName}" → "${displayName}"` }); await fetchDocenteNames(); await fetchHorarios(selectedPrograma); setConflictsRefreshKey(k => k + 1); return { success: true, targetRaw: unified.targetRaw }; }
       await supabase.from("docentes").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
       setDocenteNames(prev => ({ ...prev, [rawName]: displayName }));
@@ -88,6 +92,9 @@ export function createNameEditingActions({
         if (!rpcError) {
           const result = Array.isArray(rpcData) ? rpcData[0] : rpcData;
           const unificada = !!result?.unificado_con;
+          // Actualización optimista: evita el flash del caché stale cuando
+          // fetchMateriaNames() aplica el caché viejo antes del fetch async.
+          if (!unificada) setMateriaNames(prev => ({ ...prev, [rawName]: displayName.trim() }));
           showToast(unificada ? "Materia unificada." : "Materia actualizada.", "success");
           logAudit?.({ accion: unificada ? "UNIFICAR_MATERIA" : "EDITAR_MATERIA", entidad: "materias", resumen: unificada ? `Materia unificada: "${rawName}" → "${displayName}"` : `Materia renombrada: "${rawName}" → "${displayName}"` });
           await fetchMateriaNames();
@@ -97,6 +104,7 @@ export function createNameEditingActions({
         console.warn("renombrar_materia no disponible, usando flujo legacy:", rpcError.message);
       }
       const unified = await unifyNameLegacy("materias", rawName, displayName);
+      // En unificación el rawName desaparece, no hace falta actualizar su entrada.
       if (unified) { showToast("Materia unificada.", "success"); logAudit?.({ accion: "UNIFICAR_MATERIA", entidad: "materias", resumen: `Materia unificada: "${rawName}" → "${displayName}"` }); await fetchMateriaNames(); await fetchHorarios(selectedPrograma); return { success: true, targetRaw: unified.targetRaw }; }
       await supabase.from("materias").upsert({ nombre_raw: rawName, nombre_display: displayName }, { onConflict: "nombre_raw" });
       setMateriaNames(prev => ({ ...prev, [rawName]: displayName }));
