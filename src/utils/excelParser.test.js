@@ -1,3 +1,7 @@
+// @vitest-environment jsdom
+// =====================================================================
+// excelParser.test.js — Mejora 9: cobertura de tests para el parser
+
 // =====================================================================
 // excelParser.test.js — Mejora 9: cobertura de tests para el parser
 // de Excel
@@ -15,10 +19,6 @@
 // un <input type="file">. Esto prueba el camino completo: File →
 // FileReader → XLSX.read → parseo de filas.
 
-// =====================================================================
-// @vitest-environment jsdom
-// =====================================================================
-// excelParser.test.js — ...
 
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
