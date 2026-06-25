@@ -96,6 +96,8 @@ COMMENT ON COLUMN public.materias.unidades_credito IS
 -- de una query adicional. Se amplía el RETURNS TABLE.
 -- ════════════════════════════════════════════════════════════
 
+DROP FUNCTION IF EXISTS public.docentes_con_cedula();
+
 CREATE OR REPLACE FUNCTION public.docentes_con_cedula()
 RETURNS TABLE (
   nombre_raw     TEXT,
