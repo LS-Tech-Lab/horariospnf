@@ -232,14 +232,20 @@ export default function useUpload({
 
           // 2b. Upsert catálogo MALLA
           if (mallaCatalogo.length > 0) {
-            const payload = mallaCatalogo.map(({ nombre_raw, nombre_display, trayecto, codigo_uc, horas_semanales, unidades_credito }) => {
-              const entry = { nombre_raw, nombre_display };
-              if (trayecto)         entry.trayecto         = trayecto;
-              if (codigo_uc)        entry.codigo_uc        = codigo_uc;
-              if (horas_semanales)  entry.horas_semanales  = horas_semanales;
-              if (unidades_credito) entry.unidades_credito = unidades_credito;
-              return entry;
+            // Deduplicar por nombre_raw antes del upsert — Supabase rechaza
+            // el batch si dos filas tienen el mismo valor de conflicto.
+            const mallaMap = new Map();
+            mallaCatalogo.forEach(({ nombre_raw, nombre_display, trayecto, codigo_uc, horas_semanales, unidades_credito }) => {
+              if (!mallaMap.has(nombre_raw)) {
+                const entry = { nombre_raw, nombre_display };
+                if (trayecto)         entry.trayecto         = trayecto;
+                if (codigo_uc)        entry.codigo_uc        = codigo_uc;
+                if (horas_semanales)  entry.horas_semanales  = horas_semanales;
+                if (unidades_credito) entry.unidades_credito = unidades_credito;
+                mallaMap.set(nombre_raw, entry);
+              }
             });
+            const payload = [...mallaMap.values()];
             const { error: mallaCatError } = await supabase
               .from("materias")
               .upsert(payload, { onConflict: "nombre_raw" });
