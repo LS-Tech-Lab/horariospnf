@@ -6,7 +6,7 @@ import { useState, useCallback } from "react";
 import { DEFAULT_PROGRAMAS } from "../../constants";
 import { normalizarPrograma } from "../../utils/parsing";
 import { supabase } from "../../lib/supabase";
-import { guardarEnCache, cargarDeCache, CACHE_KEYS } from "../../utils/cache";
+import { guardarEnCache, cargarDeCache, getCacheKey, CACHE_KEYS } from "../../utils/cache";
 
 export default function useNombresCache(userId = null, showToast = null) {
   const [programasDisponibles, setProgramasDisponibles] = useState(["todos", ...DEFAULT_PROGRAMAS]);
@@ -115,10 +115,21 @@ export default function useNombresCache(userId = null, showToast = null) {
   const getDocCedulaFuente = useCallback((raw) => docenteCedulaFuentes[raw] || null, [docenteCedulaFuentes]);
   const getMateriaName = useCallback((raw) => materiaNames[raw] || raw, [materiaNames]);
 
+  // Invalida el caché de cédulas para que el próximo fetchDocenteNames
+  // vaya directo a la RPC sin leer datos viejos del localStorage.
+  const invalidarCacheDocentes = useCallback(() => {
+    try {
+      const k1 = getCacheKey(CACHE_KEYS.docentes, userId);
+      const k2 = getCacheKey(CACHE_KEYS.docenteCedulas, userId);
+      localStorage.removeItem(k1);
+      localStorage.removeItem(k2);
+    } catch (_) {}
+  }, [userId]);
+
   return {
     programasDisponibles, docenteNames, docenteCedulas, docenteCedulaFuentes, materiaNames,
     setDocenteNames, setDocenteCedulas, setMateriaNames,
-    fetchProgramas, fetchDocenteNames, fetchMateriaNames,
+    fetchProgramas, fetchDocenteNames, fetchMateriaNames, invalidarCacheDocentes,
     getDocName, getDocCedula, getDocCedulaFuente, getMateriaName,
   };
 }
