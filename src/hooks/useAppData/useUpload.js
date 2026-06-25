@@ -33,7 +33,7 @@ function leerWorkbookRaw(file) {
 
 export default function useUpload({
   lapso, selectedPrograma, showToast, setError,
-  fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames,
+  fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames, invalidarCacheDocentes,
   setConflictsRefreshKey,
   logAudit,
 }) {
@@ -315,6 +315,7 @@ export default function useUpload({
 
           await fetchHorarios(selectedPrograma);
           await fetchProgramas(lapso);
+          invalidarCacheDocentes?.(); // fuerza fetch fresco sin caché viejo
           await fetchDocenteNames();
           await fetchMateriaNames();
           setConflictsRefreshKey(k => k + 1);
