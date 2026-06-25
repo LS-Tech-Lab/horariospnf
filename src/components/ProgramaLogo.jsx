@@ -50,24 +50,7 @@ const PROGRAMA_META = {
 };
 
 // ── Iconos SVG por programa ──────────────────────────────────────────────────
-
-function IconInformatica({ size }) {
-  const s = size;
-  return (
-    <svg width={s} height={s} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Monitor */}
-      <rect x="3" y="5" width="26" height="17" rx="2.5" fill="white" fillOpacity="0.18"/>
-      <rect x="3" y="5" width="26" height="17" rx="2.5" stroke="white" strokeWidth="1.8" strokeOpacity="0.7"/>
-      {/* Línea base monitor */}
-      <rect x="12" y="22" width="8" height="2.5" rx="0.8" fill="white" fillOpacity="0.5"/>
-      <rect x="10" y="24.5" width="12" height="1.5" rx="0.75" fill="white" fillOpacity="0.4"/>
-      {/* Código: < > */}
-      <path d="M9 13.5L7 15.5L9 17.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M23 13.5L25 15.5L23 17.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M19 11L13 20" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeOpacity="0.85"/>
-    </svg>
-  );
-}
+// Nota: PNF Informática usa imagen (useImg: true), no ícono SVG.
 
 function IconContaduria({ size }) {
   const s = size;
