@@ -14,7 +14,11 @@
 // envuelven en un objeto File de jsdom, exactamente como llegaría desde
 // un <input type="file">. Esto prueba el camino completo: File →
 // FileReader → XLSX.read → parseo de filas.
+
 // =====================================================================
+// @vitest-environment jsdom
+// =====================================================================
+// excelParser.test.js — ...
 
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
