@@ -89,13 +89,15 @@ export const TURNOS_CONFIG = [
     id:         "DIURNO",
     label:      "Diurno",
     hora:       "7:30 AM – 12:00 PM",
-    finMin:     720,   // 12:00 en minutos desde medianoche
+    inicioMin:  450,   // 7:30
+    finMin:     720,   // 12:00
     habilitado: true,
   },
   {
     id:         "VESPERTINO",
     label:      "Vespertino",
     hora:       "1:00 PM – 5:30 PM",
+    inicioMin:  780,   // 13:00
     finMin:     1050,  // 17:30
     habilitado: true,
   },
@@ -103,6 +105,7 @@ export const TURNOS_CONFIG = [
     id:         "NOCTURNO",
     label:      "Nocturno",
     hora:       "6:00 PM – 9:30 PM",
+    inicioMin:  1080,  // 18:00
     finMin:     1290,  // 21:30
     habilitado: false, // Cambiar a true cuando la institución active este turno
   },
