@@ -314,21 +314,8 @@ export default function HorariosLayout({
           />
         )}
 
-        <input
-          ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
-          onChange={e => {
-            const file = e.target.files[0];
-            e.target.value = "";   // reset ANTES de la llamada async para permitir re-selección
-            if (file) handleFileUploadAuditado(file);
-          }}
-        />
-        <input
-          ref={backupRef} type="file" accept=".json" style={{ display: "none" }}
-          onChange={e => {
-            if (e.target.files[0]) appData.importarDatos(e.target.files[0]);
-            e.target.value = "";
-          }}
-        />
+        {/* Los inputs type="file" viven en App.jsx para que no sean
+            afectados por re-renders del sidebar (onMouseLeave/adminOpen) */}
 
         {/* Footer: botón admin */}
         <div style={{ borderTop: "1px solid var(--navy-800)", padding: "8px 8px", flexShrink: 0 }}>
