@@ -168,19 +168,41 @@ export default function useUpload({
 
         try {
           // 2a. Upsert catálogo DOCENTES
+          // Estrategia de conflicto:
+          //   - Si el registro tiene cédula → onConflict "cedula": un mismo docente
+          //     escrito diferente en dos archivos no genera duplicado.
+          //   - Si no tiene cédula → onConflict "nombre_raw": comportamiento anterior.
+          // La cédula se normaliza quitando prefijos "V-" y espacios para consistencia
+          // con el constraint de BD.
           if (docentesCatalogo.length > 0) {
-            const payload = docentesCatalogo.map(({ nombre_raw, nombre_display, cedula, telefono, email, observaciones }) => {
+            const normCedula = c => c ? c.replace(/[^0-9]/g, "") : null;
+
+            const conCedula    = [];
+            const sinCedula    = [];
+
+            docentesCatalogo.forEach(({ nombre_raw, nombre_display, cedula, telefono, email, observaciones }) => {
+              const cedulaNorm = normCedula(cedula);
               const entry = { nombre_raw, nombre_display };
-              if (cedula)        entry.cedula        = cedula;
+              if (cedulaNorm)    entry.cedula        = cedulaNorm;
               if (telefono)      entry.telefono      = telefono;
               if (email)         entry.email         = email;
               if (observaciones) entry.observaciones = observaciones;
-              return entry;
+              if (cedulaNorm) conCedula.push(entry);
+              else            sinCedula.push(entry);
             });
-            const { error: docCatError } = await supabase
-              .from("docentes")
-              .upsert(payload, { onConflict: "nombre_raw" });
-            if (docCatError) console.warn("upsert catálogo DOCENTES:", docCatError.message);
+
+            if (conCedula.length > 0) {
+              const { error: e1 } = await supabase
+                .from("docentes")
+                .upsert(conCedula, { onConflict: "cedula" });
+              if (e1) console.warn("upsert DOCENTES (por cédula):", e1.message);
+            }
+            if (sinCedula.length > 0) {
+              const { error: e2 } = await supabase
+                .from("docentes")
+                .upsert(sinCedula, { onConflict: "nombre_raw" });
+              if (e2) console.warn("upsert DOCENTES (por nombre):", e2.message);
+            }
           }
 
           // 2b. Upsert catálogo MALLA
@@ -211,18 +233,21 @@ export default function useUpload({
           // queda con null (se puede corregir luego en la vista de Docentes).
 
           // Recopilar nombres únicos presentes en las filas nuevas.
-          // Limpiar teléfonos pegados al nombre por si escaparon del parser
-          // (ej. "ALDEMARO FONSECA 041214229615").
-          const limpiarTel = s => s.replace(/\s+0\d{9,11}$/, "").trim();
+          // Limpiar teléfonos pegados al nombre por si escaparon del parser.
+          const limpiarTel  = s => s.replace(/\s+0\d{9,11}$/, "").trim();
+          const normCedula2 = c => c ? c.replace(/[^0-9]/g, "") : null;
+
           const nombresDocentes = [...new Set(
             newRows.map(r => r.docente).filter(Boolean).map(limpiarTel)
           )];
           const nombresMaterias = [...new Set(newRows.map(r => r.materia).filter(Boolean))];
 
-          // Fetch IDs desde Supabase
+          // Fetch IDs desde Supabase — buscar por nombre_raw.
+          // El upsert anterior ya consolidó por cédula, así que nombre_raw
+          // del catálogo coincide con lo que quedó en BD.
           const [{ data: docsDB }, { data: matsDB }] = await Promise.all([
             nombresDocentes.length
-              ? supabase.from("docentes").select("id, nombre_raw").in("nombre_raw", nombresDocentes)
+              ? supabase.from("docentes").select("id, nombre_raw, cedula").in("nombre_raw", nombresDocentes)
               : Promise.resolve({ data: [] }),
             nombresMaterias.length
               ? supabase.from("materias").select("id, nombre_raw").in("nombre_raw", nombresMaterias)
