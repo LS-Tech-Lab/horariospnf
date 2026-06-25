@@ -267,35 +267,55 @@ export default function App() {
   );
 
   return (
-    <HorariosLayout
-      // Navegación
-      view={view} setView={setView}
-      docenteNav={docenteNav} setDocenteNav={setDocenteNav}
-      materiaNav={materiaNav} setMateriaNav={setMateriaNav}
-      horariosTab={horariosTab} setHorariosTab={setHorariosTab}
-      lapso={lapso}
-      modoConsulta={modoConsulta}
-      handleCambiarLapso={handleCambiarLapso}
-      // Sidebar UI
-      hovered={hovered} setHovered={setHovered}
-      pinned={pinned} togglePin={togglePin}
-      mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}
-      adminOpen={adminOpen} setAdminOpen={setAdminOpen}
-      userMenuOpen={userMenuOpen} setUserMenuOpen={setUserMenuOpen}
-      cambiarPwdOpen={cambiarPwdOpen} setCambiarPwdOpen={setCambiarPwdOpen}
-      fileRef={fileRef} backupRef={backupRef}
-      // Datos y auth
-      appData={appDataAuditada}
-      horariosFilters={horariosFilters}
-      permisos={permisos}
-      profile={profile}
-      user={user}
-      handleLogout={handleLogout}
-      handleFileUploadAuditado={handleFileUploadAuditado}
-      // Módulos
-      tieneHorarios={tieneHorarios}
-      tieneQR={tieneQR}
-      onCambiarModulo={() => setModuloActivo(null)}
-    />
+    <>
+      <HorariosLayout
+        // Navegación
+        view={view} setView={setView}
+        docenteNav={docenteNav} setDocenteNav={setDocenteNav}
+        materiaNav={materiaNav} setMateriaNav={setMateriaNav}
+        horariosTab={horariosTab} setHorariosTab={setHorariosTab}
+        lapso={lapso}
+        modoConsulta={modoConsulta}
+        handleCambiarLapso={handleCambiarLapso}
+        // Sidebar UI
+        hovered={hovered} setHovered={setHovered}
+        pinned={pinned} togglePin={togglePin}
+        mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}
+        adminOpen={adminOpen} setAdminOpen={setAdminOpen}
+        userMenuOpen={userMenuOpen} setUserMenuOpen={setUserMenuOpen}
+        cambiarPwdOpen={cambiarPwdOpen} setCambiarPwdOpen={setCambiarPwdOpen}
+        fileRef={fileRef} backupRef={backupRef}
+        // Datos y auth
+        appData={appDataAuditada}
+        horariosFilters={horariosFilters}
+        permisos={permisos}
+        profile={profile}
+        user={user}
+        handleLogout={handleLogout}
+        handleFileUploadAuditado={handleFileUploadAuditado}
+        // Módulos
+        tieneHorarios={tieneHorarios}
+        tieneQR={tieneQR}
+        onCambiarModulo={() => setModuloActivo(null)}
+      />
+      {/* Inputs de archivo fuera del sidebar para evitar re-renders que
+          invaliden el onChange mientras el file picker del SO está abierto */}
+      <input
+        ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
+        onChange={e => {
+          const file = e.target.files[0];
+          e.target.value = "";
+          if (file) handleFileUploadAuditado(file);
+        }}
+      />
+      <input
+        ref={backupRef} type="file" accept=".json" style={{ display: "none" }}
+        onChange={e => {
+          const file = e.target.files[0];
+          e.target.value = "";
+          if (file) appDataAuditada.importarDatos(file);
+        }}
+      />
+    </>
   );
 }
