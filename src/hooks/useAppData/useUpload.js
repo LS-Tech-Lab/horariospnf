@@ -66,9 +66,11 @@ export default function useUpload({
 
     setUploading(true);
 
-    const controller = new AbortController();
+    // AbortController solo para marcar si el timeout ya disparó.
+    // No se pasa a .abortSignal() porque Supabase v2 no lo soporta en insert.
+    let timedOut = false;
     const timeoutId = setTimeout(() => {
-      controller.abort();
+      timedOut = true;
       setUploading(false);
       setError("La operación tardó demasiado. Verifica tu conexión e intenta de nuevo.");
       showToast("Tiempo de espera agotado. Verifica tu conexión.", "error");
@@ -179,15 +181,15 @@ export default function useUpload({
 
     const { error: insertError } = await supabase
       .from("horarios")
-      .insert(newRows)
-      .abortSignal(controller.signal);
+      .insert(newRows);
     if (insertError) {
       clearTimeout(timeoutId);
-      if (controller.signal.aborted) return;
+      if (timedOut) return;
       showToast("Error al guardar.", "error");
       setUploading(false);
       return;
     }
+    if (timedOut) return;
 
     showToast(`${newRows.length} clases cargadas.`, "success");
     logAudit?.({
