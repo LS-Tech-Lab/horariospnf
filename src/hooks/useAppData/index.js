@@ -79,7 +79,7 @@ export default function useAppData(lapso, logAudit = null, userId = null) {
     return res;
   }, [saveDocenteCedulaBase, setDocenteCedulas]);
 
-  const { uploading, setUploading, handleFileUpload } = useUpload({
+  const { uploading, setUploading, handleFileUpload, previewData, cancelPreview, confirmPreview } = useUpload({
     lapso, selectedPrograma, showToast, setError,
     fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames,
     setConflictsRefreshKey,
@@ -106,6 +106,7 @@ export default function useAppData(lapso, logAudit = null, userId = null) {
     isOffline, lastSync, toast, showToast, hideToast,
     confirmModal, openConfirm, closeConfirm,
     handleFileUpload, exportarDatos, importarDatos, clearAllData,
+    previewData, cancelPreview, confirmPreview,
     saveDocenteName, saveDocenteCedula, saveMateriaName, getDocName, getDocCedula, getDocCedulaFuente, getMateriaName,
   };
 }
