@@ -8,7 +8,6 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Code-splitting manual: aísla las vistas lazy en chunks propios
         manualChunks: {
           'vendor-react': ['react', 'react-dom'],
           'view-historial': ['./src/components/HistorialView'],
@@ -17,5 +16,8 @@ export default defineConfig({
         },
       },
     },
+  },
+  test: {
+    environment: 'jsdom',
   },
 })
