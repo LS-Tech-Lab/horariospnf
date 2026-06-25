@@ -297,10 +297,19 @@ export default function AdminQRPanel({
   const [confirmCierre, setConfirmCierre] = useState(false);
 
   const esHoy = fecha === hoy;
-  function turnoDisponible(tId) {
-    if (!esHoy) return true;
+
+  // Razón por la que un turno no está disponible hoy (null = sí disponible)
+  function turnoIndisponibleRazon(tId) {
+    if (!esHoy) return null;
     const conf = TURNOS_CONFIG.find(t => t.id === tId);
-    return !conf?.finMin || minHoy < conf.finMin;
+    if (!conf) return null;
+    if (conf.inicioMin !== undefined && minHoy < conf.inicioMin) return "aún no ha comenzado";
+    if (conf.finMin   !== undefined && minHoy >= conf.finMin)    return "ya finalizó";
+    return null;
+  }
+
+  function turnoDisponible(tId) {
+    return turnoIndisponibleRazon(tId) === null;
   }
 
   useEffect(() => {
@@ -338,7 +347,14 @@ export default function AdminQRPanel({
   }, [sessionId]);
 
   const handleIniciar = () => {
-    if (esHoy && !turnoDisponible(turno)) return;
+    if (esHoy && !turnoDisponible(turno)) {
+      const razon = turnoIndisponibleRazon(turno);
+      const turnoLabel = TURNOS_VISIBLES.find(t => t.id === turno)?.label || turno;
+      // El error se muestra via el prop `error` de useQRSession, pero como aquí
+      // bloqueamos antes de llamar a crearSesion, usamos el bloqueo visual.
+      // Este return es la segunda línea de defensa (el botón ya está disabled).
+      return;
+    }
     crearSesion({ turno, programa: programa || null, fecha });
   };
 
@@ -396,7 +412,7 @@ export default function AdminQRPanel({
                     key={t.id}
                     onClick={() => !activa && disponible && setTurno(t.id)}
                     disabled={activa || !disponible}
-                    title={!disponible ? "Este turno ya finalizó hoy" : ""}
+                    title={!disponible ? `Este turno ${turnoIndisponibleRazon(t.id)} hoy` : ""}
                     style={{
                       padding: "9px 14px", borderRadius: 8,
                       border: `1.5px solid ${seleccionado ? "#2563EB" : disponible ? "#E2E8F0" : "#F1F5F9"}`,
@@ -409,13 +425,40 @@ export default function AdminQRPanel({
                       transition: "all 0.12s",
                     }}
                   >
-                    <span>{t.label}{!disponible && esHoy ? " · ya finalizó" : ""}</span>
+                    <span>{t.label}{!disponible && esHoy ? ` · ${turnoIndisponibleRazon(t.id)}` : ""}</span>
                     <span style={{ fontSize: 11, color: seleccionado ? "#3B82F6" : "#64748B", fontWeight: 500 }}>{t.hora}</span>
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {/* Aviso de turno no disponible */}
+          {esHoy && !turnoDisponible(turno) && (() => {
+            const razon = turnoIndisponibleRazon(turno);
+            const turnoLabel = TURNOS_VISIBLES.find(t => t.id === turno)?.label || turno;
+            const esAnticipado = razon === "aún no ha comenzado";
+            return (
+              <div style={{
+                marginBottom: 14, padding: "10px 14px", borderRadius: 8,
+                background: esAnticipado ? "#FFFBEB" : "#FEF2F2",
+                border: `1px solid ${esAnticipado ? "#FDE68A" : "#FECACA"}`,
+                display: "flex", alignItems: "flex-start", gap: 8,
+              }}>
+                <i
+                  className={`ti ${esAnticipado ? "ti-clock" : "ti-alert-triangle"}`}
+                  style={{ fontSize: 15, flexShrink: 0, marginTop: 1, color: esAnticipado ? "#D97706" : "#DC2626" }}
+                  aria-hidden="true"
+                />
+                <span style={{ fontSize: 13, color: esAnticipado ? "#92400E" : "#991B1B", lineHeight: 1.5 }}>
+                  {esAnticipado
+                    ? <>El turno <strong>{turnoLabel}</strong> aún no ha comenzado. Solo puedes iniciarlo a partir de su hora de inicio.</>
+                    : <>El turno <strong>{turnoLabel}</strong> ya finalizó hoy. Selecciona otro turno.</>
+                  }
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Programa */}
           <label style={{ display: "block", marginBottom: 20 }}>
