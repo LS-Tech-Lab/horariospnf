@@ -210,8 +210,13 @@ export default function useUpload({
           // poblar las FK antes de insertar. Cualquier nombre sin match en BD
           // queda con null (se puede corregir luego en la vista de Docentes).
 
-          // Recopilar nombres únicos presentes en las filas nuevas
-          const nombresDocentes = [...new Set(newRows.map(r => r.docente).filter(Boolean))];
+          // Recopilar nombres únicos presentes en las filas nuevas.
+          // Limpiar teléfonos pegados al nombre por si escaparon del parser
+          // (ej. "ALDEMARO FONSECA 041214229615").
+          const limpiarTel = s => s.replace(/\s+0\d{9,11}$/, "").trim();
+          const nombresDocentes = [...new Set(
+            newRows.map(r => r.docente).filter(Boolean).map(limpiarTel)
+          )];
           const nombresMaterias = [...new Set(newRows.map(r => r.materia).filter(Boolean))];
 
           // Fetch IDs desde Supabase
@@ -230,7 +235,7 @@ export default function useUpload({
           // Construir payload limpio: solo columnas que existen en la tabla horarios
           const rowsParaInsertar = newRows.map(({ docente, materia, ...rest }) => ({
             ...rest,
-            docente_id: (docente && docenteIdMap[docente]) || null,
+            docente_id: (docente && docenteIdMap[limpiarTel(docente)]) || null,
             materia_id: (materia && materiaIdMap[materia]) || null,
           }));
 
