@@ -40,7 +40,7 @@ export default function useAppData(lapso, logAudit = null, userId = null) {
   const {
     programasDisponibles, docenteNames, docenteCedulas, docenteCedulaFuentes, materiaNames,
     setDocenteNames, setDocenteCedulas, setMateriaNames,
-    fetchProgramas, fetchDocenteNames, fetchMateriaNames,
+    fetchProgramas, fetchDocenteNames, fetchMateriaNames, invalidarCacheDocentes,
     getDocName, getDocCedula, getDocCedulaFuente, getMateriaName,
   } = useNombresCache(userId, showToast);
 
@@ -81,7 +81,7 @@ export default function useAppData(lapso, logAudit = null, userId = null) {
 
   const { uploading, setUploading, handleFileUpload, previewData, cancelPreview, confirmPreview } = useUpload({
     lapso, selectedPrograma, showToast, setError,
-    fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames,
+    fetchHorarios, fetchProgramas, fetchDocenteNames, fetchMateriaNames, invalidarCacheDocentes,
     setConflictsRefreshKey,
     logAudit,
   });
