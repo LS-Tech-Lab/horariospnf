@@ -1,45 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import useAppData from "./hooks/useAppData";
 import useHorariosFilters from "./hooks/useHorariosFilters";
 import useAuth from "./hooks/useAuth";
-import LoginScreen from "./components/LoginScreen";
-import GlobalSearch from "./components/GlobalSearch";
-import Toast from "./components/Toast";
-import ResumenView from "./components/ResumenView";
-import HorariosView from "./components/HorariosView";
-import SeccionesView from "./components/SeccionesView";
-import DocentesView from "./components/DocentesView";
-import MateriasView from "./components/MateriasView";
-import AsistenciasView from "./components/AsistenciasView";
-import ConfirmModal from "./components/ConfirmModal";
-import ModalCambiarPassword from "./components/ModalCambiarPassword";
-
-// Vistas pesadas cargadas de forma diferida (~200-300 KB fuera del chunk inicial)
-const HistorialView = lazy(() => import("./components/HistorialView"));
-const UsuariosView  = lazy(() => import("./components/UsuariosView"));
-const LogsView      = lazy(() => import("./components/LogsView"));
-// ── Módulo de Asistencias QR ──────────────────────────────────────────────────
-import ModuleSelector from "./components/ModuleSelector";
-import ErrorBoundary from "./components/ErrorBoundary";
-import ProgramaLogo from "./components/ProgramaLogo";
-import AdminQRPanel from "./components/asistencias/AdminQRPanel";
-import QRProyeccion from "./components/asistencias/QRProyeccion";
-import ReporteAsistencias from "./components/asistencias/ReporteAsistencias";
-import DocenteScan from "./components/asistencias/DocenteScan";
 import useQRSession from "./hooks/useQRSession";
-import { S, ROL_SIDEBAR } from "./constants";
-import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "./utils/lapso";
+import LoginScreen from "./components/LoginScreen";
+import ModuleSelector from "./components/ModuleSelector";
+import DocenteScan from "./components/asistencias/DocenteScan";
+import { getCurrentLapso } from "./utils/lapso";
 import { supabase, supabaseConfigError } from "./lib/supabase";
 
-// ── Piezas extraídas a archivos propios (ver src/app/) ────────────────────────
-import buildNavGroups from "./app/buildNavGroups";
-// AppStyles.js eliminado — estilos consolidados en index.css (auditoría §7.1)
-import AdminMenu from "./app/AdminMenu";
+// Layouts extraídos (P4)
+import HorariosLayout from "./app/HorariosLayout";
+import AsistenciasModulo from "./app/AsistenciasModulo";
 import CuentaDesactivada from "./app/CuentaDesactivada";
 import SinPerfilAsignado from "./app/SinPerfilAsignado";
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function App() {
+  // ── Navegación ────────────────────────────────────────────────────────────
   const [view,        setView]        = useState("resumen");
   const [docenteNav,  setDocenteNav]  = useState(null);
   const [materiaNav,  setMateriaNav]  = useState(null);
@@ -47,80 +25,40 @@ export default function App() {
   const [lapso,       setLapso]       = useState(() => getCurrentLapso());
   const [modoConsulta,setModoConsulta]= useState(false);
 
-  // ── Módulo activo: null = selector, "horarios" | "asistencias" ───────────
-  // Para roles no-admin, se salta el selector y se va directo a "horarios".
-  const [moduloActivo,      setModuloActivo]      = useState(null);
-  // Sub-vista dentro del módulo de asistencias
-  const [asistenciasSubView, setAsistenciasSubView] = useState("panel"); // "panel" | "reporte"
+  // ── Módulo activo ─────────────────────────────────────────────────────────
+  // null = selector, "horarios" | "asistencias"
+  // Para roles sin acceso a ambos, el useEffect de abajo redirige directo.
+  const [moduloActivo, setModuloActivo] = useState(null);
 
-  // ── Hook de sesión QR — vive AQUÍ para no perderse al cambiar sub-vista ──
+  // ── Sesión QR — vive aquí para no perderse al cambiar sub-vista ──────────
   const qrSession = useQRSession();
 
-  // ── Si la URL trae ?proyeccion=1, ir directo a la vista de proyección ────
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("proyeccion") === "1") {
-      setModuloActivo("asistencias");
-      setAsistenciasSubView("proyeccion");
-      // Limpiar el param de la URL sin recargar
-      const url = new URL(window.location.href);
-      url.searchParams.delete("proyeccion");
-      window.history.replaceState({}, "", url.toString());
-    }
-  }, []);
-
+  // ── Sidebar ───────────────────────────────────────────────────────────────
   const [hovered,    setHovered]    = useState(false);
   const [pinned,     setPinned]     = useState(() => localStorage.getItem("sb_pinned") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminOpen,  setAdminOpen]  = useState(false);
-  const [userMenuOpen,      setUserMenuOpen]      = useState(false);
-  const [asistUserMenuOpen, setAsistUserMenuOpen] = useState(false);
-  const [cambiarPwdOpen,    setCambiarPwdOpen]    = useState(false);
 
-  const [headerVisible, setHeaderVisible] = useState(true);
-  const headerTimerRef = useRef(null);
+  // ── Modales ───────────────────────────────────────────────────────────────
+  const [userMenuOpen,   setUserMenuOpen]   = useState(false);
+  const [cambiarPwdOpen, setCambiarPwdOpen] = useState(false);
 
+  // ── Refs para inputs de archivo ocultos ──────────────────────────────────
   const fileRef   = useRef(null);
   const backupRef = useRef(null);
-
-  // ── Auto-ocultar header en modo proyección ───────────────────────────────
-  useEffect(() => {
-    if (asistenciasSubView !== "proyeccion") {
-      setHeaderVisible(true);
-      clearTimeout(headerTimerRef.current);
-      return;
-    }
-    const show = () => {
-      setHeaderVisible(true);
-      clearTimeout(headerTimerRef.current);
-      headerTimerRef.current = setTimeout(() => setHeaderVisible(false), 4000);
-    };
-    show();
-    window.addEventListener("mousemove", show);
-    window.addEventListener("touchstart", show);
-    return () => {
-      clearTimeout(headerTimerRef.current);
-      window.removeEventListener("mousemove", show);
-      window.removeEventListener("touchstart", show);
-    };
-  }, [asistenciasSubView]);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { user, profile, permisos, loadingProfile, handleLogin, handleLogout, logAudit } = useAuth();
 
-  // Fix #19: detectar si Supabase está caído o la anon key expiró.
-  // useAuth llama getSession() internamente; si user sigue undefined
-  // después de un timeout razonable, asumimos fallo de conexión con el servicio.
+  // Fix #19: Supabase caído / anon key expirada
   const [supabaseDown, setSupabaseDown] = useState(false);
   useEffect(() => {
-    if (user !== undefined) return; // ya resolvió — no hacer nada
+    if (user !== undefined) return;
     const id = setTimeout(() => {
       if (user === undefined) setSupabaseDown(true);
-    }, 8000); // 8 s sin respuesta → mostrar pantalla de error
+    }, 8000);
     return () => clearTimeout(id);
   }, [user]);
-
-  const expanded = pinned || hovered || mobileOpen;
 
   const togglePin = () => {
     const next = !pinned;
@@ -128,32 +66,22 @@ export default function App() {
     localStorage.setItem("sb_pinned", next ? "1" : "0");
   };
 
-  // ── Reset de navegación al cambiar de usuario ────────────────────────────
-  // Cuando user.id cambia (logout/login de otra cuenta), resetear toda la
-  // navegación para que el nuevo usuario empiece desde cero sin heredar
-  // la vista ni los permisos de la sesión anterior.
-  // Resetear navegación cuando cambia el usuario (incluyendo logout→login)
-  // Usamos una ref para trackear el último ID visto, incluyendo null (sin sesión).
-  // La condición: hubo un ID anterior distinto al actual → resetear.
-  // Esto cubre: admin→logout(null)→otrousuario, y también admin→otrousuario directo.
-  const prevUserIdRef = useRef(undefined); // undefined = primera carga, no resetear
+  // ── Reset de navegación al cambiar de usuario ─────────────────────────────
+  const prevUserIdRef = useRef(undefined);
   useEffect(() => {
     const currentId = user?.id ?? null;
     if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== currentId && currentId !== null) {
-      // Cambio de usuario detectado: resetear toda la navegación
       setView("resumen");
       setModuloActivo(null);
-      setAsistenciasSubView("panel");
       setDocenteNav(null);
       setMateriaNav(null);
       setAdminOpen(false);
       setUserMenuOpen(false);
-      setAsistUserMenuOpen(false);
     }
     prevUserIdRef.current = currentId;
   }, [user?.id]);
 
-  // Detectar modo consulta histórica
+  // ── Modo consulta histórica ───────────────────────────────────────────────
   useEffect(() => {
     const check = async () => {
       const { data } = await supabase.from("trimestres").select("estado").eq("lapso", lapso).single();
@@ -162,25 +90,23 @@ export default function App() {
     check();
   }, [lapso]);
 
-  // Restringir programa automáticamente para secretarios
+  // ── Datos ─────────────────────────────────────────────────────────────────
   const appData = useAppData(lapso, logAudit, user?.id);
 
+  // Restringir programa para secretarios
   useEffect(() => {
     if (permisos.puedeVerSoloSuPrograma && permisos.programaRestringido) {
       appData.setSelectedPrograma(permisos.programaRestringido);
     }
   }, [permisos.puedeVerSoloSuPrograma, permisos.programaRestringido]);
 
-  // ── Auto-selección de módulo (según permisos, no rol fijo) ────────────────
-  // DEBE estar aquí, junto a los otros hooks, ANTES de cualquier return
-  // condicional — viola la Regla de Hooks si se pone después de un return.
-  // Un rol personalizado con acceso a horarios Y al módulo QR ve el
-  // selector; con acceso a uno solo, entra directo a ese módulo.
+  // ── Auto-selección de módulo según permisos ───────────────────────────────
+  // DEBE estar aquí, antes de cualquier return condicional (Regla de Hooks).
   useEffect(() => {
     if (!profile || moduloActivo) return;
     const tieneHorarios = permisos.puedeVerTodo || permisos.puedeVerSoloSuPrograma;
     const tieneQR = permisos.puedeGestionarQR || permisos.puedeVerReporteAsistencias;
-    if (tieneHorarios && tieneQR) return; // ambos: se queda en el selector
+    if (tieneHorarios && tieneQR) return; // ambos: queda en selector
     if (tieneQR) setModuloActivo("asistencias");
     else setModuloActivo("horarios");
   }, [profile, moduloActivo, permisos.puedeVerTodo, permisos.puedeVerSoloSuPrograma,
@@ -188,23 +114,12 @@ export default function App() {
 
   const horariosFilters = useHorariosFilters(appData.data);
 
+  // ── Callbacks ─────────────────────────────────────────────────────────────
   const handleCambiarLapso = useCallback((nuevo) => {
     setLapso(nuevo);
     setView("resumen");
   }, []);
 
-  const handleNavigate = (r) => {
-    if (r.docente) { setDocenteNav(r.rawDocente || r.docente); setView("docentes"); }
-    else if (r.materia) { setMateriaNav(r.rawMateria); setView("materias"); }
-    else setView("horarios");
-  };
-
-  const handleGoToConflictos = () => {
-    setHorariosTab("conflictos");
-    setView("horarios");
-  };
-
-  // Envolver operaciones de escritura con auditoría
   const handleFileUploadAuditado = async (file) => {
     await appData.handleFileUpload(file);
     await logAudit({
@@ -226,752 +141,161 @@ export default function App() {
     });
   };
 
-  const appDataAuditada = {
-    ...appData,
-    exportarDatos: handleExportarAuditado,
-  };
+  // appData con exportación auditada
+  const appDataAuditada = { ...appData, exportarDatos: handleExportarAuditado };
 
   // ── Guards ────────────────────────────────────────────────────────────────
-  // ── Ruta pública /scan ────────────────────────────────────────────────────
-  // Debe ir ANTES de todos los guards de auth: el docente no tiene sesión.
-  // vercel.json redirige todo a "/" pero la URL conserva el pathname.
+
+  // Ruta pública /scan — antes de todos los guards de auth
   if (window.location.pathname === "/scan") {
     return <DocenteScan />;
   }
 
-  // Fix #19: Supabase no responde (caído, anon key expirada, red sin salida)
+  // Fix #19: Supabase no responde
   if (supabaseDown) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      height:"100vh", background:"var(--color-text-primary)", color:"var(--color-border-tertiary)", gap:16, padding:32,
-      textAlign:"center", fontFamily:"var(--font-sans)" }}>
-      <i className="ti ti-wifi-off" style={{ fontSize:44, color:"#F87171" }} aria-hidden="true" />
-      <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"var(--color-background-tertiary)" }}>Servicio no disponible</h2>
-      <p style={{ margin:0, fontSize:14, color:"var(--color-text-tertiary)", maxWidth:460, lineHeight:1.6 }}>
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      height: "100vh", background: "var(--color-text-primary)", color: "var(--color-border-tertiary)",
+      gap: 16, padding: 32, textAlign: "center", fontFamily: "var(--font-sans)",
+    }}>
+      <i className="ti ti-wifi-off" style={{ fontSize: 44, color: "#F87171" }} aria-hidden="true" />
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "var(--color-background-tertiary)" }}>
+        Servicio no disponible
+      </h2>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--color-text-tertiary)", maxWidth: 460, lineHeight: 1.6 }}>
         No se pudo conectar con el servidor. Puede ser un problema temporal de red o del servicio.
       </p>
       <button
         onClick={() => { setSupabaseDown(false); window.location.reload(); }}
-        style={{ marginTop:8, padding:"9px 22px", background:"var(--brand-500)", color:"#fff",
-          border:"none", borderRadius:8, fontSize:14, fontWeight:600, cursor:"pointer" }}>
+        style={{
+          marginTop: 8, padding: "9px 22px", background: "var(--brand-500)", color: "#fff",
+          border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer",
+        }}
+      >
         Reintentar
       </button>
     </div>
   );
 
   if (supabaseConfigError) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      height:"100vh", background:"var(--color-text-primary)", color:"var(--color-border-tertiary)", gap:16, padding:32,
-      textAlign:"center", fontFamily:"var(--font-sans)" }}>
-      <i className="ti ti-alert-triangle" style={{ fontSize:44, color:"#FBBF24" }} aria-hidden="true" />
-      <h2 style={{ margin:0, fontSize:20, fontWeight:600, color:"var(--color-background-tertiary)" }}>Configuración incompleta</h2>
-      <p style={{ margin:0, fontSize:14, color:"var(--color-text-tertiary)", maxWidth:460, lineHeight:1.6 }}>
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      height: "100vh", background: "var(--color-text-primary)", color: "var(--color-border-tertiary)",
+      gap: 16, padding: 32, textAlign: "center", fontFamily: "var(--font-sans)",
+    }}>
+      <i className="ti ti-alert-triangle" style={{ fontSize: 44, color: "#FBBF24" }} aria-hidden="true" />
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "var(--color-background-tertiary)" }}>
+        Configuración incompleta
+      </h2>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--color-text-tertiary)", maxWidth: 460, lineHeight: 1.6 }}>
         {supabaseConfigError}
       </p>
     </div>
   );
 
-  // Cargando sesión
   if (user === undefined) return (
-    <div className="full-screen-loading" style={{ color:"var(--color-text-tertiary)", fontSize:15 }}>
+    <div className="full-screen-loading" style={{ color: "var(--color-text-tertiary)", fontSize: 15 }}>
       Verificando sesión…
     </div>
   );
 
-  // Sin sesión → login
   if (!user) return <LoginScreen />;
 
-  // Sesión activa pero cargando perfil
   if (loadingProfile) return (
     <div className="full-screen-loading">
-      <div style={{ width:32, height:32, border:"3px solid #1E3A5F", borderTop:"3px solid var(--color-accent)",
-        borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-      <span style={{ color:"var(--color-text-tertiary)", fontSize:14 }}>Cargando perfil…</span>
+      <div style={{
+        width: 32, height: 32, border: "3px solid #1E3A5F", borderTop: "3px solid var(--color-accent)",
+        borderRadius: "50%", animation: "spin 0.8s linear infinite",
+      }} />
+      <span style={{ color: "var(--color-text-tertiary)", fontSize: 14 }}>Cargando perfil…</span>
     </div>
   );
 
-  // Sin perfil asignado
-  if (!profile) return <SinPerfilAsignado onLogout={handleLogout} />;
-
-  // Cuenta desactivada
-  if (profile._desactivado) return <CuentaDesactivada onLogout={handleLogout} />;
-
-  // Rol asignado pero borrado/inexistente en la tabla `roles`
-  if (profile._rolInvalido) return <SinPerfilAsignado onLogout={handleLogout} />;
-
+  if (!profile)              return <SinPerfilAsignado onLogout={handleLogout} />;
+  if (profile._desactivado)  return <CuentaDesactivada onLogout={handleLogout} />;
+  if (profile._rolInvalido)  return <SinPerfilAsignado onLogout={handleLogout} />;
 
   // ── Selector de módulo ────────────────────────────────────────────────────
-  // Se muestra solo si el rol tiene acceso a horarios Y al módulo QR a la
-  // vez; si solo tiene uno, el useEffect de arriba ya lo redirigió directo.
   const tieneHorarios = permisos.puedeVerTodo || permisos.puedeVerSoloSuPrograma;
-  const tieneQR = permisos.puedeGestionarQR || permisos.puedeVerReporteAsistencias;
+  const tieneQR       = permisos.puedeGestionarQR || permisos.puedeVerReporteAsistencias;
 
   if (!moduloActivo) {
-    // Mientras el useEffect procesa la redirección automática, mostramos
-    // spinner en lugar de null para evitar flash de pantalla negra en móvil.
+    // Spinner mientras el useEffect procesa la redirección automática
     if (!(tieneHorarios && tieneQR)) {
       return (
         <div className="full-screen-loading">
-          <div style={{ width:32, height:32, border:"3px solid #1E3A5F", borderTop:"3px solid var(--color-accent)",
-            borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-          <span style={{ color:"var(--color-text-tertiary)", fontSize:14 }}>Cargando…</span>
+          <div style={{
+            width: 32, height: 32, border: "3px solid #1E3A5F", borderTop: "3px solid var(--color-accent)",
+            borderRadius: "50%", animation: "spin 0.8s linear infinite",
+          }} />
+          <span style={{ color: "var(--color-text-tertiary)", fontSize: 14 }}>Cargando…</span>
         </div>
       );
     }
     return (
       <ModuleSelector
         profile={profile}
-        onSelectModule={(mod) => {
-          setModuloActivo(mod);
-          setAsistenciasSubView("panel");
-        }}
+        onSelectModule={(mod) => setModuloActivo(mod)}
         onLogout={handleLogout}
       />
     );
   }
 
-  // ── Módulo de Asistencias QR ────────────────────────────────────────────
+  // ── Módulo Asistencias QR ─────────────────────────────────────────────────
   if (moduloActivo === "asistencias") {
-    const rolLabel = profile.rol_info?.label || "Operador QR";
-    const rolColor = profile.rol_info?.color || "#34D399";
-
     return (
-      <div style={{ minHeight: "100vh", background: "var(--color-background-tertiary)", fontFamily: "var(--font-sans)" }}>
-        {/* @keyframes fadeDown ahora en index.css */}
-        {cambiarPwdOpen && (
-          <ModalCambiarPassword
-            onCerrar={() => setCambiarPwdOpen(false)}
-            showToast={appData.showToast}
-          />
-        )}
-        {/* Topbar */}
-        <header style={{ background: "#fff", borderBottom: "1px solid var(--color-border-tertiary)", display: "flex", alignItems: "center", gap: 12, padding: "0 20px", height: 52, flexShrink: 0, position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, transition: "transform 0.35s ease", transform: headerVisible ? "translateY(0)" : "translateY(-100%)" }}>
-
-          {/* Volver al selector — solo si también tiene acceso a horarios */}
-          {tieneHorarios && (
-            <button
-              onClick={() => { qrSession.cerrarSesion(); setModuloActivo(null); }}
-              style={{ background: "none", border: "1px solid var(--color-border-tertiary)", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--navy-700)", display: "flex", alignItems: "center", gap: 6 }}
-            >
-              <i className="ti ti-arrow-left" aria-hidden="true" /> Módulos
-            </button>
-          )}
-
-          {/* Pestañas internas */}
-          <div style={{ display: "flex", gap: 4 }}>
-            {[
-              { id: "panel",      icon: "ti-device-mobile", label: "Panel QR"   },
-              { id: "proyeccion", icon: "ti-device-tv",     label: "Proyección" },
-              { id: "reporte",    icon: "ti-report",        label: "Reporte"    },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setAsistenciasSubView(tab.id)}
-                style={{
-                  padding: "5px 14px", borderRadius: 7, border: "none",
-                  background: asistenciasSubView === tab.id ? "var(--color-background-info)" : "transparent",
-                  color:      asistenciasSubView === tab.id ? "var(--brand-600)" : "var(--color-text-tertiary)",
-                  fontWeight: asistenciasSubView === tab.id ? 700 : 500,
-                  fontSize: 13, cursor: "pointer", transition: "all 0.12s",
-                  display: "flex", alignItems: "center", gap: 6,
-                }}
-              >
-                <i className={`ti ${tab.icon}`} aria-hidden="true" /> {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Indicador de sesión QR activa en el topbar */}
-          {qrSession.activa && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 10px", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 20 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", display: "inline-block", animation: "pulse 1.4s ease-in-out infinite" }} />
-              <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#15803D" }}>Sesión activa</span>
-            </div>
-          )}
-
-          {/* Menú de usuario — Asistencias */}
-          <div style={{ marginLeft: "auto", position: "relative" }}>
-            <button
-              onClick={() => setAsistUserMenuOpen(o => !o)}
-              title="Menú de usuario"
-              style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer",
-                background: asistUserMenuOpen ? "var(--color-background-tertiary)" : "transparent",
-                border: "1px solid " + (asistUserMenuOpen ? "var(--color-border-secondary)" : "var(--color-border-tertiary)"),
-                borderRadius: 8, padding: "4px 10px 4px 6px",
-                transition: "background .13s, border-color .13s" }}>
-              <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                background: "linear-gradient(135deg,var(--brand-500),var(--color-role-coord))",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 11, fontWeight: 700, color: "#fff" }}>
-                {profile.nombre?.[0]?.toUpperCase() ?? "?"}
-              </div>
-              <div style={{ textAlign: "left", lineHeight: 1.3 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)", whiteSpace: "nowrap" }}>
-                  {profile.nombre && profile.nombre !== rolLabel ? profile.nombre : rolLabel}
-                </div>
-                <div style={{ fontSize: 10, color: rolColor, fontWeight: 600, whiteSpace: "nowrap" }}>
-                  {rolLabel}
-                </div>
-              </div>
-              <i className="ti ti-chevron-down" style={{ fontSize: 12, color: "var(--color-text-tertiary)",
-                transform: asistUserMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform .15s" }} aria-hidden="true" />
-            </button>
-
-            {asistUserMenuOpen && (
-              <>
-                <div onClick={() => setAsistUserMenuOpen(false)}
-                  style={{ position: "fixed", inset: 0, zIndex: 398 }} />
-                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, minWidth: 200,
-                  background: "#fff", border: "1px solid var(--color-border-tertiary)", borderRadius: 10,
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 399, overflow: "hidden" }}>
-                  <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid var(--color-background-tertiary)" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-primary)" }}>
-                      {profile.nombre && profile.nombre !== rolLabel ? profile.nombre : rolLabel}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{profile.email}</div>
-                  </div>
-                  <button onClick={() => { setCambiarPwdOpen(true); setAsistUserMenuOpen(false); }}
-                    style={{ display: "flex", alignItems: "center", gap: 9, width: "100%",
-                      padding: "9px 14px", border: "none", background: "transparent",
-                      cursor: "pointer", fontSize: 13, color: "var(--navy-700)", textAlign: "left" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "var(--color-background-secondary)"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <i className="ti ti-key" style={{ fontSize: 15, color: "var(--color-text-tertiary)" }} aria-hidden="true" />
-                    Cambiar contraseña
-                  </button>
-                  <div style={{ height: 1, background: "var(--color-background-tertiary)" }} />
-                  <button onClick={() => { handleLogout(); setAsistUserMenuOpen(false); }}
-                    style={{ display: "flex", alignItems: "center", gap: 9, width: "100%",
-                      padding: "9px 14px", border: "none", background: "transparent",
-                      cursor: "pointer", fontSize: 13, color: "var(--color-danger-mid)", textAlign: "left" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#FFF5F5"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <i className="ti ti-logout" style={{ fontSize: 15 }} aria-hidden="true" />
-                    Cerrar sesión
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* Sub-vistas */}
-        <main style={{ paddingTop: asistenciasSubView === "proyeccion" ? 0 : 52 }}>
-          <ErrorBoundary>
-            {asistenciasSubView === "panel" && (
-              <AdminQRPanel
-                profile={profile}
-                onVerReporte={() => setAsistenciasSubView("reporte")}
-                onVerProyeccion={() => setAsistenciasSubView("proyeccion")}
-                {...qrSession}
-              />
-            )}
-            {asistenciasSubView === "proyeccion" && (
-              <QRProyeccion
-                activa={qrSession.activa}
-                qrUrl={qrSession.qrUrl}
-                segundosRestantes={qrSession.segundosRestantes}
-                ttlMinutes={qrSession.ttlMinutes}
-                meta={qrSession.meta}
-                sessionId={qrSession.sessionId}
-              />
-            )}
-            {asistenciasSubView === "reporte" && (
-              <ReporteAsistencias
-                onVolverPanel={() => setAsistenciasSubView("panel")}
-              />
-            )}
-          </ErrorBoundary>
-        </main>
-
-      </div>
+      <AsistenciasModulo
+        profile={profile}
+        qrSession={qrSession}
+        tieneHorarios={tieneHorarios}
+        onVolverSelector={() => setModuloActivo(null)}
+        showToast={appData.showToast}
+        onLogout={handleLogout}
+      />
     );
   }
 
-  // Datos cargando
+  // ── Módulo Horarios (default) ─────────────────────────────────────────────
   if (appData.loading && !appData.data.length) return (
     <div className="full-screen-loading">
-      <div style={{ width:36, height:36, border:"3px solid #1E3A5F", borderTop:"3px solid var(--color-accent)",
-        borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-      <span style={{ color:"var(--color-text-tertiary)", fontSize:14 }}>Cargando horarios…</span>
+      <div style={{
+        width: 36, height: 36, border: "3px solid #1E3A5F", borderTop: "3px solid var(--color-accent)",
+        borderRadius: "50%", animation: "spin 0.8s linear infinite",
+      }} />
+      <span style={{ color: "var(--color-text-tertiary)", fontSize: 14 }}>Cargando horarios…</span>
     </div>
   );
 
-  const navGroups = buildNavGroups(permisos);
-  const conflictCount = appData.conflicts.length;
-  const rolInfo = profile.rol_info
-    ? { label: profile.rol_info.label, color: profile.rol_info.color }
-    : ROL_SIDEBAR[profile.rol] || { label: profile.rol, color: "var(--color-text-tertiary)" };
-
-  // Selector de programa: deshabilitado para secretarios
-  const puedeSeleccionarPrograma = !permisos.puedeVerSoloSuPrograma;
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:"flex", height:"100dvh", fontFamily:"var(--font-sans)",
-      background:"var(--color-background-tertiary)", overflow:"hidden" }}>
-      {/* Estilos globales ahora en index.css — AppStyles.js eliminado */}
-
-      {cambiarPwdOpen && (
-        <ModalCambiarPassword
-          onCerrar={() => setCambiarPwdOpen(false)}
-          showToast={appData.showToast}
-        />
-      )}
-
-      {appData.toast && (
-        <Toast message={appData.toast.message} type={appData.toast.type} onClose={appData.hideToast} />
-      )}
-      <ConfirmModal
-        open={!!appData.confirmModal}
-        title={appData.confirmModal?.title}
-        message={appData.confirmModal?.message}
-        confirmLabel={appData.confirmModal?.confirmLabel}
-        danger={appData.confirmModal?.danger}
-        onConfirm={appData.confirmModal?.onConfirm}
-        onCancel={appData.closeConfirm}
-      />
-
-      {/* Overlay móvil */}
-      {/* Overlay: solo visible cuando el sidebar móvil/tablet está abierto */}
-      {mobileOpen && (
-        <div onClick={() => setMobileOpen(false)}
-          style={{ position:"fixed", inset:0,
-            background:"rgba(0,0,0,0.45)", zIndex:299 }} />
-      )}
-
-      {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
-      {/* sb-flow-spacer: ocupa el espacio del sidebar en desktop;
-          en tablet/móvil se oculta (CSS) porque el sidebar es fixed overlay */}
-      <div className={`sb-flow-spacer ${expanded ? "sb-expanded" : "sb-collapsed"}`}
-        style={{ flexShrink:0, transition:"width .22s" }} />
-      <aside
-        className={`sb ${expanded ? "sb-expanded" : "sb-collapsed"} ${mobileOpen ? "mobile-open" : ""}`}
-        onMouseEnter={() => !pinned && setHovered(true)}
-        onMouseLeave={() => { if (!pinned) { setHovered(false); setAdminOpen(false); } }}
-        style={{ background:"var(--color-text-primary)", display:"flex", flexDirection:"column",
-          flexShrink:0, borderRight:"1px solid var(--navy-800)", position:"relative" }}
-      >
-        {/* Marca + pin */}
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"14px 10px 12px",
-          borderBottom:"1px solid var(--navy-800)", flexShrink:0 }}>
-          <ProgramaLogo programa={appData.selectedPrograma ?? "todos"} size={32} />
-          <div className="sb-label" style={{ flex:1, overflow:"hidden" }}>
-            <div style={{ fontSize:13, fontWeight:700, color:"var(--color-background-tertiary)", whiteSpace:"nowrap" }}>
-              SIGMA
-            </div>
-            <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginTop:1, whiteSpace:"nowrap" }}>
-              Gest. y Módulos Académicos
-            </div>
-          </div>
-          {expanded && (
-            <button className={`pin-btn ${pinned ? "pinned" : ""}`} onClick={togglePin}
-              title={pinned ? "Desfijar sidebar" : "Fijar sidebar"}
-              aria-label={pinned ? "Desfijar sidebar" : "Fijar sidebar"}>
-              <i className={`ti ${pinned ? "ti-pinned" : "ti-pin"}`} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-
-        {/* Trimestre activo */}
-        <div style={{ padding:"10px 10px 10px", borderBottom:"1px solid var(--navy-800)", flexShrink:0 }}>
-          {!expanded ? (
-            <div style={{ width:32, height:32, borderRadius:7, flexShrink:0,
-              background: modoConsulta ? "#451A03" : "#0C1A3A",
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
-              cursor: modoConsulta ? "pointer" : "default" }}
-              onClick={() => modoConsulta && handleCambiarLapso(getCurrentLapso())}
-              title={modoConsulta ? `Historial: ${lapso}` : `Trimestre activo: ${lapso}`}>
-              <i className={`ti ${modoConsulta ? "ti-archive" : "ti-calendar-event"}`} aria-hidden="true" />
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontSize:9, fontWeight:700, color:"var(--navy-700)", textTransform:"uppercase",
-                letterSpacing:"0.08em", marginBottom:3 }}>
-                {modoConsulta ? "Consultando historial" : "Trimestre activo"}
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ fontSize:13, fontWeight:700,
-                  color: modoConsulta ? "#FBBF24" : "var(--color-accent-light)", flex:1, whiteSpace:"nowrap" }}>
-                  {formatLapso(lapso)}
-                </span>
-                {modoConsulta && (
-                  <button onClick={() => handleCambiarLapso(getCurrentLapso())}
-                    style={{ fontSize:10, padding:"2px 7px", borderRadius:5,
-                      border:"1px solid var(--navy-700)", background:"var(--navy-800)",
-                      color:"var(--color-accent-light)", cursor:"pointer", fontWeight:600, flexShrink:0,
-                      display:"flex", alignItems:"center" }}>
-                    <i className="ti ti-arrow-back-up" style={{ fontSize:12 }} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Selector de programa */}
-        <div style={{ padding:"8px 10px", borderBottom:"1px solid var(--navy-800)", flexShrink:0 }}>
-          {expanded ? (
-            <select
-              value={appData.selectedPrograma}
-              onChange={e => puedeSeleccionarPrograma && appData.setSelectedPrograma(e.target.value)}
-              disabled={!puedeSeleccionarPrograma}
-              style={{ ...S.select, width:"100%", background:"var(--navy-800)", color:"var(--color-border-secondary)",
-                borderColor:"var(--navy-700)", fontSize:12, padding:"6px 8px",
-                opacity: puedeSeleccionarPrograma ? 1 : 0.6,
-                cursor: puedeSeleccionarPrograma ? "pointer" : "not-allowed" }}>
-              {puedeSeleccionarPrograma
-                ? appData.programasDisponibles.map(p => (
-                    <option key={p} value={p}>
-                      {p === "todos" ? "Todos los programas" : p}
-                    </option>
-                  ))
-                : <option value={permisos.programaRestringido}>{permisos.programaRestringido}</option>
-              }
-            </select>
-          ) : (
-            <ProgramaLogo programa={appData.selectedPrograma ?? "todos"} size={32} />
-          )}
-        </div>
-
-        {/* Navegación */}
-        <nav style={{ flex:1, padding:"8px 8px 6px", overflowY:"auto", overflowX:"hidden" }}>
-          {navGroups.map((group, gi) => (
-            <div key={group.label} style={{ marginBottom: gi < navGroups.length - 1 ? 4 : 0 }}>
-              {gi > 0 && (
-                <div style={{ height:1, background:"var(--navy-800)", margin:"6px 4px 8px" }} />
-              )}
-              <div className="sb-group-title" style={{
-                fontSize:9, fontWeight:700, color:"var(--navy-700)", textTransform:"uppercase",
-                letterSpacing:"0.1em", padding:"0 8px", marginBottom:4,
-                transition:"opacity 0.15s",
-              }}>
-                {group.label}
-              </div>
-
-              {group.items.map(item => {
-                const active = view === item.id;
-                const badge  = item.hasBadge ? conflictCount : 0;
-                return (
-                  <button key={item.id}
-                    className={`nav-item ${active ? "active" : ""}`}
-                    onClick={() => { setView(item.id); setMobileOpen(false); }}
-                  >
-                    <i className={`ti ${item.icon}`} style={{ fontSize:16, flexShrink:0, width:20, textAlign:"center" }} aria-hidden="true" />
-                    <span className="sb-label" style={{ flex:1 }}>{item.label}</span>
-                    {badge > 0 && <span className="badge-red">{badge}</span>}
-                    <span className="tooltip">
-                      {item.label}{badge > 0 ? ` (${badge})` : ""}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-
-        {/* Admin dropdown */}
-        {adminOpen && (
-          <AdminMenu
-            appData={appDataAuditada}
-            modoConsulta={modoConsulta}
-            onClose={() => setAdminOpen(false)}
-            fileRef={fileRef}
-            backupRef={backupRef}
-            permisos={permisos}
-          />
-        )}
-
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }}
-          onChange={e => {
-            if (e.target.files[0]) handleFileUploadAuditado(e.target.files[0]);
-            e.target.value = "";
-          }} />
-        <input ref={backupRef} type="file" accept=".json" style={{ display: "none" }}
-          onChange={e => {
-            if (e.target.files[0]) appData.importarDatos(e.target.files[0]);
-            e.target.value = "";
-          }} />
-
-        {/* Footer: botón admin + usuario */}
-        <div style={{ borderTop:"1px solid var(--navy-800)", padding:"8px 8px", flexShrink:0 }}>
-          {/* Botón de administración — visible solo si tiene algo que hacer */}
-          {(permisos.puedeImportarExcel || permisos.puedeHacerBackup || permisos.puedeBorrarHorarios) && (
-            <button
-              onClick={() => setAdminOpen(o => !o)}
-              className="nav-item"
-              style={{ marginBottom:6, color: adminOpen ? "var(--color-border-info)" : "var(--color-text-tertiary)",
-                background: adminOpen ? "var(--navy-800)" : "transparent" }}
-              title="Administración"
-            >
-              <i className="ti ti-settings" style={{ fontSize:15, flexShrink:0, width:20, textAlign:"center" }} aria-hidden="true" />
-              <span className="sb-label" style={{ flex:1 }}>Administración</span>
-              {appData.uploading && (
-                <span style={{ width:8, height:8, borderRadius:"50%", border:"1.5px solid var(--color-accent)",
-                  borderTop:"1.5px solid transparent",
-                  animation:"spin .7s linear infinite", flexShrink:0 }} />
-              )}
-              <span className="tooltip">Administración</span>
-            </button>
-          )}
-
-        </div>
-      </aside>
-
-      {/* ── CONTENIDO PRINCIPAL ──────────────────────────────────────────── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
-
-        {/* Topbar */}
-        <header className="topbar">
-          <button className="hamburger"
-            onClick={() => setMobileOpen(o => !o)}
-            aria-label={mobileOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}
-            aria-expanded={mobileOpen}
-            style={{ display:"none", background:"none", border:"1px solid var(--color-border-tertiary)",
-              borderRadius:6, padding:"5px 9px", cursor:"pointer", fontSize:17,
-              color:"var(--navy-700)", flexShrink:0, alignItems:"center" }}>
-            <i className="ti ti-menu-2" aria-hidden="true" />
-          </button>
-
-          <div style={{ flex:1, maxWidth:420 }}>
-            <GlobalSearch
-              onNavigate={handleNavigate}
-              docenteNames={appData.docenteNames}
-              materiaNames={appData.materiaNames}
-              data={appData.data}
-            />
-          </div>
-
-          {/* Menú de usuario en topbar */}
-          <div style={{ marginLeft:"auto", position:"relative" }}>
-            <button
-              onClick={() => setUserMenuOpen(o => !o)}
-              title="Menú de usuario"
-              aria-label="Menú de usuario"
-              aria-haspopup="menu"
-              aria-expanded={userMenuOpen}
-              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer",
-                background: userMenuOpen ? "var(--color-background-tertiary)" : "transparent",
-                border:"1px solid " + (userMenuOpen ? "var(--color-border-secondary)" : "var(--color-border-tertiary)"),
-                borderRadius:8, padding:"4px 10px 4px 6px",
-                transition:"background .13s, border-color .13s" }}>
-              <div style={{ width:26, height:26, borderRadius:"50%", flexShrink:0,
-                background:"linear-gradient(135deg,var(--brand-500),var(--color-role-coord))",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:11, fontWeight:700, color:"#fff" }}>
-                {profile.nombre?.[0]?.toUpperCase() ?? "?"}
-              </div>
-              <div style={{ textAlign:"left", lineHeight:1.3 }}>
-                <div style={{ fontSize:12, fontWeight:700, color:"var(--color-text-primary)", whiteSpace:"nowrap" }}>
-                  {profile.nombre && profile.nombre !== rolInfo.label ? profile.nombre : rolInfo.label}
-                </div>
-                <div style={{ fontSize:10, color: rolInfo.color, fontWeight:600, whiteSpace:"nowrap" }}>
-                  {rolInfo.label}{profile.programa ? ` · ${profile.programa.replace("PNF ","")}` : ""}
-                </div>
-              </div>
-              <i className="ti ti-chevron-down" style={{ fontSize:12, color:"var(--color-text-tertiary)",
-                transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
-                transition:"transform .15s" }} aria-hidden="true" />
-            </button>
-
-            {userMenuOpen && (
-              <>
-                <div onClick={() => setUserMenuOpen(false)}
-                  style={{ position:"fixed", inset:0, zIndex:398 }} />
-                <div style={{ position:"absolute", top:"calc(100% + 6px)", right:0, minWidth:200,
-                  background:"#fff", border:"1px solid var(--color-border-tertiary)", borderRadius:10,
-                  boxShadow:"0 8px 24px rgba(0,0,0,0.12)", zIndex:399, overflow:"hidden",
-                  animation:"fadeDown .15s ease" }}>
-                  <div style={{ padding:"12px 14px 10px", borderBottom:"1px solid var(--color-background-tertiary)" }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:"var(--color-text-primary)" }}>
-                      {profile.nombre && profile.nombre !== rolInfo.label ? profile.nombre : rolInfo.label}
-                    </div>
-                    <div style={{ fontSize:11, color:"var(--color-text-tertiary)", marginTop:2 }}>{profile.email}</div>
-                  </div>
-                  {tieneHorarios && tieneQR && (
-                    <button onClick={() => { setModuloActivo(null); setUserMenuOpen(false); }}
-                      style={{ display:"flex", alignItems:"center", gap:9, width:"100%",
-                        padding:"9px 14px", border:"none", background:"transparent",
-                        cursor:"pointer", fontSize:13, color:"var(--navy-700)", textAlign:"left" }}
-                      onMouseEnter={e => e.currentTarget.style.background="var(--color-background-secondary)"}
-                      onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                      <i className="ti ti-switch-horizontal" style={{ fontSize:15, color:"var(--color-text-tertiary)" }} aria-hidden="true" />
-                      Cambiar módulo
-                    </button>
-                  )}
-                  <button onClick={() => { setCambiarPwdOpen(true); setUserMenuOpen(false); }}
-                    style={{ display:"flex", alignItems:"center", gap:9, width:"100%",
-                      padding:"9px 14px", border:"none", background:"transparent",
-                      cursor:"pointer", fontSize:13, color:"var(--navy-700)", textAlign:"left" }}
-                    onMouseEnter={e => e.currentTarget.style.background="var(--color-background-secondary)"}
-                    onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                    <i className="ti ti-key" style={{ fontSize:15, color:"var(--color-text-tertiary)" }} aria-hidden="true" />
-                    Cambiar contraseña
-                  </button>
-                  <div style={{ height:1, background:"var(--color-background-tertiary)" }} />
-                  <button onClick={() => { handleLogout(); setUserMenuOpen(false); }}
-                    style={{ display:"flex", alignItems:"center", gap:9, width:"100%",
-                      padding:"9px 14px", border:"none", background:"transparent",
-                      cursor:"pointer", fontSize:13, color:"var(--color-danger-mid)", textAlign:"left" }}
-                    onMouseEnter={e => e.currentTarget.style.background="#FFF5F5"}
-                    onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                    <i className="ti ti-logout" style={{ fontSize:15 }} aria-hidden="true" />
-                    Cerrar sesión
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {appData.isSyncing && (
-            <span style={{ fontSize:11, color:"var(--color-text-tertiary)", whiteSpace:"nowrap", flexShrink:0, display:"flex", alignItems:"center", gap:5 }}>
-              <i className="ti ti-refresh" style={{ animation:"spin 1.1s linear infinite" }} aria-hidden="true" /> Actualizando…
-            </span>
-          )}
-        </header>
-
-        {/* Banner modo consulta */}
-        {modoConsulta && (
-          <div style={{ background:"var(--color-warning-bg)", borderBottom:"1px solid var(--color-warning-border)",
-            padding:"7px 20px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
-            <span style={{ fontSize:13, color:"var(--color-warning-text)", fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
-              <i className="ti ti-archive" aria-hidden="true" /> Modo consulta — estás viendo el trimestre {formatLapso(lapso)} (solo lectura)
-            </span>
-            <button onClick={() => handleCambiarLapso(getCurrentLapso())}
-              style={{ marginLeft:"auto", fontSize:12, padding:"4px 12px", borderRadius:6,
-                border:"1px solid var(--color-warning-border)", background:"#fff", color:"var(--color-warning-text)",
-                cursor:"pointer", fontWeight:600, flexShrink:0, display:"flex", alignItems:"center", gap:5 }}>
-              <i className="ti ti-arrow-back-up" aria-hidden="true" /> Volver al trimestre activo
-            </button>
-          </div>
-        )}
-
-        {/* Vistas */}
-        <main style={{ flex:1, overflow:"auto", display:"flex", flexDirection:"column" }}>
-          {view === "resumen" && (
-            <ResumenView
-              stats={appData.stats} data={appData.data}
-              byDocente={appData.byDocente} byMateria={appData.byMateria}
-              conflicts={appData.conflicts}
-              getDocName={appData.getDocName} getMateriaName={appData.getMateriaName}
-              onGoToConflictos={handleGoToConflictos}
-            />
-          )}
-          {view === "horarios" && (
-            <HorariosView
-              filtered={appData.data.filter(d =>
-                (horariosFilters.selectedTrayecto === "all" || d.trayecto === horariosFilters.selectedTrayecto) &&
-                (horariosFilters.selectedSeccion  === "all" || d.sheet.trim() === horariosFilters.selectedSeccion) &&
-                (horariosFilters.activeDay        === "all" || d.dia === horariosFilters.activeDay)
-              )}
-              selectedTrayecto={horariosFilters.selectedTrayecto}
-              setSelectedTrayecto={horariosFilters.setSelectedTrayecto}
-              selectedSeccion={horariosFilters.selectedSeccion}
-              setSelectedSeccion={horariosFilters.setSelectedSeccion}
-              activeDay={horariosFilters.activeDay}
-              setActiveDay={horariosFilters.setActiveDay}
-              seccionesByTrayecto={horariosFilters.seccionesByTrayecto}
-              expandedCell={horariosFilters.expandedCell}
-              setExpandedCell={horariosFilters.setExpandedCell}
-              getDocName={appData.getDocName}
-              getMateriaName={appData.getMateriaName}
-              allTrayectos={appData.allTrayectos}
-              conflicts={appData.conflicts}
-              onGoDocente={(d) => { setDocenteNav(d); setView("docentes"); }}
-              initialTab={horariosTab}
-              onConsumeInitialTab={() => setHorariosTab(null)}
-              modoConsulta={modoConsulta || !permisos.puedeEditarHorarios}
-            />
-          )}
-          {view === "secciones" && (
-            <SeccionesView
-              data={appData.data}
-              getDocName={appData.getDocName}
-              getMateriaName={appData.getMateriaName}
-            />
-          )}
-          {view === "docentes" && (
-            <DocentesView
-              byDocente={appData.byDocente} conflicts={appData.conflicts}
-              initialSel={docenteNav} onConsumeNav={() => setDocenteNav(null)}
-              getDocName={appData.getDocName}
-              onSaveDocenteName={permisos.puedeEditarDocentes ? appData.saveDocenteName : null}
-              getDocCedula={appData.getDocCedula}
-              getDocCedulaFuente={appData.getDocCedulaFuente}
-              onSaveDocenteCedula={permisos.puedeEditarDocentes ? appData.saveDocenteCedula : null}
-              modoConsulta={modoConsulta}
-              lapso={lapso}
-            />
-          )}
-          {view === "materias" && (
-            <MateriasView
-              byMateria={appData.byMateria} initialSel={materiaNav}
-              onConsumeNav={() => setMateriaNav(null)}
-              getMateriaName={appData.getMateriaName}
-              onSaveMateriaName={permisos.puedeEditarMaterias ? appData.saveMateriaName : null}
-              data={appData.data} getDocName={appData.getDocName}
-              modoConsulta={modoConsulta}
-              lapso={lapso}
-            />
-          )}
-          {view === "asistencias" && (
-            <AsistenciasView
-              data={appData.data} getDocName={appData.getDocName}
-              getMateriaName={appData.getMateriaName} lapso={lapso}
-            />
-          )}
-          {view === "historial" && (
-            <Suspense fallback={
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                height:240, color:"var(--color-text-tertiary)", fontSize:13, gap:8 }}>
-                <i className="ti ti-loader-2" style={{ fontSize:20,
-                  animation:"spin 1s linear infinite" }} aria-hidden="true" />
-                Cargando historial…
-              </div>
-            }>
-              <HistorialView
-                lapsoActivo={lapso}
-                onCambiarLapso={handleCambiarLapso}
-                showToast={appData.showToast}
-                openConfirm={appData.openConfirm}
-                closeConfirm={appData.closeConfirm}
-                user={user}
-                modoConsulta={!permisos.puedeGestionarTrimestres}
-              />
-            </Suspense>
-          )}
-          {view === "logs" && permisos.puedeVerLogs && (
-            <Suspense fallback={
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                height:240, color:"var(--color-text-tertiary)", fontSize:13, gap:8 }}>
-                <i className="ti ti-loader-2" style={{ fontSize:20,
-                  animation:"spin 1s linear infinite" }} aria-hidden="true" />
-                Cargando registros…
-              </div>
-            }>
-              <LogsView permisos={permisos} />
-            </Suspense>
-          )}
-          {view === "usuarios" && (permisos.puedeGestionarUsuarios || permisos.puedeGestionarRoles) && (
-            <Suspense fallback={
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                height:240, color:"var(--color-text-tertiary)", fontSize:13, gap:8 }}>
-                <i className="ti ti-loader-2" style={{ fontSize:20,
-                  animation:"spin 1s linear infinite" }} aria-hidden="true" />
-                Cargando usuarios…
-              </div>
-            }>
-              <UsuariosView
-                permisos={permisos}
-                programas={appData.data?.programas || []}
-                logAudit={logAudit}
-                showToast={appData.showToast}
-              />
-            </Suspense>
-          )}
-        </main>
-      </div>
-    </div>
+    <HorariosLayout
+      // Navegación
+      view={view} setView={setView}
+      docenteNav={docenteNav} setDocenteNav={setDocenteNav}
+      materiaNav={materiaNav} setMateriaNav={setMateriaNav}
+      horariosTab={horariosTab} setHorariosTab={setHorariosTab}
+      lapso={lapso}
+      modoConsulta={modoConsulta}
+      handleCambiarLapso={handleCambiarLapso}
+      // Sidebar UI
+      hovered={hovered} setHovered={setHovered}
+      pinned={pinned} togglePin={togglePin}
+      mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}
+      adminOpen={adminOpen} setAdminOpen={setAdminOpen}
+      userMenuOpen={userMenuOpen} setUserMenuOpen={setUserMenuOpen}
+      cambiarPwdOpen={cambiarPwdOpen} setCambiarPwdOpen={setCambiarPwdOpen}
+      fileRef={fileRef} backupRef={backupRef}
+      // Datos y auth
+      appData={appDataAuditada}
+      horariosFilters={horariosFilters}
+      permisos={permisos}
+      profile={profile}
+      user={user}
+      handleLogout={handleLogout}
+      handleFileUploadAuditado={handleFileUploadAuditado}
+      // Módulos
+      tieneHorarios={tieneHorarios}
+      tieneQR={tieneQR}
+      onCambiarModulo={() => setModuloActivo(null)}
+    />
   );
 }
