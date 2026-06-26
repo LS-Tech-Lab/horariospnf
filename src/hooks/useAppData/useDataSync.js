@@ -39,13 +39,20 @@ export default function useDataSync({
   // "sin lapso" y futuros lapsos: `horarios_nolap` vs `horarios_2025-1`.
   const cacheKey = lapso ? `${CACHE_KEYS.horarios}_${lapso}` : `${CACHE_KEYS.horarios}_nolap`;
 
-  const fetchHorarios = useCallback(async (programa) => {
+  // M-3: la firma incluye `lapsoParam` explícito para que los llamadores
+  // externos (useUpload, handlers de lapso) puedan pasar el valor fresco
+  // sin depender del closure, evitando stale references al memoizar.
+  const fetchHorarios = useCallback(async (programa, lapsoParam = lapso) => {
     const cachedHorarios = cargarDeCache(cacheKey, userId);
     if (cachedHorarios?.length > 0) {
       setData(cachedHorarios);
       setLoading(false);
       setIsSyncing(true);
     } else {
+      // A-5: limpiar data inmediatamente al iniciar fetch sin caché para
+      // evitar que ResumenView muestre contadores del programa anterior
+      // durante la ventana de carga del nuevo programa.
+      setData([]);
       setLoading(true);
     }
 
@@ -62,7 +69,7 @@ export default function useDataSync({
           .order("id", { ascending: true })
           .limit(PAGE_SIZE);
 
-        if (lapso)                query = query.eq("lapso",    lapso);
+        if (lapsoParam)           query = query.eq("lapso",    lapsoParam);
         if (programa !== "todos") query = query.eq("programa", programa);
 
         const { data: pagina, error } = await query;
@@ -100,7 +107,7 @@ export default function useDataSync({
       }
 
       setData(todasLasFilas);
-      guardarEnCache(cacheKey, todasLasFilas, userId);
+      guardarEnCache(cacheKey, todasLasFilas, userId);  // cacheKey ya usa lapso del closure; lapsoParam es el mismo valor en uso normal
       localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
       setLastSync(obtenerUltimaSincronizacion());
     } catch (err) {
