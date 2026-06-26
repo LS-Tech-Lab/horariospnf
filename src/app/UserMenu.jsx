@@ -13,6 +13,7 @@ export default function UserMenu({
   onClose,
   onCambiarPassword,
   onLogout,
+  sessionStart,       // Date | null — expuesto por useAuth
   // Solo horarios:
   tieneHorarios,
   tieneQR,
@@ -20,6 +21,15 @@ export default function UserMenu({
   // Solo asistencias: no tiene opciones extra actualmente
   variant = "horarios",
 }) {
+  // Formatear tiempo transcurrido desde el login
+  const tiempoSesion = (() => {
+    if (!sessionStart) return null;
+    const mins = Math.floor((Date.now() - sessionStart.getTime()) / 60000);
+    if (mins < 1)  return "Ahora mismo";
+    if (mins < 60) return `${mins} min`;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return m > 0 ? `${h}h ${m}min` : `${h}h`;
+  })();
   return (
     <div style={{ marginLeft: "auto", position: "relative" }}>
       <button
@@ -81,6 +91,12 @@ export default function UserMenu({
               <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>
                 {profile.email}
               </div>
+              {tiempoSesion && (
+                <div style={{ fontSize: 10, color: "var(--color-text-tertiary)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                  <i className="ti ti-clock" style={{ fontSize: 11 }} aria-hidden="true" />
+                  Sesión activa: {tiempoSesion}
+                </div>
+              )}
             </div>
 
             {/* Cambiar módulo — solo horarios, solo si tiene ambos */}
