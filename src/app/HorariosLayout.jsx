@@ -440,6 +440,7 @@ export default function HorariosLayout({
               conflicts={appData.conflicts}
               getDocName={appData.getDocName} getMateriaName={appData.getMateriaName}
               onGoToConflictos={handleGoToConflictos}
+              isSyncing={appData.isSyncing}
             />
           )}
           {view === "horarios" && (
