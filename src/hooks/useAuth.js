@@ -144,11 +144,15 @@ export default function useAuth() {
         // garantizaba esto — solo añadía un delay arbitrario.
         if (event === "SIGNED_IN" && authUser) {
           cargarProfile(authUser).then(() => {
-            supabase.rpc("log_session_event", {
-              p_evento:     "login",
-              p_user_agent: navigator.userAgent,
-              p_detalles:   {},
-            }).catch(() => { /* no-op: los logs no deben bloquear */ });
+            (async () => {
+              try {
+                await supabase.rpc("log_session_event", {
+                  p_evento:     "login",
+                  p_user_agent: navigator.userAgent,
+                  p_detalles:   {},
+                });
+              } catch (_) { /* no-op: los logs no deben bloquear */ }
+            })();
           });
         } else {
           cargarProfile(authUser);
