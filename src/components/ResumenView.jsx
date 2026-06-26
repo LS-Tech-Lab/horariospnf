@@ -4,7 +4,7 @@ import { getTurnoDeRegistro } from '../utils/turno';
 import StatCard from './StatCard';
 import Avatar from './Avatar';
 
-export default function ResumenView({ stats, data, byDocente, byMateria, conflicts = [], getDocName, getMateriaName, onGoToConflictos }) {
+export default function ResumenView({ stats, data, byDocente, byMateria, conflicts = [], getDocName, getMateriaName, onGoToConflictos, isSyncing }) {
   const [tab, setTab] = useState('general');
 
   const metricas = useMemo(() => {
@@ -46,6 +46,13 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
 
   return (
     <div style={{ padding: 20 }}>
+      {/* A-5: banner mientras data está vacía y se está cargando el programa nuevo */}
+      {isSyncing && (!data || data.length === 0) && (
+        <div style={{ background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "#0369A1", fontWeight: 500 }}>
+          <i className="ti ti-refresh" aria-hidden="true" style={{ fontSize: 15, animation: "spin 1s linear infinite" }} />
+          Cargando datos del programa…
+        </div>
+      )}
       {/* Header con tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 9 }}>
