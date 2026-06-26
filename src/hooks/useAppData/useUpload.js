@@ -350,9 +350,27 @@ export default function useUpload({
             showToast(`Error al guardar: ${insertError.message}`, "error");
             return;
           }
-          if (timedOut) return;
+
+          // A-2: si el insert terminó después del timeout la UI ya mostró
+          // "tiempo agotado", pero los datos SÍ quedaron en BD. Refrescar
+          // silenciosamente para que la vista refleje el estado real.
+          if (timedOut) {
+            await fetchHorarios(selectedPrograma);
+            await fetchProgramas(lapso);
+            setConflictsRefreshKey(k => k + 1);
+            showToast(`Carga completada (${newRows.length} clases). La operación tardó más de lo esperado.`, "warning");
+            return;
+          }
 
           showToast(`${newRows.length} clases cargadas.`, "success");
+
+          // A-1: registrar la carga masiva en audit_logs con detalle de filas
+          await logAudit?.("upload_horarios", {
+            lapso,
+            programa:   selectedPrograma,
+            newRows:    newRows.length,
+            duplicados: duplicados.length,
+          });
 
           await fetchHorarios(selectedPrograma);
           await fetchProgramas(lapso);
