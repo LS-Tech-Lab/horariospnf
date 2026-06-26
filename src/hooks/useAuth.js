@@ -18,7 +18,7 @@
  * permisos del rol que tenga el usuario logueado.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { limpiarCache } from "../utils/cache";
 
@@ -63,11 +63,46 @@ function calcularPermisos(profile) {
   };
 }
 
+// ── Timeout de inactividad (Mejora 1 — auditoría Junio 2026) ─────────
+// Cierra sesión automáticamente tras N ms sin actividad del usuario.
+// Se cancela y reinicia con cada evento de mouse, teclado o touch.
+// onTimeout debe ser estable (useCallback) para evitar re-registros.
+const IDLE_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+
+function useIdleTimeout(timeoutMs, onTimeout, enabled) {
+  const timerRef = useRef(null);
+  const onTimeoutRef = useRef(onTimeout);
+  onTimeoutRef.current = onTimeout; // siempre la versión más reciente sin re-registrar
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const reset = () => {
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => onTimeoutRef.current(), timeoutMs);
+    };
+
+    IDLE_EVENTS.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset(); // arrancar el timer inmediatamente al montar
+
+    return () => {
+      clearTimeout(timerRef.current);
+      IDLE_EVENTS.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [timeoutMs, enabled]);
+}
+
+// Tiempos de inactividad por rol (en ms). Cualquier rol no listado usa IDLE_DEFAULT.
+const IDLE_ADMIN_MS   = 30 * 60 * 1000; // 30 min — roles administrativos
+const IDLE_DEFAULT_MS = 60 * 60 * 1000; // 60 min — docentes y otros
+const ROLES_ADMIN = ["admin", "coordinador", "coord"]; // ajustar según tabla roles
+
 // ── Hook principal ──────────────────────────────────────────────────
 export default function useAuth() {
-  const [user,    setUser]    = useState(undefined); // undefined = cargando
-  const [profile, setProfile] = useState(null);
+  const [user,         setUser]         = useState(undefined); // undefined = cargando
+  const [profile,      setProfile]      = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true); // true hasta que getSession resuelva
+  const [sessionStart, setSessionStart] = useState(null);    // timestamp del login actual
 
   // Cargar perfil extendido desde user_profiles, con el rol embebido
   // (label/emoji/color/permisos/restringe_programa) para no necesitar
@@ -143,6 +178,7 @@ export default function useAuth() {
         // error PGRST201 del fix #3). El setTimeout anterior no
         // garantizaba esto — solo añadía un delay arbitrario.
         if (event === "SIGNED_IN" && authUser) {
+          setSessionStart(new Date());
           cargarProfile(authUser).then(() => {
             (async () => {
               try {
@@ -154,6 +190,36 @@ export default function useAuth() {
               } catch (_) { /* no-op: los logs no deben bloquear */ }
             })();
           });
+        } else if (event === "TOKEN_REFRESHED" && authUser) {
+          // Mejora 2 (auditoría Junio 2026): registrar primera renovación del día.
+          // No recargamos profile — el token se renovó, el usuario no cambió.
+          // Solo logueamos si es la primera renovación de la fecha actual para
+          // no saturar session_logs con una entrada por hora.
+          (async () => {
+            try {
+              const hoy = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+              const lastKey = `sigma_token_refresh_${authUser.id}_${hoy}`;
+              if (!sessionStorage.getItem(lastKey)) {
+                sessionStorage.setItem(lastKey, "1");
+                await supabase.rpc("log_session_event", {
+                  p_evento:   "token_renovado",
+                  p_detalles: { fecha: hoy },
+                });
+              }
+            } catch { /* no-op */ }
+          })();
+        } else if (event === "USER_UPDATED" && authUser) {
+          // Mejora 3 (auditoría Junio 2026): registrar cambios de credenciales.
+          // Disparado por supabase.auth.updateUser() en ModalCambiarPassword.
+          (async () => {
+            try {
+              await supabase.rpc("log_session_event", {
+                p_evento:   "user_actualizado",
+                p_detalles: { email: authUser.email },
+              });
+            } catch { /* no-op */ }
+          })();
+          cargarProfile(authUser); // recargar por si cambió email
         } else {
           cargarProfile(authUser);
         }
@@ -182,6 +248,7 @@ export default function useAuth() {
     // Limpiar caché ANTES de signOut: si signOut falla, el caché
     // ya fue borrado y el próximo usuario no verá datos de este.
     limpiarCache(user?.id);
+    setSessionStart(null);
     try {
       await supabase.rpc("log_session_event", { p_evento: "logout", p_detalles: {} });
     } catch { /* no-op */ }
@@ -218,11 +285,18 @@ export default function useAuth() {
 
   const permisos = calcularPermisos(profile);
 
+  // Timeout de inactividad — activo solo cuando hay sesión válida
+  const idleMs = profile?.rol_info?.nombre && ROLES_ADMIN.includes(profile.rol_info.nombre)
+    ? IDLE_ADMIN_MS
+    : IDLE_DEFAULT_MS;
+  useIdleTimeout(idleMs, handleLogout, !!user && !loadingProfile);
+
   return {
     user,
     profile,
     permisos,
     loadingProfile,
+    sessionStart,
     handleLogout,
     logAudit,
     recargarProfile: () => cargarProfile(user),
