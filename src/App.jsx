@@ -163,7 +163,10 @@ export default function App() {
   const handleCambiarLapso = useCallback((nuevo) => {
     setLapso(nuevo);
     setView("resumen");
-  }, []);
+    // A-4: resetear filtros de horarios al cambiar lapso para que no quede
+    // una sección/trayecto del lapso anterior que no exista en el nuevo.
+    horariosFilters.resetFilters();
+  }, [horariosFilters.resetFilters]);
 
   const handleFileUploadAuditado = async (file) => {
     await appData.handleFileUpload(file);
