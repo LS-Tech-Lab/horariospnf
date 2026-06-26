@@ -13,6 +13,7 @@
 import { useState, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { parseExcelFile, parseHojaDocentes, parseHojaMalla } from "../../utils/excelParser";
+import { tokensMatch } from "../../utils/parsing";
 import { supabase } from "../../lib/supabase";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -171,7 +172,6 @@ export default function useUpload({
         newRows,
         duplicados,
         advertencias:     warnings,
-        warnings:         [],
         docentesCatalogo,
         mallaCatalogo,
         fileName:         file.name,
@@ -324,6 +324,24 @@ export default function useUpload({
             const ced = cedulaPorNombreFila[nombre];
             if (ced && idPorCedula[ced]) {
               docenteIdMap[nombre] = idPorCedula[ced];
+            }
+          });
+
+          // Paso 3 — fuzzy (M-2): para nombres sin match exacto ni cédula,
+          // buscar el registro de BD más cercano por similitud de tokens.
+          // Cubre variaciones tipográficas menores (tildes, un carácter cambiado).
+          // Solo aplica si el nombre todavía no tiene ID resuelto.
+          const todosDocentesDB = [
+            ...(docsRespNombre.data || []),
+            ...(docsRespCedula.data || []),
+          ];
+          const dbNombresUnicos = [...new Map(todosDocentesDB.map(d => [d.nombre_raw, d])).values()];
+
+          nombresDocentes.forEach(nombre => {
+            if (docenteIdMap[nombre]) return; // ya resuelto en paso 1 o 2
+            const match = dbNombresUnicos.find(d => tokensMatch(nombre, d.nombre_raw, 1));
+            if (match) {
+              docenteIdMap[nombre] = match.id;
             }
           });
 
