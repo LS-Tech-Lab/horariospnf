@@ -1,395 +1,185 @@
-// =====================================================================
-// excelParser.js
-//
-// Formato v1 (original): hojas de horario con metadatos por hoja.
-// Formato v2 (nuevo unificado): agrega hojas CONFIGURACIÓN, DOCENTES,
-//   MALLA, INSTRUCCIONES, LISTA y plantillas BASE DIURNO / BASE VESP.
-//
-// Cambios v2:
-//   1. HOJAS_IGNORADAS_SILENCIO — hojas conocidas del nuevo formato que
-//      no son de horario; se saltan sin emitir advertencia al usuario.
-//   2. parseHojaConfiguracion — lee la hoja CONFIGURACIÓN centralizada
-//      y devuelve { sede, programa, trimestre, año } como fallback para
-//      todas las hojas de horario que no repitan esos datos.
-//   3. META_CAMPOS — agrega alias en mayúsculas para las etiquetas que
-//      el nuevo formato escribe en caps (SEDE, SECCIÓN, TURNO, etc.).
-//   4. parseHojaDocentes — lee el catálogo DOCENTES estructurado y
-//      devuelve un array listo para upsert en la tabla `docentes`.
-//   5. parseHojaMalla — lee el catálogo MALLA curricular y devuelve
-//      un array listo para upsert en la tabla `materias`.
-//
-// Todo lo anterior es retrocompatible: los workbooks v1 sin esas hojas
-// siguen funcionando exactamente igual.
-// =====================================================================
+// Carga y sincronización de horarios: fetch paginado contra Supabase con
+// caché local, estado de conexión (online/offline), suscripción realtime,
+// y los datos derivados (agrupación por docente/materia, trayectos, stats).
+// Extraído de useAppData.js.
 
-import * as XLSX from "xlsx";
-import { getTurnoByCodigo, normalizeTurno } from "./turno";
-import { normalizarPrograma, parseClase } from "./parsing";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { ALL_TRAYECTOS } from "../../constants";
+import { parseClase } from "../../utils/parsing";
+import { supabase } from "../../lib/supabase";
+import { suscribirCambiosRemotos } from "../../lib/realtime";
+import {
+  guardarEnCache, cargarDeCache,
+  CACHE_KEYS, limpiarCache, obtenerUltimaSincronizacion, getCacheKey,
+} from "../../utils/cache";
 
-export const TEMPLATE_VERSION = 2;
-
-const DIAS_VALIDOS = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"];
-
-// ── Hojas que se saltan silenciosamente (sin añadir a rechazadas) ────────────
-// Incluye hojas fijas del nuevo formato y el prefijo "BASE " para plantillas.
-const HOJAS_IGNORADAS_SILENCIO = new Set([
-  "LISTA",
-  "INSTRUCCIONES",
-  "CONFIGURACIÓN",
-  "CONFIGURACION",
-  "DOCENTES",
-  "MALLA",
-]);
-
-function esHojaIgnorada(nombre) {
-  const upper = nombre.toUpperCase().trim();
-  if (HOJAS_IGNORADAS_SILENCIO.has(upper)) return true;
-  if (upper.startsWith("BASE ") || upper.startsWith("BASE_")) return true;
-  return false;
+// Invalida solo las claves de nombres (docentes/materias) para un usuario dado,
+// sin afectar el caché de horarios. Usado por los listeners realtime de #7.
+function limpiarCacheNombres(userId) {
+  const keys = [CACHE_KEYS.docentes, CACHE_KEYS.docenteCedulas, CACHE_KEYS.materias];
+  keys.forEach(k => localStorage.removeItem(getCacheKey(k, userId)));
 }
 
-// ── Campos de metadatos con alias v1 y v2 ───────────────────────────────────
-const META_CAMPOS = [
-  { campo: "programa",  etiquetas: ["PROGRAMA"] },
-  { campo: "trayecto",  etiquetas: ["TRAYECTO"] },
-  // v1: "Sede:" — v2: "SEDE"
-  { campo: "sede",      etiquetas: ["Sede:", "SEDE"] },
-  { campo: "aula",      etiquetas: ["AULA"] },
-  // v1: "Sección" — v2: "SECCIÓN" / sin tilde
-  { campo: "seccion",   etiquetas: ["Sección", "SECCIÓN", "SECCION"] },
-  // v1: "Turno" — v2: "TURNO"
-  { campo: "turno",     etiquetas: ["Turno", "TURNO"] },
-];
+const PAGE_SIZE = 500;
 
-// ── Helpers internos ─────────────────────────────────────────────────────────
+export default function useDataSync({
+  lapso, selectedPrograma, showToast,
+  fetchDocenteNames, fetchMateriaNames, fetchProgramas,
+  setConflictsRefreshKey,
+  userId,
+}) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [error, setError] = useState(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [lastSync, setLastSync] = useState(obtenerUltimaSincronizacion());
 
-function leerArchivo(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = (e) => resolve(e.target.result);
-    reader.onerror = ()  => reject(new Error("No se pudo leer el archivo."));
-    reader.readAsBinaryString(file);
-  });
-}
+  // Fix #12: usar siempre una clave explícita para evitar colisiones entre
+  // "sin lapso" y futuros lapsos: `horarios_nolap` vs `horarios_2025-1`.
+  const cacheKey = lapso ? `${CACHE_KEYS.horarios}_${lapso}` : `${CACHE_KEYS.horarios}_nolap`;
 
-function construirMergeMap(worksheet) {
-  const merges   = worksheet["!merges"] || [];
-  const mergeMap = {};
-  merges.forEach((m) => {
-    for (let r = m.s.r; r <= m.e.r; r++) {
-      for (let c = m.s.c; c <= m.e.c; c++) {
-        mergeMap[`${r}-${c}`] = { sr: m.s.r, er: m.e.r, sc: m.s.c, ec: m.e.c };
-      }
-    }
-  });
-  return mergeMap;
-}
-
-function detectarEncabezado(json) {
-  for (let i = 0; i < json.length; i++) {
-    const row = json[i];
-    if (!row) continue;
-    const horaIdx = row.findIndex(
-      (cell) => cell?.toString().trim().toUpperCase() === "HORA"
-    );
-    if (horaIdx === -1) continue;
-
-    const diaCols = {};
-    DIAS_VALIDOS.forEach((dia) => { diaCols[dia] = -1; });
-
-    for (let j = 0; j < row.length; j++) {
-      const cell = row[j]?.toString().toUpperCase().trim();
-      if (DIAS_VALIDOS.includes(cell)) diaCols[cell] = j;
+  const fetchHorarios = useCallback(async (programa) => {
+    const cachedHorarios = cargarDeCache(cacheKey, userId);
+    if (cachedHorarios?.length > 0) {
+      setData(cachedHorarios);
+      setLoading(false);
+      setIsSyncing(true);
+    } else {
+      setLoading(true);
     }
 
-    const diasEncontrados = DIAS_VALIDOS.filter((d) => diaCols[d] !== -1);
-    if (diasEncontrados.length === 0) continue;
+    try {
+      const todasLasFilas = [];
+      let cursor = 0;
+      let hayMas = true;
 
-    return { headerRowIdx: i, horaColIdx: horaIdx, diaCols };
-  }
-  return null;
-}
+      while (hayMas) {
+        let query = supabase
+          .from("horarios")
+          .select("*")
+          .gt("id", cursor)
+          .order("id", { ascending: true })
+          .limit(PAGE_SIZE);
 
-function extraerMetadatos(json, headerRowIdx) {
-  const meta = { programa: "", trayecto: "", sede: "", aula: "", seccion: "", turno: "" };
+        if (lapso)                query = query.eq("lapso",    lapso);
+        if (programa !== "todos") query = query.eq("programa", programa);
 
-  for (let i = 0; i < headerRowIdx; i++) {
-    const row = json[i];
-    if (!row) continue;
-    for (let j = 0; j < row.length; j++) {
-      const cv = row[j]?.toString().trim();
-      if (!cv) continue;
-      for (const { campo, etiquetas } of META_CAMPOS) {
-        if (meta[campo]) continue;
-        if (etiquetas.includes(cv)) {
-          meta[campo] =
-            row[j + 1]?.toString().trim() ||
-            row[j + 2]?.toString().trim() ||
-            "";
+        const { data: pagina, error } = await query;
+
+        if (error) {
+          console.error(error);
+          if (cachedHorarios?.length > 0) {
+            setData(cachedHorarios);
+            showToast("⚠️ Error de conexión. Usando caché.", "warning");
+          } else {
+            setError(error.message);
+          }
+          setLoading(false);
+          setIsSyncing(false);
+          return;
+        }
+
+        const filas = pagina || [];
+        todasLasFilas.push(...filas);
+
+        if (filas.length < PAGE_SIZE) {
+          hayMas = false;
+        } else {
+          cursor = filas[filas.length - 1].id;
+          setData([...todasLasFilas]);
         }
       }
-    }
-  }
-  return meta;
-}
 
-function calcularHora(json, rowIdx, horaColIdx, merge) {
-  if (!merge) {
-    return json[rowIdx][horaColIdx]?.toString().trim() || "";
-  }
-  const primeraFila = json[merge.sr];
-  const ultimaFila  = json[merge.er];
-  const hi = primeraFila[horaColIdx]?.toString().trim().split(/[-–]/)[0]?.trim();
-  const partesFinal = ultimaFila[horaColIdx]?.toString().trim().split(/[-–]/);
-  const hf = partesFinal[1]?.trim() || partesFinal[0]?.trim();
-  return hf ? `${hi} - ${hf}` : hi || "";
-}
-
-// ── Hoja CONFIGURACIÓN — datos globales del archivo (nuevo formato) ──────────
-// Devuelve { sede, programa, trimestre, año } para usar como fallback
-// en hojas de horario que no repitan esos campos individualmente.
-// Si la hoja no existe o no tiene los campos, devuelve un objeto vacío.
-export function parseHojaConfiguracion(workbook) {
-  const config = { sede: "", programa: "", trimestre: "", año: "" };
-
-  // Busca la hoja con y sin tilde para ser robusto
-  const ws =
-    workbook.Sheets["CONFIGURACIÓN"] ||
-    workbook.Sheets["CONFIGURACION"] ||
-    null;
-  if (!ws) return config;
-
-  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-
-  const CAMPOS_CONFIG = [
-    { campo: "sede",       etiquetas: ["Sede:", "SEDE"] },
-    { campo: "programa",   etiquetas: ["Programa:", "PROGRAMA"] },
-    { campo: "trimestre",  etiquetas: ["Trimestre académico:", "TRIMESTRE", "Trimestre:"] },
-    { campo: "año",        etiquetas: ["Año:", "AÑO", "Año"] },
-  ];
-
-  for (const row of json) {
-    if (!row) continue;
-    for (let j = 0; j < row.length; j++) {
-      const cv = row[j]?.toString().trim();
-      if (!cv) continue;
-      for (const { campo, etiquetas } of CAMPOS_CONFIG) {
-        if (config[campo]) continue;
-        if (etiquetas.includes(cv)) {
-          config[campo] =
-            row[j + 1]?.toString().trim() ||
-            row[j + 2]?.toString().trim() ||
-            "";
-        }
+      setData(todasLasFilas);
+      guardarEnCache(cacheKey, todasLasFilas, userId);
+      localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
+      setLastSync(obtenerUltimaSincronizacion());
+    } catch (err) {
+      console.error(err);
+      if (cachedHorarios?.length > 0) {
+        setData(cachedHorarios);
+        showToast("⚠️ Modo offline: usando caché.", "warning");
       }
     }
-  }
-  return config;
-}
 
-// ── Hoja DOCENTES — catálogo estructurado (nuevo formato) ───────────────────
-// Columnas esperadas: ID | Apellidos y Nombres | Cédula | Teléfono | Email | Observaciones
-// Devuelve array de objetos listos para upsert en tabla `docentes`.
-// Si la hoja no existe, devuelve [].
-export function parseHojaDocentes(workbook) {
-  const ws = workbook.Sheets["DOCENTES"];
-  if (!ws) return [];
+    setLoading(false);
+    setIsSyncing(false);
+  }, [lapso, cacheKey, showToast, userId]);
 
-  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  useEffect(() => { fetchProgramas(lapso); fetchDocenteNames(); fetchMateriaNames(); }, [lapso, fetchProgramas, fetchDocenteNames, fetchMateriaNames]);
+  useEffect(() => { fetchHorarios(selectedPrograma); }, [selectedPrograma, lapso, fetchHorarios]);
 
-  // Buscar la fila de encabezado que contenga "Apellidos y Nombres"
-  let headerIdx = -1;
-  let colNombre = -1, colCedula = -1, colTelefono = -1, colEmail = -1, colObs = -1;
+  useEffect(() => {
+    const handleOnline = () => { setIsOffline(false); showToast("✅ Conexión restablecida.", "success"); fetchHorarios(selectedPrograma); fetchDocenteNames(); fetchMateriaNames(); };
+    const handleOffline = () => { setIsOffline(true); showToast("⚠️ Sin conexión. Usando caché.", "warning"); };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => { window.removeEventListener("online", handleOnline); window.removeEventListener("offline", handleOffline); };
+  }, [selectedPrograma, fetchHorarios, showToast]);
 
-  for (let i = 0; i < json.length; i++) {
-    const row = json[i];
-    const idx = row.findIndex(
-      (c) => c?.toString().trim().toLowerCase().includes("apellidos")
-    );
-    if (idx !== -1) {
-      headerIdx  = i;
-      colNombre  = idx;
-      // Mapear el resto de columnas por nombre
-      row.forEach((c, j) => {
-        const label = c?.toString().trim().toLowerCase();
-        if (label.includes("cédula") || label === "cedula")      colCedula   = j;
-        if (label.includes("teléfono") || label === "telefono")  colTelefono = j;
-        if (label.includes("email") || label.includes("correo")) colEmail    = j;
-        if (label.includes("observ"))                            colObs      = j;
+  // Suscripción realtime: verificar sesión activa con getSession() en lugar de
+  // mantener un useState(user) propio que duplicaba el listener de useAuth.
+  useEffect(() => {
+    let cancelar = () => {};
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      cancelar = suscribirCambiosRemotos({
+        lapso,
+        onHorariosChange: () => {
+          limpiarCache(userId);
+          fetchHorarios(selectedPrograma);
+          setConflictsRefreshKey(k => k + 1);
+          showToast("🔄 Horarios actualizados por otro usuario.", "info");
+        },
+        onDocentesChange: () => {
+          // Fix #7: invalidar caché de docentes antes de re-fetch para que
+          // el listener remoto no aplique el caché stale antes del resultado fresco.
+          limpiarCacheNombres(userId);
+          fetchDocenteNames();
+          setConflictsRefreshKey(k => k + 1);
+        },
+        onMateriasChange: () => {
+          limpiarCacheNombres(userId);
+          fetchMateriaNames();
+        },
       });
-      break;
-    }
-  }
-
-  if (headerIdx === -1 || colNombre === -1) return [];
-
-  const docentes = [];
-  for (let i = headerIdx + 1; i < json.length; i++) {
-    const row = json[i];
-    if (!row) continue;
-    const nombre = row[colNombre]?.toString().trim();
-    if (!nombre) continue;
-
-    docentes.push({
-      nombre_raw:     nombre,
-      nombre_display: nombre,
-      cedula:         colCedula   >= 0 ? row[colCedula]?.toString().trim()   || null : null,
-      telefono:       colTelefono >= 0 ? row[colTelefono]?.toString().trim() || null : null,
-      email:          colEmail    >= 0 ? row[colEmail]?.toString().trim()    || null : null,
-      observaciones:  colObs      >= 0 ? row[colObs]?.toString().trim()      || null : null,
     });
-  }
-  return docentes;
-}
+    return () => cancelar();
+  }, [lapso, selectedPrograma, fetchHorarios, fetchDocenteNames, fetchMateriaNames, showToast]);
 
-// ── Hoja MALLA — catálogo curricular (nuevo formato) ────────────────────────
-// Columnas esperadas: ID | Unidad Curricular | Trayecto | Código UC |
-//                    Horas Semanales | Unidades de Crédito | ...
-// Devuelve array de objetos listos para upsert en tabla `materias`.
-// Si la hoja no existe, devuelve [].
-export function parseHojaMalla(workbook) {
-  const ws = workbook.Sheets["MALLA"];
-  if (!ws) return [];
+  const byDocente = useMemo(() => {
+    const m = {};
+    if (!data) return m;
+    data.forEach(d => { const { docente } = parseClase(d.clase); if (docente) { if (!m[docente]) m[docente] = []; m[docente].push(d); } });
+    return m;
+  }, [data]);
 
-  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const byMateria = useMemo(() => {
+    const m = {};
+    if (!data) return m;
+    data.forEach(d => { const { materia } = parseClase(d.clase); if (materia) { if (!m[materia]) m[materia] = []; m[materia].push(d); } });
+    return m;
+  }, [data]);
 
-  // Buscar fila de encabezado con "Unidad Curricular"
-  let headerIdx = -1;
-  let colNombre = -1, colTrayecto = -1, colCodigo = -1, colHoras = -1, colCreditos = -1;
+  const allTrayectos = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return [...new Set(data.map(d => d.trayecto))].sort((a, b) => ALL_TRAYECTOS.indexOf(a) - ALL_TRAYECTOS.indexOf(b));
+  }, [data]);
 
-  for (let i = 0; i < json.length; i++) {
-    const row = json[i];
-    const idx = row.findIndex(
-      (c) => c?.toString().trim().toLowerCase().includes("unidad curricular")
-    );
-    if (idx !== -1) {
-      headerIdx  = i;
-      colNombre  = idx;
-      row.forEach((c, j) => {
-        const label = c?.toString().trim().toLowerCase();
-        if (label === "trayecto")                                      colTrayecto = j;
-        if (label.includes("código uc") || label.includes("codigo"))  colCodigo   = j;
-        if (label.includes("horas"))                                   colHoras    = j;
-        if (label.includes("crédito") || label.includes("credito"))   colCreditos = j;
-      });
-      break;
-    }
-  }
+  const stats = useMemo(() => {
+    if (!data) return { total: 0, secciones: 0, docentes: 0, materias: 0 };
+    return {
+      total: data.length,
+      secciones: new Set(data.map(d => d.sheet?.trim())).size,
+      docentes: Object.keys(byDocente).length,
+      materias: Object.keys(byMateria).length,
+    };
+  }, [data, byDocente, byMateria]);
 
-  if (headerIdx === -1 || colNombre === -1) return [];
-
-  const materias = [];
-  for (let i = headerIdx + 1; i < json.length; i++) {
-    const row = json[i];
-    if (!row) continue;
-    const nombre = row[colNombre]?.toString().trim();
-    if (!nombre) continue;
-
-    materias.push({
-      nombre_raw:        nombre,
-      nombre_display:    nombre,
-      trayecto:          colTrayecto >= 0 ? row[colTrayecto]?.toString().trim()  || null : null,
-      codigo_uc:         colCodigo   >= 0 ? row[colCodigo]?.toString().trim()    || null : null,
-      horas_semanales:   colHoras    >= 0 ? row[colHoras]?.toString().trim()     || null : null,
-      unidades_credito:  colCreditos >= 0 ? row[colCreditos]?.toString().trim()  || null : null,
-    });
-  }
-  return materias;
-}
-
-// ── Función principal ────────────────────────────────────────────────────────
-export async function parseExcelFile(file, { lapso = null, selectedPrograma = "todos", catalogoDocentes = [] } = {}) {
-  const binaryStr = await leerArchivo(file);
-  const workbook  = XLSX.read(binaryStr, { type: "binary" });
-
-  const rows         = [];
-  const rechazadas   = [];
-  const advertencias = [];
-
-  // Leer configuración global centralizada (nuevo formato).
-  // En workbooks v1 sin hoja CONFIGURACIÓN esto devuelve campos vacíos
-  // y el fallback no altera el comportamiento original.
-  const configGlobal = parseHojaConfiguracion(workbook);
-
-  for (const sheetName of workbook.SheetNames) {
-    // Saltar silenciosamente hojas conocidas que no son de horario
-    if (esHojaIgnorada(sheetName)) continue;
-
-    const worksheet = workbook.Sheets[sheetName];
-    const json      = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-
-    const encabezado = detectarEncabezado(json);
-    if (!encabezado) {
-      rechazadas.push({ hoja: sheetName, razon: "No se encontró columna HORA con al menos un día." });
-      continue;
-    }
-    const { headerRowIdx, horaColIdx, diaCols } = encabezado;
-
-    const meta     = extraerMetadatos(json, headerRowIdx);
-    const mergeMap = construirMergeMap(worksheet);
-
-    // Fallback: si la hoja no repite los campos, usa los de CONFIGURACIÓN
-    const sedeEfectiva     = meta.sede     || configGlobal.sede     || "";
-    const programaMeta     = meta.programa || configGlobal.programa || "";
-
-    const programaFinal =
-      selectedPrograma !== "todos"
-        ? selectedPrograma
-        : programaMeta
-          ? normalizarPrograma(programaMeta) || programaMeta
-          : "Sin programa";
-
-    const turnoFinal =
-      getTurnoByCodigo(sheetName) ||
-      normalizeTurno(meta.turno)  ||
-      meta.turno;
-
-    const processedMerges = new Set();
-
-    for (let i = headerRowIdx + 1; i < json.length; i++) {
-      const row = json[i];
-      if (!row) continue;
-
-      for (const [dia, colIdx] of Object.entries(diaCols)) {
-        if (colIdx === -1) continue;
-
-        const clase = row[colIdx]?.toString().trim();
-        if (!clase) continue;
-
-        const merge = mergeMap[`${i}-${colIdx}`] || null;
-
-        if (merge && processedMerges.has(`${merge.sr}-${merge.sc}`)) continue;
-        if (merge) processedMerges.add(`${merge.sr}-${merge.sc}`);
-
-        const horaCompleta = calcularHora(json, i, horaColIdx, merge);
-        if (!horaCompleta) continue;
-
-        const { materia, docente } = parseClase(clase, catalogoDocentes);
-
-        rows.push({
-          sheet:    sheetName,
-          programa: programaFinal,
-          trayecto: meta.trayecto,
-          seccion:  meta.seccion,
-          turno:    turnoFinal,
-          sede:     sedeEfectiva,
-          aula:     meta.aula || null,
-          dia,
-          hora:     horaCompleta,
-          clase,
-          materia:  materia || null,
-          docente:  docente || null,
-          lapso:    lapso || null,
-        });
-      }
-    }
-  }
-
-  if (rechazadas.length > 0) {
-    advertencias.push(
-      `${rechazadas.length} hoja(s) no reconocida(s): ${rechazadas.map((r) => r.hoja).join(", ")}`
-    );
-  }
-
-  return { rows, rechazadas, advertencias };
+  return {
+    data, setData, loading, setLoading, isSyncing, error, setError,
+    isOffline, lastSync, fetchHorarios,
+    byDocente, byMateria, allTrayectos, stats,
+  };
 }
