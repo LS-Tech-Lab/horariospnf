@@ -10,7 +10,7 @@ function AlertaSinVincular({ cedulasPresentes, loading }) {
       const cedulas = [...cedulasPresentes];
       const { data } = await supabase
         .from("docentes")
-        .select("cedula, nombre_display")
+        .select("cedula")
         .in("cedula", cedulas);
       const vinculadas = new Set((data || []).map(d => d.cedula));
       setSinVincular(cedulas.filter(c => !vinculadas.has(c)));
