@@ -23,23 +23,22 @@ export function avisoStale(datos) {
 }
 
 // ── Normalizar cédula ────────────────────────────────────────────────────────
+// Formato canónico: solo dígitos (sin prefijo V-/E-, sin guion).
+// Esto mantiene consistencia con la tabla `docentes` donde las cédulas
+// están almacenadas como números puros (ej: "5174134").
+// El docente puede ingresar "V-5174134", "V5174134" o "5174134" — todos
+// quedan como "5174134" al registrar.
 export function normalizarCedula(raw) {
-  const limpio = raw.replace(/\s/g, "").toUpperCase();
-  if (/^[VEve]-?\d+$/.test(limpio)) {
-    return `${limpio[0]}-${limpio.replace(/[^0-9]/g, "")}`;
-  }
-  if (/^\d+$/.test(limpio)) return `V-${limpio}`;
-  return limpio;
+  return raw.replace(/[^0-9]/g, "");
 }
 
 // ── Validar formato de cédula ────────────────────────────────────────────────
 // FIX (cedula-validacion-formato): antes la cédula era texto 100% libre, sin
-// ninguna validación. Eso permitía guardar typos como "V-18341588" en vez de
-// "V-18341488" (un solo dígito transpuesto), creando una identidad "fantasma"
+// ninguna validación. Eso permitía guardar typos como "18341588" en vez de
+// "18341488" (un solo dígito transpuesto), creando una identidad "fantasma"
 // duplicada para el mismo docente — que además rompe el cruce de Ausentes,
 // porque esa cédula nueva nunca coincide con la vinculada en `docentes`.
-// Una cédula venezolana válida es V o E + guion + solo dígitos (6 a 9, para
-// cubrir cédulas antiguas cortas y futuras más largas).
+// Una cédula venezolana válida tiene entre 6 y 9 dígitos.
 export function cedulaTieneFormatoValido(normalizada) {
-  return /^[VE]-\d{6,9}$/.test(normalizada);
+  return /^\d{6,9}$/.test(normalizada);
 }
