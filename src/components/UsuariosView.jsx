@@ -197,6 +197,7 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
         if (profileError) throw new Error(profileError.message);
 
         // Reset de contraseña si se llenó el campo
+        let passwordReseteada = false;
         if (form.password.trim()) {
           if (form.password.length < 8)
             throw new Error("La nueva contraseña debe tener al menos 8 caracteres.");
@@ -218,13 +219,24 @@ function ModalUsuario({ usuario, roles, programas, onSave, onClose, showToast, l
             onSave();
             return;
           }
+          passwordReseteada = true;
+        }
+
+        // Auditoría: evento separado si hubo reset de contraseña
+        if (passwordReseteada) {
+          await logAudit?.({
+            accion:     "RESET_PASSWORD_ADMIN",
+            entidad:    "usuarios",
+            entidad_id: usuario.id,
+            resumen:    `Contraseña reseteada por admin para: ${form.email.trim()}`,
+          });
         }
 
         await logAudit?.({
           accion:     "EDITAR_USUARIO",
           entidad:    "usuarios",
           entidad_id: usuario.id,
-          resumen: `Usuario editado: ${form.email.trim()} (${form.rol}${programa ? ` - ${programa}` : ""})`,
+          resumen: `Usuario editado: ${form.email.trim()} (${form.rol}${programa ? ` - ${programa}` : ""}${passwordReseteada ? " · contraseña reseteada" : ""})`,
         });
         showToast?.(`Usuario ${form.email.trim()} actualizado.`, "success");
       }
