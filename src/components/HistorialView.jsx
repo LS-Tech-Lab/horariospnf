@@ -261,7 +261,7 @@ const tdComp = (bg, center = false) => ({ background: bg, padding: "10px 14px", 
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, openConfirm, closeConfirm, user, modoConsulta = false, logAudit = null }) {
+export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, openConfirm, closeConfirm, user, modoConsulta = false, logAudit = null, programaRestringido = null }) {
   const [trimestres,     setTrimestres]     = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [expandido,      setExpandido]      = useState(null);
@@ -275,25 +275,46 @@ export default function HistorialView({ lapsoActivo, onCambiarLapso, showToast, 
 
   const cargarTrimestres = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("trimestres")
-      .select("*")
-      .order("anio", { ascending: false })
-      .order("numero", { ascending: false });
+    // D-2 fix: si el usuario tiene restringe_programa, solo mostramos
+    // trimestres que contengan horarios de su programa. Para usuarios sin
+    // restricción la query es idéntica a la original.
+    let data, error;
+    if (programaRestringido) {
+      // Obtenemos los lapsos donde existe al menos un horario de su programa
+      const { data: lapsos, error: errLapsos } = await supabase
+        .from("horarios")
+        .select("lapso")
+        .eq("programa", programaRestringido);
+      if (errLapsos) { showToast("Error al cargar historial: " + errLapsos.message, "error"); setLoading(false); return; }
+      const lapsoSet = [...new Set((lapsos || []).map(h => h.lapso))];
+      if (lapsoSet.length === 0) { setTrimestres([]); setLoading(false); return; }
+      ({ data, error } = await supabase
+        .from("trimestres")
+        .select("*")
+        .in("lapso", lapsoSet)
+        .order("anio", { ascending: false })
+        .order("numero", { ascending: false }));
+    } else {
+      ({ data, error } = await supabase
+        .from("trimestres")
+        .select("*")
+        .order("anio", { ascending: false })
+        .order("numero", { ascending: false }));
+    }
     if (error) showToast("Error al cargar historial: " + error.message, "error");
     else setTrimestres(data || []);
     setLoading(false);
-  }, [showToast]);
+  }, [showToast, programaRestringido]);
 
   useEffect(() => { cargarTrimestres(); }, [cargarTrimestres]);
 
   const cargarDetalle = async (lapso) => {
     if (detalles[lapso]) { setExpandido(lapso); return; }
     setLoadingDet(true);
-    const { data: horarios } = await supabase
-      .from("horarios")
-      .select("programa, trayecto, sheet")
-      .eq("lapso", lapso);
+    // D-2 fix: si hay restricción de programa, el detalle también se filtra
+    let query = supabase.from("horarios").select("programa, trayecto, sheet").eq("lapso", lapso);
+    if (programaRestringido) query = query.eq("programa", programaRestringido);
+    const { data: horarios } = await query;
 
     const meta = trimestres.find(t => t.lapso === lapso);
 
