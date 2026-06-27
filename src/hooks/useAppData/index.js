@@ -108,5 +108,6 @@ export default function useAppData(lapso, logAudit = null, userId = null) {
     handleFileUpload, exportarDatos, importarDatos, clearAllData,
     previewData, cancelPreview, confirmPreview,
     saveDocenteName, saveDocenteCedula, saveMateriaName, getDocName, getDocCedula, getDocCedulaFuente, getMateriaName,
+    logAudit,
   };
 }
