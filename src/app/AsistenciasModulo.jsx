@@ -20,13 +20,16 @@ import UserMenu from "./UserMenu";
  */
 export default function AsistenciasModulo({
   profile,
+  permisos = {},
   qrSession,
   tieneHorarios,
   onVolverSelector,
   showToast,
   onLogout,
 }) {
-  const [subView,           setSubView]           = useState("panel"); // "panel" | "proyeccion" | "reporte"
+  // subView inicial: "panel" si tiene puedeGestionarQR, si no "reporte"
+  const initialView = permisos.puedeGestionarQR ? "panel" : "reporte";
+  const [subView,           setSubView]           = useState(initialView); // "panel" | "proyeccion" | "reporte"
   const [userMenuOpen,      setUserMenuOpen]      = useState(false);
   const [cambiarPwdOpen,    setCambiarPwdOpen]    = useState(false);
   const [headerVisible,     setHeaderVisible]     = useState(true);
@@ -68,10 +71,19 @@ export default function AsistenciasModulo({
     };
   }, [subView]);
 
+  // V-3 fix: filtrar pestañas según permisos individuales.
+  // Antes todas las pestañas eran accesibles a cualquier usuario que
+  // llegara al módulo, sin verificar puedeGestionarQR / puedeVerReporteAsistencias.
   const TABS = [
-    { id: "panel",      icon: "ti-device-mobile", label: "Panel QR"   },
-    { id: "proyeccion", icon: "ti-device-tv",     label: "Proyección" },
-    { id: "reporte",    icon: "ti-report",        label: "Reporte"    },
+    ...(permisos.puedeGestionarQR
+      ? [
+          { id: "panel",      icon: "ti-device-mobile", label: "Panel QR"   },
+          { id: "proyeccion", icon: "ti-device-tv",     label: "Proyección" },
+        ]
+      : []),
+    ...(permisos.puedeVerReporteAsistencias
+      ? [{ id: "reporte", icon: "ti-report", label: "Reporte" }]
+      : []),
   ];
 
   return (
