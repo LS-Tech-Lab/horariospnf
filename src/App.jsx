@@ -124,6 +124,35 @@ export default function App() {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { user, profile, permisos, loadingProfile, handleLogin, handleLogout, logAudit } = useAuth();
 
+  // Perfil offline: se establece cuando el usuario entra con PIN sin red.
+  // Se limpia al detectar red y sesión de Supabase, o al hacer logout.
+  const [offlineProfile, setOfflineProfile] = useState(null);
+
+  // Al reconectar, si Supabase Auth ya tiene sesión activa, descartar el perfil offline.
+  useEffect(() => {
+    if (user && offlineProfile) setOfflineProfile(null);
+  }, [user, offlineProfile]);
+
+  // Perfil y permisos efectivos (Supabase o fallback offline).
+  // Calculados aquí arriba para que los useEffect que siguen los puedan usar.
+  const efectiveProfile  = offlineProfile || profile;
+  const efectivePermisos = offlineProfile
+    ? {
+        puedeVerTodo: false, puedeImportarExcel: false, puedeEditarHorarios: false,
+        puedeBorrarHorarios: false, puedeEditarDocentes: false, puedeEditarMaterias: false,
+        puedeGestionarTrimestres: false, puedeHacerBackup: false, puedeRestaurarBackup: false,
+        puedeGestionarUsuarios: false, puedeGestionarRoles: false, puedeVerLogs: false,
+        puedeVerAuditoria: false, puedeGestionarQR: false, puedeVerReporteAsistencias: false,
+        ...(offlineProfile.rol_info?.permisos || {}),
+        puedeVerSoloSuPrograma: !!offlineProfile.rol_info?.restringe_programa,
+        programaRestringido:    offlineProfile.rol_info?.restringe_programa ? offlineProfile.programa : null,
+        puedeImportarExcel:  false,
+        puedeEditarHorarios: false,
+        puedeBorrarHorarios: false,
+        puedeGestionarQR:    false,
+      }
+    : permisos;
+
   // Fix #19: Supabase caído / anon key expirada
   const [supabaseDown, setSupabaseDown] = useState(false);
   useEffect(() => {
@@ -180,22 +209,22 @@ export default function App() {
 
   // Restringir programa para secretarios
   useEffect(() => {
-    if (permisos.puedeVerSoloSuPrograma && permisos.programaRestringido) {
-      appData.setSelectedPrograma(permisos.programaRestringido);
+    if (efectivePermisos.puedeVerSoloSuPrograma && efectivePermisos.programaRestringido) {
+      appData.setSelectedPrograma(efectivePermisos.programaRestringido);
     }
-  }, [permisos.puedeVerSoloSuPrograma, permisos.programaRestringido]);
+  }, [efectivePermisos.puedeVerSoloSuPrograma, efectivePermisos.programaRestringido]);
 
   // ── Auto-selección de módulo según permisos ───────────────────────────────
   // DEBE estar aquí, antes de cualquier return condicional (Regla de Hooks).
   useEffect(() => {
-    if (!profile || moduloActivo) return;
-    const tieneHorarios = permisos.puedeVerTodo || permisos.puedeVerSoloSuPrograma;
-    const tieneQR = permisos.puedeGestionarQR || permisos.puedeVerReporteAsistencias;
+    if (!efectiveProfile || moduloActivo) return;
+    const tieneHorarios = efectivePermisos.puedeVerTodo || efectivePermisos.puedeVerSoloSuPrograma;
+    const tieneQR = efectivePermisos.puedeGestionarQR || efectivePermisos.puedeVerReporteAsistencias;
     if (tieneHorarios && tieneQR) return; // ambos: queda en selector
     if (tieneQR) setModuloActivo("asistencias");
     else setModuloActivo("horarios");
-  }, [profile, moduloActivo, permisos.puedeVerTodo, permisos.puedeVerSoloSuPrograma,
-      permisos.puedeGestionarQR, permisos.puedeVerReporteAsistencias]);
+  }, [efectiveProfile, moduloActivo, efectivePermisos.puedeVerTodo, efectivePermisos.puedeVerSoloSuPrograma,
+      efectivePermisos.puedeGestionarQR, efectivePermisos.puedeVerReporteAsistencias]);
 
   const horariosFilters = useHorariosFilters(appData.data);
 
@@ -296,9 +325,9 @@ export default function App() {
     </div>
   );
 
-  if (!user) return <LoginScreen />;
+  if (!user && !offlineProfile) return <LoginScreen onOfflineLogin={setOfflineProfile} />;
 
-  if (loadingProfile) return (
+  if (!offlineProfile && loadingProfile) return (
     <div className="full-screen-loading">
       <div style={{
         width: 32, height: 32, border: "3px solid #1E3A5F", borderTop: "3px solid var(--color-accent)",
@@ -308,13 +337,13 @@ export default function App() {
     </div>
   );
 
-  if (!profile)              return <SinPerfilAsignado onLogout={handleLogout} />;
-  if (profile._desactivado)  return <CuentaDesactivada onLogout={handleLogout} />;
-  if (profile._rolInvalido)  return <SinPerfilAsignado onLogout={handleLogout} />;
+  if (!efectiveProfile)              return <SinPerfilAsignado onLogout={handleLogout} />;
+  if (efectiveProfile._desactivado)  return <CuentaDesactivada onLogout={handleLogout} />;
+  if (efectiveProfile._rolInvalido)  return <SinPerfilAsignado onLogout={handleLogout} />;
 
   // ── Selector de módulo ────────────────────────────────────────────────────
-  const tieneHorarios = permisos.puedeVerTodo || permisos.puedeVerSoloSuPrograma;
-  const tieneQR       = permisos.puedeGestionarQR || permisos.puedeVerReporteAsistencias;
+  const tieneHorarios = efectivePermisos.puedeVerTodo || efectivePermisos.puedeVerSoloSuPrograma;
+  const tieneQR       = efectivePermisos.puedeGestionarQR || efectivePermisos.puedeVerReporteAsistencias;
 
   if (!moduloActivo) {
     // Spinner mientras el useEffect procesa la redirección automática
@@ -331,7 +360,7 @@ export default function App() {
     }
     return (
       <ModuleSelector
-        profile={profile}
+        profile={efectiveProfile}
         onSelectModule={(mod) => setModuloActivo(mod)}
         onLogout={handleLogout}
       />
@@ -342,7 +371,7 @@ export default function App() {
   if (moduloActivo === "asistencias") {
     return (
       <AsistenciasModulo
-        profile={profile}
+        profile={efectiveProfile}
         qrSession={qrSession}
         tieneHorarios={tieneHorarios}
         onVolverSelector={() => setModuloActivo(null)}
@@ -385,8 +414,8 @@ export default function App() {
         // Datos y auth
         appData={appDataAuditada}
         horariosFilters={horariosFilters}
-        permisos={permisos}
-        profile={profile}
+        permisos={efectivePermisos}
+        profile={efectiveProfile}
         user={user}
         handleLogout={handleLogout}
         handleFileUploadAuditado={handleFileUploadAuditado}
