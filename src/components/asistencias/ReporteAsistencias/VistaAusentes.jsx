@@ -4,16 +4,38 @@ import { S } from "../../../constants";
 import { parseClase } from "../../../utils/parsing";
 import { diaSemana } from "./helpers";
 import SkeletonRow from "./SkeletonRow";
+import { guardarAusentesEnIDB, cargarAusentesDeIDB } from "../../../utils/reporteCache";
 
 function VistaAusentes({ fecha, programa, cedulasPresentes, onAusentesChange }) {
-  const [ausentes, setAusentes] = useState([]);
-  const [loading,  setLoading]  = useState(false);
+  const [ausentes,    setAusentes]    = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [modoOffline, setModoOffline] = useState(false);
+  const [fechaCache,  setFechaCache]  = useState(null);
 
   const dia = diaSemana(fecha);
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
+      setModoOffline(false);
+
+      // Sin red: cargar desde IDB
+      if (!navigator.onLine) {
+        const cached = await cargarAusentesDeIDB(fecha, programa);
+        if (cached) {
+          setAusentes(cached.datos);
+          if (onAusentesChange) onAusentesChange(cached.datos);
+          setModoOffline(true);
+          setFechaCache(cached.guardadoEn);
+        } else {
+          setAusentes([]);
+          setModoOffline(true);
+          setFechaCache(null);
+        }
+        setLoading(false);
+        return;
+      }
+
       let query = supabase
         .from("horarios")
         .select("clase, programa, sheet, hora, trayecto")
@@ -23,7 +45,12 @@ function VistaAusentes({ fecha, programa, cedulasPresentes, onAusentesChange }) 
 
       const { data: clases } = await query;
 
-      if (!clases || clases.length === 0) { setAusentes([]); setLoading(false); return; }
+      if (!clases || clases.length === 0) {
+        setAusentes([]);
+        await guardarAusentesEnIDB(fecha, programa, []);
+        setLoading(false);
+        return;
+      }
 
       const porDocente = {};
       clases.forEach(c => {
@@ -34,7 +61,12 @@ function VistaAusentes({ fecha, programa, cedulasPresentes, onAusentesChange }) 
       });
 
       const nombresDocentes = Object.keys(porDocente);
-      if (nombresDocentes.length === 0) { setAusentes([]); setLoading(false); return; }
+      if (nombresDocentes.length === 0) {
+        setAusentes([]);
+        await guardarAusentesEnIDB(fecha, programa, []);
+        setLoading(false);
+        return;
+      }
 
       const { data: docentesDB } = await supabase
         .from("docentes")
@@ -57,11 +89,22 @@ function VistaAusentes({ fecha, programa, cedulasPresentes, onAusentesChange }) 
       const sorted = resultado.sort((a, b) => a.nombre.localeCompare(b.nombre));
       setAusentes(sorted);
       if (onAusentesChange) onAusentesChange(sorted);
+      await guardarAusentesEnIDB(fecha, programa, sorted);
       setLoading(false);
     };
 
     fetch();
   }, [fecha, programa, dia, cedulasPresentes]);
+
+  if (modoOffline && !fechaCache && (dia !== "SÁBADO" && dia !== "DOMINGO")) {
+    return (
+      <div style={{ ...S.card, padding: "32px 24px", textAlign: "center", color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+        <i className="ti ti-wifi-off" style={{ fontSize: 32, display: "block", marginBottom: 10 }} aria-hidden="true" />
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Sin conexión</div>
+        <div style={{ fontSize: 13 }}>No hay datos de ausentes guardados para esta fecha y programa.</div>
+      </div>
+    );
+  }
 
   if (dia === "SÁBADO" || dia === "DOMINGO") {
     return (
@@ -124,6 +167,12 @@ function VistaAusentes({ fecha, programa, cedulasPresentes, onAusentesChange }) 
             }
           </tbody>
         </table>
+      )}
+      {modoOffline && fechaCache && (
+        <div style={{ padding: "8px 16px", fontSize: 12, color: "#92400E", background: "#FFFBEB", borderTop: "1px solid #FDE68A", display: "flex", alignItems: "center", gap: 6 }}>
+          <i className="ti ti-wifi-off" style={{ fontSize: 14 }} aria-hidden="true" />
+          Modo offline — datos del {new Date(fechaCache).toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" })}
+        </div>
       )}
       {!loading && ausentes.length > 0 && (
         <div style={{ padding: "10px 16px", fontSize: 12, color: "#64748B", borderTop: "1px solid #F1F5F9" }}>
