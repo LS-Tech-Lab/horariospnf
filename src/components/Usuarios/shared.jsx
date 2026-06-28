@@ -1,0 +1,125 @@
+/**
+ * usuarios/shared.jsx
+ *
+ * Constantes, helpers y micro-componentes compartidos por todos los
+ * sub-módulos de Gestión de Usuarios y Roles.
+ */
+
+// ─── Catálogo de permisos ─────────────────────────────────────────────────────
+export const GRUPOS_PERMISOS = [
+  {
+    grupo: "Horarios",
+    icono: "ti-calendar-event",
+    items: [
+      { key: "puedeVerTodo",             label: "Ver todos los programas",   desc: "Puede cambiar entre todos los PNF sin restricción" },
+      { key: "puedeEditarHorarios",      label: "Editar horarios",           desc: "Arrastrar y colocar bloques, editar in-line" },
+      { key: "puedeBorrarHorarios",      label: "Borrar horarios",           desc: "Eliminar bloques y vaciar trimestres completos" },
+      { key: "puedeGestionarTrimestres", label: "Gestionar trimestres",      desc: "Cambiar el lapso activo, crear/eliminar trimestres" },
+    ],
+  },
+  {
+    grupo: "Catálogos académicos",
+    icono: "ti-book-2",
+    items: [
+      { key: "puedeEditarDocentes",  label: "Editar docentes",  desc: "Crear, renombrar y agregar cédulas a docentes" },
+      { key: "puedeEditarMaterias",  label: "Editar materias",  desc: "Crear y renombrar unidades curriculares" },
+      { key: "puedeImportarExcel",   label: "Importar Excel",   desc: "Cargar horarios desde archivo .xlsx" },
+    ],
+  },
+  {
+    grupo: "Respaldo de datos",
+    icono: "ti-database",
+    items: [
+      { key: "puedeHacerBackup",     label: "Exportar backup",  desc: "Descargar JSON con todos los datos del sistema" },
+      { key: "puedeRestaurarBackup", label: "Restaurar backup", desc: "Sobrescribir datos desde un archivo de respaldo" },
+    ],
+  },
+  {
+    grupo: "Módulo QR",
+    icono: "ti-qrcode",
+    items: [
+      { key: "puedeGestionarQR",          label: "Gestionar QR",              desc: "Abrir sesiones QR, ver proyección, cerrar sesiones" },
+      { key: "puedeVerReporteAsistencias", label: "Ver reporte de asistencias", desc: "Consultar y exportar el historial de asistencias" },
+    ],
+  },
+  {
+    grupo: "Administración",
+    icono: "ti-shield-lock",
+    items: [
+      { key: "puedeGestionarUsuarios", label: "Gestionar usuarios", desc: "Crear, editar, activar/desactivar cuentas" },
+      { key: "puedeGestionarRoles",    label: "Gestionar roles",    desc: "Crear/editar roles y definir sus permisos" },
+      { key: "puedeVerLogs",           label: "Ver registros",      desc: "Consultar el historial de acciones del sistema" },
+      { key: "puedeVerAuditoria",      label: "Ver auditoría",      desc: "Ver quién hizo qué y cuándo" },
+    ],
+  },
+];
+
+export const TODOS_LOS_PERMISOS = GRUPOS_PERMISOS.flatMap(g => g.items.map(i => i.key));
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+export const hex2rgba = (hex, a) => {
+  const r = parseInt(hex.slice(1, 3), 16),
+        g = parseInt(hex.slice(3, 5), 16),
+        b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+};
+
+export const COLORES_PRESET = [
+  "var(--color-role-coord)", "var(--brand-600)", "#0F766E", "var(--color-text-mid)", "var(--color-success)",
+  "var(--color-danger)", "var(--color-warning)", "#0891B2", "#9333EA", "#BE185D",
+];
+
+export const EMOJIS_PRESET = ["👤", "👑", "🏛️", "📋", "📷", "🔑", "🛡️", "📊", "🎓", "🖥️", "📌", "⚙️"];
+
+// ─── Micro-componentes ────────────────────────────────────────────────────────
+export function Badge({ color, children }) {
+  return (
+    <span style={{
+      background: hex2rgba(color || "var(--color-text-mid)", 0.12),
+      color: color || "var(--color-text-mid)",
+      border: `1px solid ${hex2rgba(color || "var(--color-text-mid)", 0.25)}`,
+      borderRadius: 999, padding: "2px 10px",
+      fontSize: 12, fontWeight: 600,
+      display: "inline-flex", alignItems: "center", gap: 4,
+    }}>
+      {children}
+    </span>
+  );
+}
+
+export function Spinner() {
+  return (
+    <div style={{
+      width: 20, height: 20,
+      border: "2px solid var(--color-border-tertiary)",
+      borderTop: "2px solid var(--brand-500)",
+      borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0,
+    }} />
+  );
+}
+
+export function ModalConfirm({ titulo, mensaje, onConfirm, onCancel, peligro = true }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1100, padding: 16,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 12, padding: 28, maxWidth: 380, width: "100%",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+      }}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 16, color: "var(--color-text-primary)" }}>{titulo}</h3>
+        <p style={{ margin: "0 0 24px", fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>{mensaje}</p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{ padding: "8px 18px" }}>Cancelar</button>
+          <button onClick={onConfirm} style={{
+            padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 600,
+            background: peligro ? "var(--color-danger)" : "var(--brand-500)", color: "#fff",
+          }}>Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
