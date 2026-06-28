@@ -38,7 +38,9 @@ const ACCION_CONFIG = {
   IMPORTAR_EXCEL:      { icon: "ti-file-import",   color: "#1D4ED8" },
   BORRAR_HORARIOS:     { icon: "ti-trash",          color: "#DC2626" },
   EDITAR_DOCENTE:      { icon: "ti-pencil",         color: "#0F766E" },
+  UNIFICAR_DOCENTE:    { icon: "ti-git-merge",      color: "#0F766E" },
   EDITAR_MATERIA:      { icon: "ti-pencil",         color: "#0F766E" },
+  UNIFICAR_MATERIA:    { icon: "ti-git-merge",      color: "#0F766E" },
   CERRAR_TRIMESTRE:    { icon: "ti-lock",           color: "#7C3AED" },
   CREAR_TRIMESTRE:     { icon: "ti-school",         color: "#2563EB" },
   RESTAURAR_BACKUP:    { icon: "ti-restore",        color: "#D97706" },
@@ -48,6 +50,10 @@ const ACCION_CONFIG = {
   ACTIVAR_USUARIO:     { icon: "ti-user-check",     color: "#16A34A" },
   DESACTIVAR_USUARIO:  { icon: "ti-user-off",       color: "#DC2626" },
   GESTIONAR_USUARIO:   { icon: "ti-users",          color: "#7C3AED" },
+  // M-1: acciones de roles (añadidas con el fix de auditoría de roles)
+  CREAR_ROL:           { icon: "ti-shield-plus",    color: "#2563EB" },
+  EDITAR_ROL:          { icon: "ti-shield-check",   color: "#0F766E" },
+  ELIMINAR_ROL:        { icon: "ti-shield-off",     color: "#DC2626" },
 };
 
 function EventoBadge({ evento }) {
@@ -199,14 +205,31 @@ function TabSesiones({ permisos }) {
 }
 
 // ── Tab Auditoría ─────────────────────────────────────────────────────
+// M-5 fix: añadidos filtros por entidad y rango de fechas.
+// Antes: lista plana sin forma de acotar por tipo de objeto o período.
+// Los filtros de email/acción/lapso ya existían — se conservan.
+
+const ENTIDADES_OPCIONES = [
+  { value: "",            label: "Todas las entidades" },
+  { value: "horarios",    label: "Horarios" },
+  { value: "docentes",    label: "Docentes" },
+  { value: "materias",    label: "Materias" },
+  { value: "trimestres",  label: "Trimestres" },
+  { value: "usuarios",    label: "Usuarios" },
+  { value: "roles",       label: "Roles" },
+];
+
 function TabAuditoria({ permisos }) {
-  const [logs,       setLogs]       = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [filtroEmail, setFiltroEmail] = useState("");
-  const [filtroAccion, setFiltroAccion] = useState("");
-  const [filtroLapso, setFiltroLapso]  = useState("");
-  const [expandido,  setExpandido]  = useState(null);
-  const [page,       setPage]       = useState(0);
+  const [logs,          setLogs]          = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [filtroEmail,   setFiltroEmail]   = useState("");
+  const [filtroAccion,  setFiltroAccion]  = useState("");
+  const [filtroLapso,   setFiltroLapso]   = useState("");
+  const [filtroEntidad, setFiltroEntidad] = useState("");
+  const [fechaDesde,    setFechaDesde]    = useState("");
+  const [fechaHasta,    setFechaHasta]    = useState("");
+  const [expandido,     setExpandido]     = useState(null);
+  const [page,          setPage]          = useState(0);
   const PAGE_SIZE = 50;
 
   const cargar = useCallback(async () => {
@@ -214,23 +237,48 @@ function TabAuditoria({ permisos }) {
     const { data, error } = await supabase.rpc("get_audit_logs", {
       p_limit:   PAGE_SIZE,
       p_offset:  page * PAGE_SIZE,
-      p_email:   filtroEmail  || null,
-      p_accion:  filtroAccion || null,
-      p_lapso:   filtroLapso  || null,
+      p_email:   filtroEmail   || null,
+      p_accion:  filtroAccion  || null,
+      p_lapso:   filtroLapso   || null,
       p_programa: null,
     });
-    if (!error) setLogs(data || []);
+    if (!error) {
+      // Filtros de entidad y fecha se aplican client-side:
+      // get_audit_logs() no expone p_entidad ni p_fecha — filtrar aquí
+      // evita una migración de RPC y es aceptable con PAGE_SIZE=50.
+      let filtrados = data || [];
+      if (filtroEntidad) {
+        filtrados = filtrados.filter(l => l.entidad === filtroEntidad);
+      }
+      if (fechaDesde) {
+        const desde = new Date(fechaDesde);
+        filtrados = filtrados.filter(l => new Date(l.created_at) >= desde);
+      }
+      if (fechaHasta) {
+        const hasta = new Date(fechaHasta);
+        hasta.setHours(23, 59, 59, 999);
+        filtrados = filtrados.filter(l => new Date(l.created_at) <= hasta);
+      }
+      setLogs(filtrados);
+    }
     setLoading(false);
-  }, [filtroEmail, filtroAccion, filtroLapso, page]);
+  }, [filtroEmail, filtroAccion, filtroLapso, filtroEntidad, fechaDesde, fechaHasta, page]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  const resetFiltros = () => {
+    setFiltroEmail(""); setFiltroAccion(""); setFiltroLapso("");
+    setFiltroEntidad(""); setFechaDesde(""); setFechaHasta("");
+    setPage(0);
+  };
+
   const accionesUnicas = [...new Set(logs.map(l => l.accion))].sort();
+  const hayFiltros = filtroEmail || filtroAccion || filtroLapso || filtroEntidad || fechaDesde || fechaHasta;
 
   return (
     <div>
-      {/* Filtros */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+      {/* Filtros — fila 1: texto */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <input
           value={filtroEmail} onChange={e => { setFiltroEmail(e.target.value); setPage(0); }}
           placeholder="Filtrar por usuario…"
@@ -243,15 +291,40 @@ function TabAuditoria({ permisos }) {
             <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
           ))}
         </select>
+        <select value={filtroEntidad} onChange={e => { setFiltroEntidad(e.target.value); setPage(0); }}
+          style={{ ...S.select, minWidth: 160 }}>
+          {ENTIDADES_OPCIONES.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Filtros — fila 2: lapso + fechas + acciones */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <input
           value={filtroLapso} onChange={e => { setFiltroLapso(e.target.value); setPage(0); }}
           placeholder="Trimestre (ej: 2-2025)"
           style={{ ...S.input, width: 140 }}
         />
-        <button onClick={() => { setFiltroEmail(""); setFiltroAccion(""); setFiltroLapso(""); setPage(0); }}
-          style={{ ...S.btn(false), flexShrink: 0 }}>
-          Limpiar
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", whiteSpace: "nowrap" }}>Desde</span>
+          <input type="date" value={fechaDesde}
+            onChange={e => { setFechaDesde(e.target.value); setPage(0); }}
+            style={{ ...S.input, width: 140 }}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", whiteSpace: "nowrap" }}>Hasta</span>
+          <input type="date" value={fechaHasta}
+            onChange={e => { setFechaHasta(e.target.value); setPage(0); }}
+            style={{ ...S.input, width: 140 }}
+          />
+        </div>
+        {hayFiltros && (
+          <button onClick={resetFiltros} style={{ ...S.btn(false), flexShrink: 0 }}>
+            Limpiar
+          </button>
+        )}
         <button onClick={cargar} style={{ ...S.btn(false), flexShrink: 0,
           display: "flex", alignItems: "center", gap: 6 }}>
           <i className="ti ti-refresh" style={{ fontSize: 14 }} aria-hidden="true" />
