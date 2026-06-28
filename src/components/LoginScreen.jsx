@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import { listarUsuariosOffline, verificarPinOffline, guardarPinOffline } from "../utils/pinOffline";
+import { listarUsuariosOffline, verificarPinOffline, guardarPinOffline, tienePinOffline } from "../utils/pinOffline";
 
 // LIMITACIÓN CONOCIDA — Fix #9 (auditoría Junio 2026)
 // El contador de intentos fallidos y el bloqueo temporal viven en
@@ -276,8 +276,7 @@ export default function LoginScreen({ onOfflineLogin }) {
 
       // Mostrar modal PIN solo si el usuario no tiene uno ya guardado
       if (loginUser && loginProfile) {
-        const { tienePinOffline: check } = await import("../utils/pinOffline");
-        const yaTiene = await check(loginUser.id);
+        const yaTiene = await tienePinOffline(loginUser.id);
         if (!yaTiene) {
           setPendingPinUser({ user: loginUser, profile: loginProfile });
           setMostrarModalPIN(true);
