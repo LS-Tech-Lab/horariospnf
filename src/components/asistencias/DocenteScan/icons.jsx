@@ -43,6 +43,11 @@ export const RESULTADO_UI = {
                            hint: "Este código QR no corresponde a la fecha de hoy. Escanea el código actual de la pantalla del aula." },
   FECHA_INVALIDA:        { Icon: IconError, titulo: "Fecha no permitida", color: "#991B1B",
                            hint: "Solo se puede crear una sesión QR para el día de hoy." },
+  // M-2 fix: código RATE_LIMIT devuelto por registrar_asistencia() cuando
+  // el dispositivo supera 10 intentos por hora (tabla scan_rate_limit).
+  // Antes se mostraba como "Error de conexión" genérico.
+  RATE_LIMIT:            { Icon: IconWarn,  titulo: "Demasiados intentos", color: "#92400E",
+                           hint: "Este dispositivo ha realizado demasiados intentos en poco tiempo. Espera unos minutos e intenta de nuevo." },
   ERROR:                 { Icon: IconError, titulo: "Error de conexión", color: "#991B1B",
                           hint: "Intenta de nuevo o contacta al administrador." },
 };
