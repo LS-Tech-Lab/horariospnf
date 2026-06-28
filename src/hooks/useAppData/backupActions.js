@@ -165,15 +165,22 @@ export function createBackupActions({
           if (materiaInvalida)
             throw new Error(`Registro de materia inválido o incompleto: ${JSON.stringify(materiaInvalida)}`);
 
+          // Gap #16: validar y extraer asistencias del backup
+          if (backup.asistencias !== undefined && !Array.isArray(backup.asistencias))
+            throw new Error("El backup está malformado: 'asistencias' no es un array");
+
+          const asistencias = Array.isArray(backup.asistencias) ? backup.asistencias : [];
+
           const horariosConLapso = backup.horarios.map(h => ({
             ...h, lapso: lapso || h.lapso || null,
           }));
 
           const { data: rpcData, error: rpcError } = await supabase.rpc("restaurar_backup", {
-            p_lapso:    lapso || null,
-            p_horarios: horariosConLapso,
-            p_docentes: backup.docentes,
-            p_materias: backup.materias,
+            p_lapso:       lapso || null,
+            p_horarios:    horariosConLapso,
+            p_docentes:    backup.docentes,
+            p_materias:    backup.materias,
+            p_asistencias: asistencias,
           });
 
           if (rpcError) {
@@ -189,20 +196,26 @@ export function createBackupActions({
               if (horariosConLapso.length > 0) await supabase.from("horarios").insert(horariosConLapso);
               if (backup.docentes.length > 0) await supabase.from("docentes").upsert(backup.docentes, { onConflict: "nombre_raw" });
               if (backup.materias.length > 0) await supabase.from("materias").upsert(backup.materias, { onConflict: "nombre_raw" });
+              // Gap #16: restaurar asistencias en el flujo fallback
+              if (asistencias.length > 0) {
+                const asistenciasSinId = asistencias.map(({ id, qr_session_id, ...rest }) => rest);
+                await supabase.from("asistencias_diarias").upsert(asistenciasSinId, { onConflict: "cedula_docente,fecha,tipo", ignoreDuplicates: true });
+              }
             } else {
               throw new Error(rpcError.message);
             }
           }
 
-          const insertados = rpcData?.horarios_insertados ?? horariosConLapso.length;
+          const insertados             = rpcData?.horarios_insertados    ?? horariosConLapso.length;
+          const asistenciasRestauradas = rpcData?.asistencias_insertadas ?? asistencias.length;
           limpiarCache();
           // Fix #8: registrar la restauración en auditoría
           logAudit?.({
             accion: "RESTAURAR_BACKUP",
             entidad: "horarios",
-            resumen: `Backup restaurado: ${insertados} clases. Lapso: ${lapso || backup.lapso || "desconocido"}.`,
+            resumen: `Backup restaurado: ${insertados} clases, ${asistenciasRestauradas} asistencias. Lapso: ${lapso || backup.lapso || "desconocido"}.`,
           });
-          showToast(`Backup restaurado: ${insertados} clases.`, "success");
+          showToast(`Backup restaurado: ${insertados} clases${asistenciasRestauradas > 0 ? `, ${asistenciasRestauradas} asistencias` : ""}.`, "success");
           await fetchHorarios(selectedPrograma);
           await fetchProgramas(lapso);
           await fetchDocenteNames();
