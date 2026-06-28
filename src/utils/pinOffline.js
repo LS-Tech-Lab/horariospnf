@@ -1,6 +1,6 @@
 /**
  * pinOffline.js
- *
+ **
  * Gestiona el PIN local de fallback para login sin red.
  * Guarda en IDB (store sigma_offline / pin_offline):
  *   - perfil mínimo del usuario (id, nombre, email, rol, programa, rol_info)
