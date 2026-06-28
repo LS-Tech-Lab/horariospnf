@@ -73,15 +73,17 @@ export default function App() {
     const pendingEmail = localStorage.getItem("sigma_email_change_pending");
     if (!pendingEmail) return;
 
-    // Esperar a que Supabase resuelva la sesión
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const sessionEmail = session?.user?.email?.toLowerCase();
+    // Supabase verifica el token en su servidor y redirige a la app, pero no
+    // actualiza la sesión local automáticamente. Forzamos un refresh para que
+    // el cliente obtenga el JWT actualizado con el email nuevo.
+    (async () => {
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const sessionEmail = refreshData?.session?.user?.email?.toLowerCase();
       if (sessionEmail && sessionEmail === pendingEmail) {
         localStorage.removeItem("sigma_email_change_pending");
         setEmailChangeStatus("success");
-        setEmailChangeMsg("Tu correo electrónico fue actualizado correctamente.");
       }
-    });
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
