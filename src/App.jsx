@@ -62,33 +62,26 @@ function useFileInputs({ fileRef, backupRef, onFile, onBackup }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function App() {
-  // ── Confirmación de cambio de correo (enlace enviado por Supabase) ────────
-  // Cuando el usuario hace clic en el enlace de confirmación, Supabase redirige
-  // a la app con ?token_hash=...&type=email_change en la URL. Sin este bloque,
-  // el token se ignora y el cambio nunca se aplica.
-  const [emailChangeStatus, setEmailChangeStatus] = useState(null); // null | "confirming" | "success" | "error"
+  // ── Confirmación de cambio de correo (redirect de Supabase) ─────────────
+  // Supabase verifica el token en su servidor y redirige a la app sin params.
+  // Detectamos el redirect comparando el email de la sesión activa con el
+  // email nuevo guardado en sessionStorage al momento de pedir el cambio.
+  const [emailChangeStatus, setEmailChangeStatus] = useState(null); // null | "success"
   const [emailChangeMsg,    setEmailChangeMsg]    = useState("");
 
   useEffect(() => {
-    const params    = new URLSearchParams(window.location.search);
-    const tokenHash = params.get("token_hash");
-    const type      = params.get("type");
-    if (!tokenHash || type !== "email_change") return;
+    const pendingEmail = localStorage.getItem("sigma_email_change_pending");
+    if (!pendingEmail) return;
 
-    // Limpiar la URL inmediatamente para no re-procesar en recargas
-    window.history.replaceState({}, "", window.location.pathname);
-
-    setEmailChangeStatus("confirming");
-    supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email_change" })
-      .then(({ error }) => {
-        if (error) {
-          setEmailChangeStatus("error");
-          setEmailChangeMsg(error.message || "No se pudo confirmar el cambio de correo.");
-        } else {
-          setEmailChangeStatus("success");
-          setEmailChangeMsg("Tu correo electrónico fue actualizado correctamente.");
-        }
-      });
+    // Esperar a que Supabase resuelva la sesión
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const sessionEmail = session?.user?.email?.toLowerCase();
+      if (sessionEmail && sessionEmail === pendingEmail) {
+        localStorage.removeItem("sigma_email_change_pending");
+        setEmailChangeStatus("success");
+        setEmailChangeMsg("Tu correo electrónico fue actualizado correctamente.");
+      }
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -167,6 +160,17 @@ export default function App() {
 
   // ── Datos ─────────────────────────────────────────────────────────────────
   const appData = useAppData(lapso, logAudit, user?.id);
+
+  // ── Toast de confirmación de cambio de correo ─────────────────────────────
+  // El useEffect anterior detectó que el email de sesión coincide con el
+  // pendiente en sessionStorage. Ahora que appData está disponible, lanzamos
+  // el toast de éxito una sola vez.
+  useEffect(() => {
+    if (emailChangeStatus === "success" && appData.showToast) {
+      appData.showToast("¡Correo actualizado! Tu nuevo correo es: " + (user?.email ?? ""), "success");
+      setEmailChangeStatus(null);
+    }
+  }, [emailChangeStatus, appData.showToast]);
 
   // Restringir programa para secretarios
   useEffect(() => {
@@ -286,83 +290,7 @@ export default function App() {
     </div>
   );
 
-  if (!user) {
-    // Si hay un proceso de confirmación de cambio de correo en curso,
-    // mostrar un overlay encima de la pantalla de login.
-    return (
-      <>
-        <LoginScreen />
-        {emailChangeStatus && (
-          <div style={{
-            position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            zIndex: 2000, padding: 24,
-          }}>
-            <div style={{
-              background: "#fff", borderRadius: 14, padding: 32, maxWidth: 380, width: "100%",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.3)", textAlign: "center",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
-            }}>
-              {emailChangeStatus === "confirming" && (
-                <>
-                  <div style={{
-                    width: 36, height: 36, border: "3px solid #E5E7EB",
-                    borderTop: "3px solid #2563EB", borderRadius: "50%",
-                    animation: "spin 0.8s linear infinite",
-                  }} />
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#0F172A" }}>
-                    Confirmando cambio de correo…
-                  </p>
-                </>
-              )}
-              {emailChangeStatus === "success" && (
-                <>
-                  <i className="ti ti-circle-check" style={{ fontSize: 44, color: "#16A34A" }} />
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#0F172A" }}>
-                    ¡Correo actualizado!
-                  </p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#64748B" }}>{emailChangeMsg}</p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#64748B" }}>
-                    Inicia sesión con tu nuevo correo electrónico.
-                  </p>
-                  <button
-                    onClick={() => setEmailChangeStatus(null)}
-                    style={{
-                      padding: "9px 24px", borderRadius: 8, border: "none",
-                      background: "#2563EB", color: "#fff", fontSize: 13,
-                      fontWeight: 600, cursor: "pointer",
-                    }}>
-                    Entendido
-                  </button>
-                </>
-              )}
-              {emailChangeStatus === "error" && (
-                <>
-                  <i className="ti ti-alert-circle" style={{ fontSize: 44, color: "#DC2626" }} />
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#0F172A" }}>
-                    No se pudo confirmar el cambio
-                  </p>
-                  <p style={{ margin: 0, fontSize: 13, color: "#64748B" }}>{emailChangeMsg}</p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#94A3B8" }}>
-                    El enlace puede haber expirado. Solicita un nuevo cambio de correo desde tu cuenta.
-                  </p>
-                  <button
-                    onClick={() => setEmailChangeStatus(null)}
-                    style={{
-                      padding: "9px 24px", borderRadius: 8, border: "none",
-                      background: "#DC2626", color: "#fff", fontSize: 13,
-                      fontWeight: 600, cursor: "pointer",
-                    }}>
-                    Cerrar
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
+  if (!user) return <LoginScreen />;
 
   if (loadingProfile) return (
     <div className="full-screen-loading">
@@ -409,7 +337,6 @@ export default function App() {
     return (
       <AsistenciasModulo
         profile={profile}
-        permisos={permisos}
         qrSession={qrSession}
         tieneHorarios={tieneHorarios}
         onVolverSelector={() => setModuloActivo(null)}
