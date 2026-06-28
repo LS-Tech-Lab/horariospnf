@@ -13,7 +13,8 @@ export const CACHE_KEYS = {
   lastSync: "horarios_last_sync",
 };
 
-export const CACHE_EXPIRY = 1000 * 60 * 30; // 30 minutos
+export const CACHE_EXPIRY = 1000 * 60 * 30;            // 30 min — refresca en BG
+export const CACHE_EXPIRY_OFFLINE = 1000 * 60 * 60 * 24; // 24 h  — fallback sin red
 
 // Invalida el caché si la versión de esquema cambió.
 // Se llama una vez al arrancar la app (desde useAppData).
@@ -42,14 +43,16 @@ export function guardarEnCache(key, datos, userId) {
   }
 }
 
-export function cargarDeCache(key, userId) {
+export function cargarDeCache(key, userId, { offlineMode = false } = {}) {
   try {
     const storageKey = getCacheKey(key, userId);
     const cacheStr = localStorage.getItem(storageKey);
     if (!cacheStr) return null;
     const cache = JSON.parse(cacheStr);
-    if (Date.now() - cache.timestamp > CACHE_EXPIRY) {
-      localStorage.removeItem(storageKey);
+    const maxAge = offlineMode ? CACHE_EXPIRY_OFFLINE : CACHE_EXPIRY;
+    if (Date.now() - cache.timestamp > maxAge) {
+      // En modo offline no eliminamos — puede ser la única copia disponible
+      if (!offlineMode) localStorage.removeItem(storageKey);
       return null;
     }
     return cache.datos;
