@@ -112,6 +112,10 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
       return;
     }
 
+    // Guardar el email nuevo en sessionStorage para detectar el redirect
+    // de confirmación cuando Supabase redirija de vuelta a la app.
+    localStorage.setItem("sigma_email_change_pending", nuevoEmail.trim().toLowerCase());
+
     // Supabase envía un email de confirmación al correo nuevo.
     // La sesión mantiene el correo viejo hasta que el usuario confirme.
     showToast?.("Revisa tu nuevo correo para confirmar el cambio.", "success");
