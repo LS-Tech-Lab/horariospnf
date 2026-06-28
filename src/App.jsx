@@ -3,6 +3,7 @@ import useAppData from "./hooks/useAppData";
 import useHorariosFilters from "./hooks/useHorariosFilters";
 import useAuth from "./hooks/useAuth";
 import useQRSession from "./hooks/useQRSession";
+import useSyncPendientes from "./hooks/useSyncPendientes";
 import LoginScreen from "./components/LoginScreen";
 import ModuleSelector from "./components/ModuleSelector";
 import DocenteScan from "./components/asistencias/DocenteScan";
@@ -102,6 +103,9 @@ export default function App() {
 
   // ── Sesión QR — vive aquí para no perderse al cambiar sub-vista ──────────
   const qrSession = useQRSession();
+
+  // ── Sincronización offline — vacía cola IndexedDB al recuperar red ────────
+  useSyncPendientes(appData.showToast);
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
   const [hovered,    setHovered]    = useState(false);
