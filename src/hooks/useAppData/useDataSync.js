@@ -43,7 +43,7 @@ export default function useDataSync({
   // externos (useUpload, handlers de lapso) puedan pasar el valor fresco
   // sin depender del closure, evitando stale references al memoizar.
   const fetchHorarios = useCallback(async (programa, lapsoParam = lapso) => {
-    const cachedHorarios = cargarDeCache(cacheKey, userId);
+    const cachedHorarios = cargarDeCache(cacheKey, userId, { offlineMode: !navigator.onLine });
     if (cachedHorarios?.length > 0) {
       setData(cachedHorarios);
       setLoading(false);
