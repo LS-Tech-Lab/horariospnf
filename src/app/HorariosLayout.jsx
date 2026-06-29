@@ -95,6 +95,8 @@ export default function HorariosLayout({
   tieneHorarios,
   tieneQR,
   onCambiarModulo,
+  // UX-4: badge de registros offline pendientes
+  pendientesCount = 0,
 }) {
   const appData = useAppDataContext();
   const expanded = pinned || hovered || mobileOpen;
@@ -401,6 +403,23 @@ export default function HorariosLayout({
               flexShrink: 0, display: "flex", alignItems: "center", gap: 5,
             }}>
               <i className="ti ti-refresh" style={{ animation: "spin 1.1s linear infinite" }} aria-hidden="true" /> Actualizando…
+            </span>
+          )}
+
+          {/* UX-4: badge de registros offline pendientes de sincronizar */}
+          {pendientesCount > 0 && (
+            <span
+              title={`${pendientesCount} registro${pendientesCount > 1 ? 's' : ''} de asistencia pendiente${pendientesCount > 1 ? 's' : ''} de sincronizar`}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "3px 10px", borderRadius: 20, flexShrink: 0,
+                background: "#FEF3C7", border: "1px solid #FCD34D",
+                fontSize: 11, fontWeight: 600, color: "#92400E",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <i className="ti ti-clock-exclamation" aria-hidden="true" />
+              {pendientesCount} pendiente{pendientesCount > 1 ? 's' : ''}
             </span>
           )}
         </header>
