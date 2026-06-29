@@ -188,10 +188,11 @@ function ContadorSesion({ sessionId }) {
 
 // ── Fix O-7: panel de gestión de cola offline ────────────────────────────────
 function ColaOfflinePanel() {
-  const [conteo,    setConteo]    = useState(null);   // null = cargando
-  const [items,     setItems]     = useState([]);
-  const [expandido, setExpandido] = useState(false);
-  const [purgando,  setPurgando]  = useState(false);
+  const [conteo,       setConteo]       = useState(null);   // null = cargando
+  const [items,        setItems]        = useState([]);
+  const [expandido,    setExpandido]    = useState(false);
+  const [purgando,     setPurgando]     = useState(false);
+  const [confirmPurga, setConfirmPurga] = useState(false);
 
   const cargar = async () => {
     try {
@@ -209,7 +210,6 @@ function ColaOfflinePanel() {
   useEffect(() => { if (expandido) cargar(); }, [expandido]);
 
   const handlePurgar = async () => {
-    if (!window.confirm(`¿Eliminar todos los ${conteo} registros offline pendientes? Esta acción no se puede deshacer.`)) return;
     setPurgando(true);
     try {
       for (const item of items) await eliminarPendiente(item.id);
@@ -306,7 +306,7 @@ function ColaOfflinePanel() {
                   Purgar expirados
                 </button>
                 <button
-                  onClick={handlePurgar}
+                  onClick={() => setConfirmPurga(true)}
                   disabled={purgando}
                   style={{ fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 7, border: "1.5px solid #FECACA", background: "#FEF2F2", color: "#DC2626", cursor: purgando ? "not-allowed" : "pointer" }}
                 >
@@ -316,6 +316,41 @@ function ColaOfflinePanel() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Modal de confirmación para vaciar cola offline */}
+      {confirmPurga && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <i className="ti ti-trash-x" style={{ fontSize: 22, color: "#DC2626" }} aria-hidden="true" />
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>¿Vaciar cola offline?</div>
+                <div style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>Esta acción no se puede deshacer</div>
+              </div>
+            </div>
+            <p style={{ margin: "0 0 20px", fontSize: 14, color: "#334155", lineHeight: 1.6 }}>
+              Se eliminarán los <strong>{conteo}</strong> registro{conteo !== 1 ? "s" : ""} pendiente{conteo !== 1 ? "s" : ""} de sincronizar.
+              Si la conexión se recupera, <strong>no se enviarán</strong> al servidor.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setConfirmPurga(false)}
+                style={{ flex: 1, padding: "10px 0", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, color: "#334155", cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setConfirmPurga(false); handlePurgar(); }}
+                style={{ flex: 1, padding: "10px 0", background: "#DC2626", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}
+              >
+                Sí, vaciar todo
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
