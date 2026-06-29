@@ -17,7 +17,7 @@
  */
 
 const DB_NAME  = 'sigma_offline';
-const DB_VER   = 5; // v5 agrega pin_lockout (lockout en IDB en lugar de localStorage)
+const DB_VER   = 6; // v6 agrega login_lockout (lockout del login normal en IDB — SEC-5)
 const STORE    = 'pin_offline';
 const LOCKOUT_STORE = 'pin_lockout';
 
@@ -37,6 +37,9 @@ function abrirDB() {
       // Fix O-8: lockout del PIN en IDB — resiste tabs privadas y limpieza de localStorage
       if (!db.objectStoreNames.contains(LOCKOUT_STORE))
         db.createObjectStore(LOCKOUT_STORE, { keyPath: 'userId' });
+      // SEC-5: lockout del login normal en IDB — keyed por email
+      if (!db.objectStoreNames.contains('login_lockout'))
+        db.createObjectStore('login_lockout', { keyPath: 'email' });
     };
     req.onsuccess = e => res(e.target.result);
     req.onerror   = e => rej(e.target.error);
@@ -244,6 +247,74 @@ export async function limpiarLockoutIDB(userId) {
     const db = await abrirDB();
     const tx = db.transaction(LOCKOUT_STORE, 'readwrite');
     tx.objectStore(LOCKOUT_STORE).delete(userId);
+    return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+  } catch { /* no crítico */ }
+}
+
+// ── SEC-5: lockout del login normal en IDB ────────────────────────────────────
+// Reemplaza los helpers de localStorage (LOCKOUT_STORAGE_KEY / ATTEMPTS_STORAGE_KEY)
+// con el mismo patrón IDB ya usado para el PIN. Keyed por email (string).
+
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS   = 60 * 1000; // 60 segundos
+
+/**
+ * Lee el estado de lockout del login normal para un email desde IDB.
+ * Devuelve { intentos, bloqueadoHasta } o valores por defecto.
+ */
+export async function leerLoginLockoutIDB(email) {
+  try {
+    const db = await abrirDB();
+    const tx = db.transaction('login_lockout', 'readonly');
+    const entry = await new Promise((res, rej) => {
+      const req = tx.objectStore('login_lockout').get(email);
+      req.onsuccess = () => res(req.result ?? null);
+      req.onerror   = () => rej(req.error);
+    });
+    if (!entry) return { intentos: 0, bloqueadoHasta: null };
+    if (entry.bloqueadoHasta && entry.bloqueadoHasta <= Date.now()) {
+      guardarLoginLockoutIDB(email, 0, null);
+      return { intentos: 0, bloqueadoHasta: null };
+    }
+    return { intentos: entry.intentos || 0, bloqueadoHasta: entry.bloqueadoHasta || null };
+  } catch {
+    return { intentos: 0, bloqueadoHasta: null };
+  }
+}
+
+/**
+ * Persiste el estado de lockout del login normal en IDB.
+ */
+export async function guardarLoginLockoutIDB(email, intentos, bloqueadoHasta) {
+  try {
+    const db = await abrirDB();
+    const tx = db.transaction('login_lockout', 'readwrite');
+    tx.objectStore('login_lockout').put({ email, intentos, bloqueadoHasta });
+    return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+  } catch { /* no crítico */ }
+}
+
+/**
+ * Registra un intento fallido de login y aplica bloqueo si corresponde.
+ * Devuelve { intentos, bloqueadoHasta, bloqueadoAhora }.
+ */
+export async function registrarIntentoLoginFallido(email) {
+  const current  = await leerLoginLockoutIDB(email);
+  const intentos = (current.intentos || 0) + 1;
+  const bloqueadoAhora = intentos >= LOGIN_MAX_ATTEMPTS;
+  const bloqueadoHasta = bloqueadoAhora ? Date.now() + LOGIN_LOCKOUT_MS : null;
+  await guardarLoginLockoutIDB(email, intentos, bloqueadoHasta);
+  return { intentos, bloqueadoHasta, bloqueadoAhora };
+}
+
+/**
+ * Limpia el lockout del login normal tras un login exitoso.
+ */
+export async function limpiarLoginLockoutIDB(email) {
+  try {
+    const db = await abrirDB();
+    const tx = db.transaction('login_lockout', 'readwrite');
+    tx.objectStore('login_lockout').delete(email);
     return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
   } catch { /* no crítico */ }
 }
