@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import { useAppDataContext } from "../context/AppDataContext";
 import { S, ROL_SIDEBAR } from "../constants";
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "../utils/lapso";
 import buildNavGroups from "./buildNavGroups";
@@ -54,7 +55,7 @@ const LazyFallback = ({ label }) => (
  *   fileRef, backupRef
  *
  * Props — datos y auth:
- *   appData           — resultado de useAppData (con exportarDatos ya auditado)
+ *   appData           — consumido desde AppDataContext (ARCH-5), ya no es prop
  *   horariosFilters   — resultado de useHorariosFilters
  *   permisos
  *   profile
@@ -83,8 +84,7 @@ export default function HorariosLayout({
   userMenuOpen, setUserMenuOpen,
   cambiarPwdOpen, setCambiarPwdOpen,
   fileRef, backupRef,
-  // Datos y auth
-  appData,
+  // Datos y auth (appData viene de AppDataContext — ARCH-5)
   horariosFilters,
   permisos,
   profile,
@@ -96,6 +96,7 @@ export default function HorariosLayout({
   tieneQR,
   onCambiarModulo,
 }) {
+  const appData = useAppDataContext();
   const expanded = pinned || hovered || mobileOpen;
 
   const navGroups    = buildNavGroups(permisos);
@@ -313,7 +314,6 @@ export default function HorariosLayout({
         {/* Admin dropdown */}
         {adminOpen && (
           <AdminMenu
-            appData={appData}
             modoConsulta={modoConsulta}
             onClose={() => setAdminOpen(false)}
             fileRef={fileRef}
