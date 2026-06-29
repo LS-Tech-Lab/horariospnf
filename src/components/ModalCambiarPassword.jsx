@@ -6,7 +6,7 @@
  * Usa supabase.auth.updateUser() — no requiere service_role.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { validarPassword } from "../utils/password";
 
@@ -32,6 +32,20 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
   // ── Compartido ────────────────────────────────────────────────────
   const [guardando, setGuardando] = useState(false);
   const [error,     setError]     = useState(null);
+
+  // ── Accesibilidad: foco al primer input + Escape para cerrar ──────
+  const firstInputRef = useRef(null);
+  useEffect(() => {
+    firstInputRef.current?.focus();
+    const handleKeyDown = (e) => { if (e.key === "Escape") onCerrar?.(); };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCerrar]);
+
+  // Al cambiar de pestaña, redirigir foco al primer campo de esa pestaña
+  useEffect(() => {
+    firstInputRef.current?.focus();
+  }, [tab]);
 
   const resetError = () => setError(null);
 
@@ -136,16 +150,26 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 1000, padding: 20,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 14, padding: 28,
-        maxWidth: 400, width: "100%",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.2)",
-      }}>
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 1000, padding: 20,
+      }}
+      role="presentation"
+      onClick={onCerrar}
+    >
+      <div
+        style={{
+          background: "#fff", borderRadius: 14, padding: 28,
+          maxWidth: 400, width: "100%",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.2)",
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-cuenta-titulo"
+        onClick={e => e.stopPropagation()}
+      >
 
         {/* Cabecera */}
         <div style={{ marginBottom: 18 }}>
@@ -154,7 +178,7 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
             style={{ fontSize: 28, color: "#2563EB", marginBottom: 6, display: "block" }}
             aria-hidden="true"
           />
-          <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
+          <h2 id="modal-cuenta-titulo" style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
             Configuración de cuenta
           </h2>
           <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>
@@ -192,8 +216,10 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
         {tab === "password" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <label style={labelStyle}>Contraseña actual *</label>
+              <label htmlFor="pwd-actual" style={labelStyle}>Contraseña actual *</label>
               <input
+                id="pwd-actual"
+                ref={firstInputRef}
                 type="password" value={actual}
                 onChange={e => { setActual(e.target.value); resetError(); }}
                 placeholder="Tu contraseña actual"
@@ -202,8 +228,9 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
             </div>
 
             <div>
-              <label style={labelStyle}>Nueva contraseña * (mín. 8 caracteres)</label>
+              <label htmlFor="pwd-nueva" style={labelStyle}>Nueva contraseña * (mín. 8 caracteres)</label>
               <input
+                id="pwd-nueva"
                 type="password" value={nueva}
                 onChange={e => { setNueva(e.target.value); resetError(); }}
                 placeholder="Mínimo 8 caracteres"
@@ -226,8 +253,9 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
             </div>
 
             <div>
-              <label style={labelStyle}>Confirmar nueva contraseña *</label>
+              <label htmlFor="pwd-confirmar" style={labelStyle}>Confirmar nueva contraseña *</label>
               <input
+                id="pwd-confirmar"
                 type="password" value={confirmar}
                 onChange={e => { setConfirmar(e.target.value); resetError(); }}
                 placeholder="Repite la nueva contraseña"
@@ -261,8 +289,10 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
             </div>
 
             <div>
-              <label style={labelStyle}>Contraseña actual * (para verificar)</label>
+              <label htmlFor="email-pwd-actual" style={labelStyle}>Contraseña actual * (para verificar)</label>
               <input
+                id="email-pwd-actual"
+                ref={firstInputRef}
                 type="password" value={passwordEmail}
                 onChange={e => { setPasswordEmail(e.target.value); resetError(); }}
                 placeholder="Tu contraseña actual"
@@ -271,8 +301,9 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
             </div>
 
             <div>
-              <label style={labelStyle}>Nuevo correo electrónico *</label>
+              <label htmlFor="email-nuevo" style={labelStyle}>Nuevo correo electrónico *</label>
               <input
+                id="email-nuevo"
                 type="email" value={nuevoEmail}
                 onChange={e => { setNuevoEmail(e.target.value); resetError(); }}
                 placeholder="nuevo@correo.com"
@@ -281,8 +312,9 @@ export default function ModalCambiarPassword({ onCerrar, showToast }) {
             </div>
 
             <div>
-              <label style={labelStyle}>Confirmar nuevo correo *</label>
+              <label htmlFor="email-confirmar" style={labelStyle}>Confirmar nuevo correo *</label>
               <input
+                id="email-confirmar"
                 type="email" value={confirmarEmail}
                 onChange={e => { setConfirmarEmail(e.target.value); resetError(); }}
                 placeholder="Repite el nuevo correo"
