@@ -12,10 +12,13 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/check-env.js && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^25.0.1",
     "vite": "^5.1.0",
     "vite-plugin-pwa": "^0.21.1",
