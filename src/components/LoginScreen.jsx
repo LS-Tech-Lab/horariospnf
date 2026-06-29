@@ -4,25 +4,16 @@ import {
   listarUsuariosOffline, verificarPinOffline, guardarPinOffline, tienePinOffline,
   // Fix O-8: lockout del PIN en IDB — resiste tabs privadas
   leerLockoutIDB, registrarIntentoPinFallido, limpiarLockoutIDB,
+  // SEC-5: lockout del login normal en IDB
+  leerLoginLockoutIDB, registrarIntentoLoginFallido, limpiarLoginLockoutIDB,
 } from "../utils/pinOffline";
 
-// LIMITACIÓN CONOCIDA — Fix #9 (auditoría Junio 2026)
-// El contador de intentos fallidos y el bloqueo temporal del login Supabase viven en
-// localStorage. Un atacante puede eludirlos borrando localStorage
-// o usando una pestaña privada. Este mecanismo es únicamente una
-// capa de UX para el usuario legítimo — no debe considerarse seguridad
-// real contra brute-force. La protección efectiva la provee Supabase
-// Auth en el backend mediante rate limiting por IP.
-const MAX_ATTEMPTS = 5;
+// SEC-5 (Junio 2026): el lockout del login normal fue migrado de localStorage a IDB
+// usando leerLoginLockoutIDB / registrarIntentoLoginFallido / limpiarLoginLockoutIDB
+// (pinOffline.js). Resiste tabs privadas y limpieza manual de DevTools.
+// La protección real contra brute-force la provee Supabase Auth (rate limiting por IP).
+const MAX_ATTEMPTS    = 5;
 const LOCKOUT_SECONDS = 60;
-const LOCKOUT_STORAGE_KEY = "login_lockout_until";
-const ATTEMPTS_STORAGE_KEY = "login_failed_attempts";
-
-// Fix O-8: el lockout del PIN offline ya NO usa localStorage —
-// vive en IDB (ver pinOffline.js: leerLockoutIDB / registrarIntentoPinFallido).
-// Estas constantes quedan solo como referencia de los valores límite.
-const PIN_MAX_ATTEMPTS   = 5;   // exportado desde pinOffline para consistencia
-const PIN_LOCKOUT_MS     = 5 * 60 * 1000; // 5 minutos
 
 function getAuthErrorMessage(error) {
   const msg    = (error?.message || "").toLowerCase();
@@ -33,23 +24,6 @@ function getAuthErrorMessage(error) {
   if (msg.includes("too many requests") || status === 429) return "Demasiados intentos. Espera unos minutos antes de volver a intentarlo.";
   if (msg.includes("network") || msg.includes("fetch")) return "Error de conexión. Verifica tu internet e intenta de nuevo.";
   return "No se pudo iniciar sesión. Intenta de nuevo.";
-}
-
-function readStoredLockout() {
-  try { const u = parseInt(localStorage.getItem(LOCKOUT_STORAGE_KEY) || "0", 10); return u > Date.now() ? u : null; }
-  catch { return null; }
-}
-function readStoredAttempts() {
-  try { return parseInt(localStorage.getItem(ATTEMPTS_STORAGE_KEY) || "0", 10); }
-  catch { return 0; }
-}
-function persistLockout(until) {
-  try { if (until) localStorage.setItem(LOCKOUT_STORAGE_KEY, String(until)); else localStorage.removeItem(LOCKOUT_STORAGE_KEY); }
-  catch { /* degradamos sin persistencia */ }
-}
-function persistAttempts(n) {
-  try { if (n > 0) localStorage.setItem(ATTEMPTS_STORAGE_KEY, String(n)); else localStorage.removeItem(ATTEMPTS_STORAGE_KEY); }
-  catch { /* idem */ }
 }
 
 // ── PIN lockout helpers — Fix O-8: reemplazados por IDB (ver pinOffline.js) ───
@@ -143,10 +117,9 @@ export default function LoginScreen({ onOfflineLogin }) {
   const [password, setPassword] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState(null);
-  const [failedAttempts, setFailedAttempts] = useState(
-    () => readStoredLockout() ? readStoredAttempts() : 0
-  );
-  const [lockedUntil, setLockedUntil] = useState(() => readStoredLockout());
+  // SEC-5: inicializar a 0 — IDB es async, se carga en useEffect
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil,    setLockedUntil]    = useState(null);
   const [remaining,   setRemaining]   = useState(0);
   const timerRef = useRef(null);
 
@@ -170,6 +143,16 @@ export default function LoginScreen({ onOfflineLogin }) {
   const [pendingPinUser,    setPendingPinUser]    = useState(null); // { user, profile }
   const [mostrarModalPIN,   setMostrarModalPIN]   = useState(false);
 
+  // SEC-5: cargar estado de lockout del login normal desde IDB cuando el email cambia.
+  // Permite mostrar el bloqueo restante si el usuario ya agotó intentos anteriores.
+  useEffect(() => {
+    if (!email) return;
+    leerLoginLockoutIDB(email).then(({ intentos, bloqueadoHasta }) => {
+      setFailedAttempts(intentos);
+      setLockedUntil(bloqueadoHasta && bloqueadoHasta > Date.now() ? bloqueadoHasta : null);
+    });
+  }, [email]);
+
   // ── Lockout normal ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!lockedUntil) return;
@@ -178,7 +161,7 @@ export default function LoginScreen({ onOfflineLogin }) {
       setRemaining(s);
       if (s <= 0) {
         setLockedUntil(null); setFailedAttempts(0);
-        persistLockout(null); persistAttempts(0);
+        limpiarLoginLockoutIDB(email);
         clearInterval(timerRef.current);
       }
     };
@@ -252,19 +235,20 @@ export default function LoginScreen({ onOfflineLogin }) {
 
     if (authError) {
       setError(getAuthErrorMessage(authError));
-      const next = failedAttempts + 1;
-      setFailedAttempts(next); persistAttempts(next);
-      if (next >= MAX_ATTEMPTS) {
-        const until = Date.now() + LOCKOUT_SECONDS * 1000;
-        setLockedUntil(until); persistLockout(until);
-      }
+      // SEC-5: registrar intento fallido en IDB
+      const { intentos, bloqueadoHasta, bloqueadoAhora } =
+        await registrarIntentoLoginFallido(email);
+      setFailedAttempts(intentos);
+      if (bloqueadoAhora) setLockedUntil(bloqueadoHasta);
       try {
         await supabase.rpc("log_login_fallido", {
           p_email: email, p_user_agent: navigator.userAgent, p_motivo: authError.message,
         });
       } catch { /* no-op */ }
     } else {
-      setFailedAttempts(0); persistAttempts(0); persistLockout(null);
+      // SEC-5: limpiar lockout en IDB tras login exitoso
+      setFailedAttempts(0); setLockedUntil(null);
+      limpiarLoginLockoutIDB(email);
       loginUser = data.user;
 
       // Cargar perfil para el modal PIN
