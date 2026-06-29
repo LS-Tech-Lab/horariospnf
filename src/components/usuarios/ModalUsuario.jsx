@@ -12,7 +12,7 @@
  *   logAudit  — función de auditoría
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { S } from "../../constants";
 import { Spinner } from "./shared";
@@ -137,20 +137,39 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
 
   const inputStyle = { ...S.input, width: "100%", boxSizing: "border-box" };
 
+  // Accesibilidad: foco al primer campo al abrir + Escape para cerrar
+  const firstInputRef = useRef(null);
+  useEffect(() => {
+    firstInputRef.current?.focus();
+    const handleKeyDown = (e) => { if (e.key === "Escape") onClose?.(); };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 14, padding: 28, maxWidth: 480, width: "100%",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column", gap: 18,
-      }}>
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16,
+      }}
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#fff", borderRadius: 14, padding: 28, maxWidth: 480, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column", gap: 18,
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-usuario-titulo"
+        onClick={e => e.stopPropagation()}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0, fontSize: 17, color: "var(--color-text-primary)", fontWeight: 700 }}>
+          <h2 id="modal-usuario-titulo" style={{ margin: 0, fontSize: 17, color: "var(--color-text-primary)", fontWeight: 700 }}>
             {esNuevo ? "Nuevo usuario" : "Editar usuario"}
           </h2>
-          <button onClick={onClose} style={{
+          <button onClick={onClose} aria-label="Cerrar" style={{
             background: "none", border: "none", cursor: "pointer",
             fontSize: 20, color: "var(--color-text-tertiary)", lineHeight: 1,
           }}>✕</button>
@@ -160,13 +179,15 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
           {[
             { field: "nombre", label: "Nombre completo",  placeholder: "Ej: María González", type: "text" },
             { field: "email",  label: "Email",            placeholder: "correo@ejemplo.com",  type: "email", disabled: !esNuevo },
-          ].map(({ field, label, placeholder, type, disabled }) => (
+          ].map(({ field, label, placeholder, type, disabled }, idx) => (
             <div key={field}>
-              <label style={{
+              <label htmlFor={`usr-field-${field}`} style={{
                 fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
                 textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
               }}>{label}</label>
               <input
+                id={`usr-field-${field}`}
+                ref={idx === 0 ? firstInputRef : undefined}
                 style={inputStyle}
                 value={form[field]}
                 onChange={set(field)}
@@ -178,13 +199,14 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
           ))}
 
           <div>
-            <label style={{
+            <label htmlFor="usr-field-password" style={{
               fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
               textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
             }}>
               {esNuevo ? "Contraseña inicial" : "Nueva contraseña (dejar vacío para no cambiar)"}
             </label>
             <input
+              id="usr-field-password"
               style={inputStyle}
               value={form.password}
               onChange={set("password")}
@@ -194,11 +216,11 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
           </div>
 
           <div>
-            <label style={{
+            <label htmlFor="usr-field-rol" style={{
               fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
               textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
             }}>Rol</label>
-            <select style={{ ...S.select, width: "100%" }} value={form.rol} onChange={set("rol")}>
+            <select id="usr-field-rol" style={{ ...S.select, width: "100%" }} value={form.rol} onChange={set("rol")}>
               {roles.map(r => (
                 <option key={r.nombre} value={r.nombre}>{r.emoji} {r.label}</option>
               ))}
@@ -214,11 +236,11 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
 
           {rolSeleccionado?.restringe_programa && (
             <div>
-              <label style={{
+              <label htmlFor="usr-field-programa" style={{
                 fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
                 textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
               }}>Programa asignado</label>
-              <select style={{ ...S.select, width: "100%" }} value={form.programa} onChange={set("programa")}>
+              <select id="usr-field-programa" style={{ ...S.select, width: "100%" }} value={form.programa} onChange={set("programa")}>
                 <option value="">— Seleccionar programa —</option>
                 {programas.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
