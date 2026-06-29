@@ -552,7 +552,7 @@ const CSS = `
     padding: 14px 24px;
     animation: qrpOfflinePulse 2.5s ease-in-out infinite;
   }
-  .qrp-offline-icon {
+  .qrp-offline-icon 
     font-size: 20px;
     flex-shrink: 0;
     margin-top: 1px;
@@ -562,7 +562,7 @@ const CSS = `
     color: #FCA5A5;
     line-height: 1.5;
   }
-`;
+;
   /* Reset de caja para todo el componente */
   .qrp-root *, .qrp-root *::before, .qrp-root *::after {
     box-sizing: border-box;
