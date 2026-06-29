@@ -14,6 +14,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
+// ── Fix O-1 / O-4: exponer estado de red para que AdminQRPanel y
+// QRProyeccion muestren un banner cuando no hay conexión.
+
 const TTL_MINUTES = 5;
 
 // FIX (realtime-fallback-polling-rotacion-qr): si asistencias_diarias no
@@ -32,6 +35,8 @@ export default function useQRSession() {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [activa,     setActiva]     = useState(false);
+  // Fix O-1: exponer estado de red al exterior
+  const [isOffline,  setIsOffline]  = useState(!navigator.onLine);
 
   const renewTimerRef  = useRef(null);
   const countdownRef   = useRef(null);
@@ -134,6 +139,9 @@ export default function useQRSession() {
       .then(({ count }) => { if (!cancelado) scanCountRef.current = count || 0; });
 
     scanPollRef.current = setInterval(async () => {
+      // Fix O-4: no hacer queries si no hay conexión
+      if (!navigator.onLine) return;
+
       const { count } = await supabase
         .from("asistencias_diarias")
         .select("id", { count: "exact", head: true })
@@ -199,6 +207,35 @@ export default function useQRSession() {
     setActiva(false);
   }, [sessionId, limpiarIntervalos]);
 
+  // ── Fix O-1: detectar online/offline y gestionar renovación automática ───
+  useEffect(() => {
+    const goOffline = () => {
+      setIsOffline(true);
+      // Pausar la renovación automática — no tiene sentido intentar RPC sin red
+      if (renewTimerRef.current) {
+        clearInterval(renewTimerRef.current);
+        renewTimerRef.current = null;
+      }
+    };
+
+    const goOnline = async () => {
+      setIsOffline(false);
+      // Reanudar renovación si hay sesión activa
+      if (sessionIdRef.current) {
+        // Renovar de inmediato para recuperar un token válido
+        const ok = await renovarToken(sessionIdRef.current);
+        if (ok) iniciarAutoRenovado(sessionIdRef.current);
+      }
+    };
+
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online',  goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online',  goOnline);
+    };
+  }, [renovarToken, iniciarAutoRenovado]);
+
   useEffect(() => () => limpiarIntervalos(), [limpiarIntervalos]);
 
   // ── Recuperar sesión activa al montar (ej. tras recargar la página) ───────
@@ -240,6 +277,7 @@ export default function useQRSession() {
     sessionId, token, expiresAt,
     segundosRestantes: segundos,
     qrUrl, activa, loading, error,
+    isOffline,
     ttlMinutes: TTL_MINUTES,
     crearSesion, renovarManual, cerrarSesion,
   };
