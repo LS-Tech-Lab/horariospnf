@@ -9,6 +9,8 @@ import { DEFAULT_PROGRAMAS, TURNOS_CONFIG } from "../../constants";
 import { playRegistroSound, useFlashFeed } from "./useRegistroSound";
 import { supabase } from "../../lib/supabase";
 import { fechaHoyVE } from "../../utils/time";
+// Fix O-7: gestión de cola offline
+import { contarPendientes, obtenerPendientes, eliminarPendiente, purgarExpirados } from "../../utils/offlineQueue";
 
 function horaActualVE() {
   const ve = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
@@ -180,6 +182,142 @@ function ContadorSesion({ sessionId }) {
           {stats.salidas === 1 ? "docente salió" : "docentes salieron"}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Fix O-7: panel de gestión de cola offline ────────────────────────────────
+function ColaOfflinePanel() {
+  const [conteo,    setConteo]    = useState(null);   // null = cargando
+  const [items,     setItems]     = useState([]);
+  const [expandido, setExpandido] = useState(false);
+  const [purgando,  setPurgando]  = useState(false);
+
+  const cargar = async () => {
+    try {
+      const lista = await obtenerPendientes();
+      setItems(lista);
+      setConteo(lista.length);
+    } catch {
+      setConteo(0);
+    }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  // Refrescar conteo cada vez que se expande
+  useEffect(() => { if (expandido) cargar(); }, [expandido]);
+
+  const handlePurgar = async () => {
+    if (!window.confirm(`¿Eliminar todos los ${conteo} registros offline pendientes? Esta acción no se puede deshacer.`)) return;
+    setPurgando(true);
+    try {
+      for (const item of items) await eliminarPendiente(item.id);
+      await cargar();
+    } catch { /* silencioso */ }
+    setPurgando(false);
+  };
+
+  const handlePurgarExpirados = async () => {
+    setPurgando(true);
+    try {
+      await purgarExpirados();
+      await cargar();
+    } catch { /* silencioso */ }
+    setPurgando(false);
+  };
+
+  // No mostrar si no hay nada pendiente y no está expandido
+  if (conteo === 0 && !expandido) return null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button
+        onClick={() => setExpandido(v => !v)}
+        style={{
+          width: "100%", padding: "9px 14px",
+          background: conteo > 0 ? "#FFFBEB" : "#F8FAFC",
+          border: `1px solid ${conteo > 0 ? "#FDE68A" : "#E2E8F0"}`,
+          borderRadius: 9, fontSize: 12, fontWeight: 600,
+          color: conteo > 0 ? "#92400E" : "#334155",
+          cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <i className="ti ti-clock-upload" style={{ fontSize: 14 }} aria-hidden="true" />
+          Cola offline
+          {conteo != null && conteo > 0 && (
+            <span style={{
+              background: "#F59E0B", color: "#fff", borderRadius: 20,
+              fontSize: 10, fontWeight: 800, padding: "1px 7px", lineHeight: "16px",
+            }}>{conteo}</span>
+          )}
+        </span>
+        <i className={`ti ti-chevron-${expandido ? "up" : "down"}`} style={{ fontSize: 12, color: "#64748B" }} aria-hidden="true" />
+      </button>
+
+      {expandido && (
+        <div style={{ marginTop: 6, border: "1px solid #E2E8F0", borderRadius: 9, overflow: "hidden", background: "#fff" }}>
+          {conteo === 0 ? (
+            <div style={{ padding: "14px 16px", fontSize: 13, color: "#64748B", textAlign: "center" }}>
+              No hay registros pendientes de sincronizar.
+            </div>
+          ) : (
+            <>
+              <div style={{ padding: "10px 14px", background: "#FFFBEB", borderBottom: "1px solid #FDE68A", fontSize: 12, color: "#92400E" }}>
+                <strong>{conteo}</strong> registro{conteo !== 1 ? 's' : ''} guardado{conteo !== 1 ? 's' : ''} offline pendiente{conteo !== 1 ? 's' : ''} de sincronizar.
+                Se enviarán automáticamente al reconectar.
+              </div>
+              <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                {items.map((item, i) => {
+                  const fecha = item.creadoEn ? new Date(item.creadoEn) : null;
+                  const edadMs = fecha ? Date.now() - item.creadoEn : null;
+                  const vencido = edadMs && edadMs > 48 * 3600 * 1000;
+                  return (
+                    <div key={item.id} style={{
+                      padding: "8px 14px", fontSize: 12,
+                      borderBottom: i < items.length - 1 ? "1px solid #F1F5F9" : "none",
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      background: vencido ? "#FEF2F2" : "#fff",
+                    }}>
+                      <div>
+                        <span style={{ fontWeight: 600, color: "#0F172A" }}>
+                          {item.p_cedula_docente || item.cedula_docente || "—"}
+                        </span>
+                        <span style={{ color: "#64748B", marginLeft: 8 }}>
+                          {item.p_tipo || item.tipo || ""}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: "right", color: vencido ? "#DC2626" : "#64748B" }}>
+                        {fecha ? fecha.toLocaleString("es-VE", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        {vencido && <span style={{ marginLeft: 4, fontWeight: 600 }}>⚠ vencido</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ padding: "10px 14px", borderTop: "1px solid #F1F5F9", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={handlePurgarExpirados}
+                  disabled={purgando}
+                  style={{ fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#334155", cursor: purgando ? "not-allowed" : "pointer" }}
+                >
+                  <i className="ti ti-trash" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
+                  Purgar expirados
+                </button>
+                <button
+                  onClick={handlePurgar}
+                  disabled={purgando}
+                  style={{ fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 7, border: "1.5px solid #FECACA", background: "#FEF2F2", color: "#DC2626", cursor: purgando ? "not-allowed" : "pointer" }}
+                >
+                  <i className="ti ti-trash-x" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
+                  Vaciar todo
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -575,6 +713,8 @@ export default function AdminQRPanel({
 
           {activa && <ContadorSesion sessionId={sessionId} />}
           {activa && <FeedActividad registros={feedRegistros} flash={feedFlash} />}
+          {/* Fix O-7: panel de gestión de cola offline */}
+          <ColaOfflinePanel />
           <HistorialSesiones fecha={fecha} sessionIdActiva={sessionId} />
         </div>
 
