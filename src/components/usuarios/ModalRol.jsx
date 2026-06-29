@@ -9,7 +9,7 @@
  *   logAudit — función de auditoría
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { S } from "../../constants";
 import {
@@ -41,6 +41,15 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
   const set    = (k) => (v) => setForm(f => ({ ...f, [k]: v }));
   const setPerm = (k) => (v) => setForm(f => ({ ...f, permisos: { ...f.permisos, [k]: v } }));
   const contarPermisos = Object.values(form.permisos).filter(Boolean).length;
+
+  // Accesibilidad: foco al primer campo + Escape para cerrar
+  const firstInputRef = useRef(null);
+  useEffect(() => {
+    firstInputRef.current?.focus();
+    const handleKeyDown = (e) => { if (e.key === "Escape") onClose?.(); };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleSave = async () => {
     setError("");
@@ -94,22 +103,32 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)",
-      display: "flex", alignItems: "flex-start", justifyContent: "center",
-      zIndex: 1000, padding: 16, overflowY: "auto",
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 14, padding: 28, maxWidth: 620, width: "100%",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.25)", margin: "auto",
-        display: "flex", flexDirection: "column", gap: 20,
-      }}>
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        zIndex: 1000, padding: 16, overflowY: "auto",
+      }}
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#fff", borderRadius: 14, padding: 28, maxWidth: 620, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.25)", margin: "auto",
+          display: "flex", flexDirection: "column", gap: 20,
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-rol-titulo"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Cabecera */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)" }}>
+          <h2 id="modal-rol-titulo" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)" }}>
             {esNuevo ? "Nuevo rol" : `Editar rol: ${rol.label}`}
           </h2>
-          <button onClick={onClose} style={{
+          <button onClick={onClose} aria-label="Cerrar" style={{
             background: "none", border: "none", cursor: "pointer",
             fontSize: 20, color: "var(--color-text-tertiary)",
           }}>✕</button>
@@ -119,7 +138,7 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {esNuevo && (
             <div style={{ gridColumn: "1/-1" }}>
-              <label style={{
+              <label htmlFor="rol-field-nombre" style={{
                 fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
                 textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
               }}>
@@ -127,6 +146,8 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
                 <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>— no se puede cambiar luego</span>
               </label>
               <input
+                id="rol-field-nombre"
+                ref={firstInputRef}
                 style={{ ...S.input, width: "100%", boxSizing: "border-box" }}
                 value={form.nombre}
                 onChange={e => set("nombre")(e.target.value.toLowerCase().replace(/\s/g, "_"))}
@@ -136,11 +157,13 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
           )}
 
           <div style={{ gridColumn: "1/-1" }}>
-            <label style={{
+            <label htmlFor="rol-field-label" style={{
               fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
               textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
             }}>Nombre visible</label>
             <input
+              id="rol-field-label"
+              ref={esNuevo ? undefined : firstInputRef}
               style={{ ...S.input, width: "100%", boxSizing: "border-box" }}
               value={form.label}
               onChange={e => set("label")(e.target.value)}
