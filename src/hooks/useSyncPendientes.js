@@ -2,12 +2,30 @@
 // pendientes guardadas en IndexedDB durante períodos sin conexión.
 // Montar una sola vez en App.jsx.
 //
-// Fix O-2: los registros con TOKEN_VENCIDO se eliminan de IDB en lugar de
+// Fix O-2: los registros irrecuperables se eliminan de IDB en lugar de
 // reintentar indefinidamente. Se purgan también entradas con TTL > 48 h.
 
 import { useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { obtenerPendientes, eliminarPendiente, contarPendientes, purgarExpirados } from '../utils/offlineQueue';
+import { obtenerPendientes, eliminarPendiente, purgarExpirados } from '../utils/offlineQueue';
+
+// Códigos que la RPC registrar_asistencia() devuelve cuando el registro
+// nunca podrá sincronizarse — eliminar de IDB sin reintentar.
+// TOKEN_EXPIRADO      → el token QR venció (código real de la RPC en 0039)
+// SESION_INACTIVA     → la sesión fue cerrada por el admin
+// SESION_FECHA_INVALIDA → la sesión era de otro día
+const CODIGOS_IRRECUPERABLES = new Set([
+  'TOKEN_EXPIRADO',
+  'SESION_INACTIVA',
+  'SESION_FECHA_INVALIDA',
+  'TOKEN_INVALIDO',
+]);
+
+// Códigos de éxito idempotente: el registro ya está en BD
+const CODIGOS_YA_REGISTRADO = new Set([
+  'YA_REGISTRADO',
+  'YA_REGISTRADO_SALIDA',
+]);
 
 export default function useSyncPendientes(showToast) {
   const sync = useCallback(async () => {
@@ -24,23 +42,24 @@ export default function useSyncPendientes(showToast) {
     if (!pendientes?.length) return;
 
     let sincronizados = 0;
-    let fallidos = 0;
-    // Fix O-2: contar tokens vencidos para notificar al coordinador
-    let vencidos = 0;
+    let fallidos      = 0;
+    let irrecuperables = 0;
 
     for (const item of pendientes) {
       const { id, creadoEn, ...payload } = item;
       try {
         const { data } = await supabase.rpc('registrar_asistencia', payload);
-        // Éxito: ok=true o ya registrado (idempotente)
-        if (data?.ok || data?.codigo === 'YA_REGISTRADO') {
+
+        if (data?.ok || CODIGOS_YA_REGISTRADO.has(data?.codigo)) {
+          // Registrado correctamente o ya estaba en BD (idempotente)
           await eliminarPendiente(id);
           sincronizados++;
-        // Fix O-2: token vencido → eliminar de IDB, no reintentar
-        } else if (data?.codigo === 'TOKEN_VENCIDO') {
+        } else if (CODIGOS_IRRECUPERABLES.has(data?.codigo)) {
+          // Fix O-2: el registro nunca podrá sincronizarse → purgar de IDB
           await eliminarPendiente(id);
-          vencidos++;
+          irrecuperables++;
         } else {
+          // Error transitorio (red, Supabase caído, etc.) → reintentar luego
           fallidos++;
         }
       } catch {
@@ -54,9 +73,9 @@ export default function useSyncPendientes(showToast) {
         'success'
       );
     }
-    if (vencidos > 0) {
+    if (irrecuperables > 0) {
       showToast?.(
-        `⚠️ ${vencidos} registro${vencidos > 1 ? 's' : ''} offline no pudieron sincronizarse: el código QR ya había vencido. Comunique al coordinador para registrarlo manualmente.`,
+        `⚠️ ${irrecuperables} registro${irrecuperables > 1 ? 's' : ''} offline no pudieron sincronizarse: el código QR ya había expirado o la sesión fue cerrada. Comuníquelo al coordinador para registrarlo manualmente.`,
         'warning'
       );
     }
