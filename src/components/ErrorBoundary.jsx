@@ -4,6 +4,10 @@ import React from "react";
  * Mejora 6: ErrorBoundary global.
  * Captura cualquier error de render en el árbol y muestra un mensaje amigable
  * en lugar de una pantalla blanca. Incluye botón para recargar.
+ *
+ * SEC-2: el stack trace completo solo se renderiza en desarrollo
+ * (import.meta.env.DEV). En producción se muestra únicamente el mensaje
+ * de error, sin exponer rutas internas del bundle ni nombres de componentes.
  */
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -17,7 +21,12 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error("ErrorBoundary capturó un error:", error, info.componentStack);
-    this.setState({ stack: (error.stack || "") + "\n\nComponentStack:" + info.componentStack });
+    // Guardar stack solo para mostrarlo en desarrollo
+    if (import.meta.env.DEV) {
+      this.setState({
+        stack: (error.stack || "") + "\n\nComponentStack:" + info.componentStack,
+      });
+    }
   }
 
   render() {
@@ -36,7 +45,8 @@ export default class ErrorBoundary extends React.Component {
         <p style={{ margin: 0, fontSize: 14, color: "#94A3B8", maxWidth: 420, lineHeight: 1.6 }}>
           {this.state.error?.message || "Error inesperado en la aplicación."}
         </p>
-        {this.state.stack && (
+        {/* Stack trace visible SOLO en desarrollo (SEC-2) */}
+        {import.meta.env.DEV && this.state.stack && (
           <pre style={{
             marginTop: 12, padding: "12px 16px", background: "#1E293B", borderRadius: 8,
             fontSize: 10, color: "#CBD5E1", textAlign: "left", overflowX: "auto",
