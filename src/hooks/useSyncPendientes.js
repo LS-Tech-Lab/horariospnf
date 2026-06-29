@@ -4,10 +4,19 @@
 //
 // Fix O-2: los registros irrecuperables se eliminan de IDB en lugar de
 // reintentar indefinidamente. Se purgan también entradas con TTL > 48 h.
+//
+// UX-4: el hook ahora expone `pendientesCount` (número de registros en cola)
+// para que el layout principal pueda mostrar un badge persistente mientras
+// haya datos pendientes de sincronizar.
 
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { obtenerPendientes, eliminarPendiente, purgarExpirados } from '../utils/offlineQueue';
+import {
+  obtenerPendientes,
+  eliminarPendiente,
+  purgarExpirados,
+  contarPendientes,
+} from '../utils/offlineQueue';
 
 // Códigos que la RPC registrar_asistencia() devuelve cuando el registro
 // nunca podrá sincronizarse — eliminar de IDB sin reintentar.
@@ -28,6 +37,19 @@ const CODIGOS_YA_REGISTRADO = new Set([
 ]);
 
 export default function useSyncPendientes(showToast) {
+  // UX-4: contador de registros pendientes en IDB
+  const [pendientesCount, setPendientesCount] = useState(0);
+
+  // Actualizar el contador leyendo IDB directamente
+  const refreshCount = useCallback(async () => {
+    try {
+      const n = await contarPendientes();
+      setPendientesCount(n);
+    } catch {
+      // IDB no disponible — dejar el estado anterior
+    }
+  }, []);
+
   const sync = useCallback(async () => {
     // Fix O-2: purgar entradas expiradas (>48 h) antes de intentar sync
     try { await purgarExpirados(); } catch { /* silencioso */ }
@@ -39,10 +61,13 @@ export default function useSyncPendientes(showToast) {
       return; // IndexedDB no disponible — ignorar
     }
 
-    if (!pendientes?.length) return;
+    if (!pendientes?.length) {
+      setPendientesCount(0);
+      return;
+    }
 
-    let sincronizados = 0;
-    let fallidos      = 0;
+    let sincronizados  = 0;
+    let fallidos       = 0;
     let irrecuperables = 0;
 
     for (const item of pendientes) {
@@ -67,6 +92,9 @@ export default function useSyncPendientes(showToast) {
       }
     }
 
+    // UX-4: refrescar contador tras sincronizar
+    await refreshCount();
+
     if (sincronizados > 0) {
       showToast?.(
         `✅ ${sincronizados} registro${sincronizados > 1 ? 's' : ''} offline sincronizado${sincronizados > 1 ? 's' : ''} con éxito.`,
@@ -85,13 +113,18 @@ export default function useSyncPendientes(showToast) {
         'warning'
       );
     }
-  }, [showToast]);
+  }, [showToast, refreshCount]);
 
   useEffect(() => {
+    // Leer el contador al montar (por si hay pendientes de una sesión anterior)
+    refreshCount();
+
     // Intentar sincronizar al montar (por si venimos de recargar con red)
     if (navigator.onLine) sync();
 
     window.addEventListener('online', sync);
     return () => window.removeEventListener('online', sync);
-  }, [sync]);
+  }, [sync, refreshCount]);
+
+  return { pendientesCount, refreshCount };
 }
