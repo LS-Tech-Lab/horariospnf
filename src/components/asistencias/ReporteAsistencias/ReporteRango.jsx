@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
 import { S, DEFAULT_PROGRAMAS, TURNOS_CONFIG } from "../../../constants";
 import { fechaHoyVE } from "../../../utils/time";
@@ -24,6 +24,13 @@ function ReporteRango({ onVolverDiario }) {
   const [isOffline, setIsOffline] = useState(false);
   const [truncado, setTruncado] = useState(false);
 
+  // A-4: ref al AbortController del fetch en curso. fetchRango se dispara
+  // de nuevo cada vez que cambian inicio/fin/turno/programa; si el usuario
+  // cambia filtros antes de que termine la paginación anterior, se aborta
+  // el fetch viejo para que su respuesta tardía no pise la tabla con datos
+  // de un rango/turno que ya no es el seleccionado.
+  const abortControllerRef = useRef(null);
+
   // A-2: paginación por cursor (mismo patrón que useDataSync) para evitar
   // que el límite por defecto de Supabase (1000 filas) trunque el reporte
   // sin avisar. RANGO_PAGE_SIZE controla el tamaño de cada página y
@@ -33,6 +40,12 @@ function ReporteRango({ onVolverDiario }) {
 
   const fetchRango = useCallback(async () => {
     if (!inicio || !fin || inicio > fin) return;
+
+    // A-4: cancelar el fetch anterior si seguía en curso.
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
 
     // Sin red: no ejecutar — mostrar aviso
     if (!navigator.onLine) {
@@ -58,10 +71,14 @@ function ReporteRango({ onVolverDiario }) {
           .gt("id", cursor)
           .gte("fecha", inicio).lte("fecha", fin).eq("turno", turno)
           .order("id", { ascending: true })
-          .limit(RANGO_PAGE_SIZE);
+          .limit(RANGO_PAGE_SIZE)
+          .abortSignal(signal);
         if (programa) q = q.eq("programa", programa);
 
         const { data, error: err } = await q;
+        // A-4: si este fetch ya fue superado por uno más nuevo, descartar
+        // el resultado en silencio en vez de pisar la tabla actual.
+        if (signal.aborted) return;
         if (err) { setError(err.message); setRows([]); setLoading(false); return; }
 
         const filas = data || [];
@@ -86,6 +103,7 @@ function ReporteRango({ onVolverDiario }) {
 
       setRows(todasLasFilas);
     } catch (e) {
+      if (signal.aborted || e.name === "AbortError") return;
       setError(e.message || "Error al cargar el reporte.");
       setRows([]);
     }
@@ -93,6 +111,9 @@ function ReporteRango({ onVolverDiario }) {
   }, [inicio, fin, turno, programa]);
 
   useEffect(() => { fetchRango(); }, [fetchRango]);
+
+  // A-4: abortar el fetch en curso al desmontar el componente.
+  useEffect(() => () => { if (abortControllerRef.current) abortControllerRef.current.abort(); }, []);
 
   useEffect(() => {
     const handleOnline  = () => { setIsOffline(false); fetchRango(); };
