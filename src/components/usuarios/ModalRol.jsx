@@ -21,6 +21,7 @@ import {
   Badge,
   Spinner,
 } from "./shared";
+import useFocusTrap from "../../hooks/useFocusTrap";
 
 export default function ModalRol({ rol, onSave, onClose, logAudit }) {
   const esNuevo = !rol;
@@ -44,6 +45,8 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
 
   // Accesibilidad: foco al primer campo + Escape para cerrar
   const firstInputRef = useRef(null);
+  const dialogRef = useRef(null);
+  useFocusTrap(dialogRef, true);
   useEffect(() => {
     firstInputRef.current?.focus();
     const handleKeyDown = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -113,6 +116,7 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         style={{
           background: "#fff", borderRadius: 14, padding: 28, maxWidth: 620, width: "100%",
           boxShadow: "0 20px 60px rgba(0,0,0,0.25)", margin: "auto",
