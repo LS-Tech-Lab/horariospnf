@@ -10,7 +10,7 @@ import { encolarAsistencia } from "../../../utils/offlineQueue";
 
 import { LS_KEY, avisoStale, normalizarCedula, cedulaTieneFormatoValido } from "./cedula";
 import { calcularDeviceFingerprint } from "./deviceFingerprint";
-import { IconError, RESULTADO_UI } from "./icons";
+import { IconError, RESULTADO_UI, IconScan, CODIGOS_REQUIEREN_REESCANEO } from "./icons";
 import Shell from "./Shell";
 import Campo from "./Campo";
 import HorarioHoyCard from "./HorarioHoyCard";
@@ -217,6 +217,48 @@ export default function DocenteScan() {
 
   // ── Resultado ────────────────────────────────────────────────────────────
   if (paso === "resultado" && resultado) {
+    // Caso especial: el token QR de esta página ya rotó o venció (sucede
+    // siempre que el docente vuelve a abrir la pantalla guardada —por
+    // ejemplo desde el historial del navegador— para marcar su salida
+    // después de haber marcado la entrada con otro código). No es un error
+    // del docente ni de su identidad, así que en vez del mensaje genérico
+    // "Código QR no válido" le mostramos su identidad ya confirmada y una
+    // instrucción clara para volver a escanear el código vigente del aula.
+    const requiereReescaneo =
+      !resultado.ok &&
+      CODIGOS_REQUIEREN_REESCANEO.includes(resultado.codigo) &&
+      !!datosGuardados;
+
+    if (requiereReescaneo) {
+      return (
+        <Shell ancho={420}>
+          <IconScan />
+          <h2 style={{ margin:"16px 0 6px", fontSize:"clamp(20px,5vw,26px)", fontWeight:800, color:"#1D4ED8", textAlign:"center" }}>
+            Escanea el código QR para registrar tu {tipo === "SALIDA" ? "salida" : "entrada"}
+          </h2>
+          <p style={{ margin:0, fontSize:"clamp(15px,3.5vw,18px)", color:"#334155", textAlign:"center", lineHeight:1.55 }}>
+            Por seguridad, el código QR cambia constantemente. Abre la cámara de tu teléfono y apunta al código QR que está ahora en la pantalla del aula para completar tu registro.
+          </p>
+
+          <div style={{ marginTop:20, background:"#F8FAFC", border:"1.5px solid #E2E8F0", borderRadius:12, padding:"16px 18px", width:"100%", textAlign:"center" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"#94A3B8", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+              Tus datos ya están confirmados — no necesitas escribirlos de nuevo
+            </div>
+            <div style={{ fontSize:"clamp(16px,4vw,19px)", fontWeight:700, color:"#0F172A" }}>{datosGuardados.nombre}</div>
+            <div style={{ fontSize:13, color:"#64748B", fontFamily:"monospace", marginTop:2 }}>{datosGuardados.cedula}</div>
+          </div>
+
+          <button
+            onClick={handleVolverASelectorTipo}
+            style={{ marginTop:18, background:"none", border:"none", color:"#2563EB", fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}
+          >
+            <i className="ti ti-arrow-left" style={{ fontSize:13 }} aria-hidden="true" />
+            Cambiar tipo de registro
+          </button>
+        </Shell>
+      );
+    }
+
     const tipoUi = resultado.ok ? "ok" : (resultado.codigo || "ERROR");
     const ui     = RESULTADO_UI[tipoUi] || RESULTADO_UI.ERROR;
     const { Icon, titulo, color, hint } = ui;
