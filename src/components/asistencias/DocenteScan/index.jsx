@@ -75,7 +75,6 @@ export default function DocenteScan() {
         const { data: sesionActiva, error } = await Promise.race([consulta, timeout]);
 
         if (error || !sesionActiva) {
-          // Token vencido o de otro día — no pre-cargar datos
           setPaso("formulario");
           return;
         }
@@ -112,11 +111,9 @@ export default function DocenteScan() {
   }, [token]);
 
   // Autocompletar nombre al escribir la cédula (solo en el formulario de
-  // primera vez). Busca en `docentes` con un pequeño debounce para no
-  // disparar una consulta por cada tecla. Si la cédula ya está registrada
-  // en el sistema, rellena el campo Nombre con el nombre_raw vinculado —
-  // así el docente no tiene que volver a escribirlo y evitamos typos que
-  // creen una identidad "fantasma" duplicada (ver cedula.js).
+  // primera vez). Busca primero en `docentes` (nombre canónico del catálogo
+  // de horarios) y si no está vinculado, busca en `asistencias_diarias` el
+  // nombre que el mismo docente escribió la última vez que escaneó.
   useEffect(() => {
     if (paso !== "formulario") return;
 
@@ -132,7 +129,8 @@ export default function DocenteScan() {
 
     const timer = setTimeout(async () => {
       try {
-        const { data } = await supabase
+        // Fuente 1: tabla docentes (catálogo de horarios, nombre canónico)
+        const { data: docente } = await supabase
           .from("docentes")
           .select("nombre_raw")
           .eq("cedula", cedulaNorm)
@@ -140,20 +138,44 @@ export default function DocenteScan() {
 
         if (cancelado) return;
 
-        if (data?.nombre_raw) {
+        if (docente?.nombre_raw) {
           setDocenteEncontrado(true);
-          // Solo autocompletar si el campo está vacío o si lo que hay
-          // escrito es justo lo que nosotros mismos pusimos antes —
-          // así nunca se pisa un nombre que el docente escribió a mano.
           setNombre(actual => {
             if (!actual.trim() || actual === nombreAuto) {
-              setNombreAuto(data.nombre_raw);
-              return data.nombre_raw;
+              setNombreAuto(docente.nombre_raw);
+              return docente.nombre_raw;
             }
             return actual;
           });
         } else {
-          setDocenteEncontrado(false);
+          // Fuente 2: asistencias_diarias — el docente pudo haber marcado
+          // antes aunque su cédula no esté vinculada en el catálogo de horarios.
+          // Se toma el registro más reciente para obtener el nombre que él mismo
+          // escribió la última vez.
+          const { data: registros } = await supabase
+            .from("asistencias_diarias")
+            .select("nombre_docente")
+            .eq("cedula_docente", cedulaNorm)
+            .not("nombre_docente", "is", null)
+            .order("fecha", { ascending: false })
+            .order("hora_registro", { ascending: false })
+            .limit(1);
+
+          if (cancelado) return;
+
+          const nombrePrevio = registros?.[0]?.nombre_docente;
+          if (nombrePrevio) {
+            setDocenteEncontrado(true);
+            setNombre(actual => {
+              if (!actual.trim() || actual === nombreAuto) {
+                setNombreAuto(nombrePrevio);
+                return nombrePrevio;
+              }
+              return actual;
+            });
+          } else {
+            setDocenteEncontrado(false);
+          }
         }
       } catch {
         // Sin red o error de consulta: el docente sigue pudiendo
@@ -280,13 +302,6 @@ export default function DocenteScan() {
 
   // ── Resultado ────────────────────────────────────────────────────────────
   if (paso === "resultado" && resultado) {
-    // Caso especial: el token QR de esta página ya rotó o venció (sucede
-    // siempre que el docente vuelve a abrir la pantalla guardada —por
-    // ejemplo desde el historial del navegador— para marcar su salida
-    // después de haber marcado la entrada con otro código). No es un error
-    // del docente ni de su identidad, así que en vez del mensaje genérico
-    // "Código QR no válido" le mostramos su identidad ya confirmada y una
-    // instrucción clara para volver a escanear el código vigente del aula.
     const requiereReescaneo =
       !resultado.ok &&
       CODIGOS_REQUIEREN_REESCANEO.includes(resultado.codigo) &&
