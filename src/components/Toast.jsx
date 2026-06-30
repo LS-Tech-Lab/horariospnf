@@ -21,6 +21,8 @@ export default function Toast({ message, type = "success", onClose }) {
   return (
     <div
       onClick={onClose}
+      role={type === "success" ? "status" : "alert"}
+      aria-live={type === "success" ? "polite" : "assertive"}
       style={{
         position: "fixed", top: 20, right: 20, zIndex: 9999,
         background: c.bg,
