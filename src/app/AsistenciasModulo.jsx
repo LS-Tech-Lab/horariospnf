@@ -7,6 +7,7 @@ import UserMenu from "./UserMenu";
 const AdminQRPanel      = lazy(() => import("../components/asistencias/AdminQRPanel"));
 const QRProyeccion      = lazy(() => import("../components/asistencias/QRProyeccion"));
 const ReporteAsistencias = lazy(() => import("../components/asistencias/ReporteAsistencias"));
+const PlanillaQR         = lazy(() => import("../components/asistencias/PlanillaQR"));
 
 const QRFallback = () => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
@@ -96,6 +97,9 @@ export default function AsistenciasModulo({
     ...(permisos.puedeVerReporteAsistencias
       ? [{ id: "reporte", icon: "ti-report", label: "Reporte" }]
       : []),
+    // Planilla imprimible (derivada del horario, no de datos QR) — visible
+    // a cualquiera con acceso al módulo, igual que en Horarios.
+    { id: "planilla", icon: "ti-printer", label: "Planilla" },
   ];
 
   return (
@@ -228,6 +232,9 @@ export default function AsistenciasModulo({
               <ReporteAsistencias
                 onVolverPanel={() => setSubView("panel")}
               />
+            )}
+            {subView === "planilla" && (
+              <PlanillaQR permisos={permisos} profile={profile} />
             )}
           </Suspense>
         </ErrorBoundary>
