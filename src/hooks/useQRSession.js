@@ -239,7 +239,11 @@ export default function useQRSession() {
   useEffect(() => () => limpiarIntervalos(), [limpiarIntervalos]);
 
   // ── Recuperar sesión activa al montar (ej. tras recargar la página) ───────
+  // A-4: con AbortController para poder cancelar esta consulta si el
+  // componente se desmonta antes de que responda (o si para entonces ya se
+  // creó una sesión manualmente, ver guardia `activa` más abajo).
   useEffect(() => {
+    const controller = new AbortController();
     const recuperar = async () => {
       // Solo intentar si no hay sesión en memoria
       if (activa) return;
@@ -250,8 +254,12 @@ export default function useQRSession() {
           .eq("activa", true)
           .order("created_at", { ascending: false })
           .limit(1)
+          .abortSignal(controller.signal)
           .maybeSingle();
 
+        // A-4: si se abortó (desmonte) o mientras tanto ya se creó/activó
+        // una sesión por otra vía, descartar este resultado para no pisarla.
+        if (controller.signal.aborted || activa) return;
         if (!data) return;
 
         // Verificar que el token aún no haya expirado
@@ -265,9 +273,13 @@ export default function useQRSession() {
         setActiva(true);
         iniciarCountdown(data.expires_at);
         iniciarAutoRenovado(data.id);
-      } catch { /* silencioso */ }
+      } catch (err) {
+        if (controller.signal.aborted || err.name === "AbortError") return;
+        /* silencioso */
+      }
     };
     recuperar();
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // solo al montar
 
