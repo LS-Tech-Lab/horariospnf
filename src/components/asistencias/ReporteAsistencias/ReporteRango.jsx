@@ -22,6 +22,14 @@ function ReporteRango({ onVolverDiario }) {
   const [error,    setError]    = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [isOffline, setIsOffline] = useState(false);
+  const [truncado, setTruncado] = useState(false);
+
+  // A-2: paginación por cursor (mismo patrón que useDataSync) para evitar
+  // que el límite por defecto de Supabase (1000 filas) trunque el reporte
+  // sin avisar. RANGO_PAGE_SIZE controla el tamaño de cada página y
+  // RANGO_MAX_FILAS es un tope de seguridad para no cargar rangos absurdos.
+  const RANGO_PAGE_SIZE = 1000;
+  const RANGO_MAX_FILAS = 20000;
 
   const fetchRango = useCallback(async () => {
     if (!inicio || !fin || inicio > fin) return;
@@ -35,12 +43,52 @@ function ReporteRango({ onVolverDiario }) {
     }
 
     setIsOffline(false);
+    setTruncado(false);
     setLoading(true); setError(null);
-    let q = supabase.from("asistencias_diarias").select("*")
-      .gte("fecha", inicio).lte("fecha", fin).eq("turno", turno);
-    if (programa) q = q.eq("programa", programa);
-    const { data, error: err } = await q;
-    if (err) { setError(err.message); setRows([]); } else setRows(data || []);
+
+    try {
+      const todasLasFilas = [];
+      let cursor = 0;
+      let hayMas = true;
+
+      while (hayMas) {
+        let q = supabase
+          .from("asistencias_diarias")
+          .select("id, cedula_docente, nombre_docente, fecha, programa")
+          .gt("id", cursor)
+          .gte("fecha", inicio).lte("fecha", fin).eq("turno", turno)
+          .order("id", { ascending: true })
+          .limit(RANGO_PAGE_SIZE);
+        if (programa) q = q.eq("programa", programa);
+
+        const { data, error: err } = await q;
+        if (err) { setError(err.message); setRows([]); setLoading(false); return; }
+
+        const filas = data || [];
+        todasLasFilas.push(...filas);
+
+        if (filas.length < RANGO_PAGE_SIZE) {
+          hayMas = false;
+        } else if (todasLasFilas.length >= RANGO_MAX_FILAS) {
+          // Guardia de tope: avisar que hay más datos que no se cargaron.
+          setTruncado(true);
+          hayMas = false;
+        } else {
+          const nextCursor = filas[filas.length - 1].id;
+          if (nextCursor <= cursor) {
+            console.error("Paginación: cursor no avanza, abortando para evitar loop infinito.", { cursor, nextCursor });
+            hayMas = false;
+          } else {
+            cursor = nextCursor;
+          }
+        }
+      }
+
+      setRows(todasLasFilas);
+    } catch (e) {
+      setError(e.message || "Error al cargar el reporte.");
+      setRows([]);
+    }
     setLoading(false);
   }, [inicio, fin, turno, programa]);
 
@@ -149,6 +197,15 @@ function ReporteRango({ onVolverDiario }) {
           <i className="ti ti-wifi-off" style={{ fontSize: 18, flexShrink: 0 }} aria-hidden="true" />
           <div>
             <strong>Sin conexión.</strong> El reporte por rango requiere red para calcularse. Vuelve a intentarlo cuando se restablezca la conexión.
+          </div>
+        </div>
+      )}
+
+      {truncado && (
+        <div style={{ background: "#FFFBEB", color: "#92400E", border: "1px solid #FDE68A", padding: "14px 16px", borderRadius: 8, fontSize: 13, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }} role="alert">
+          <i className="ti ti-alert-triangle" style={{ fontSize: 18, flexShrink: 0 }} aria-hidden="true" />
+          <div>
+            <strong>Resultado truncado.</strong> Se alcanzó el límite de {RANGO_MAX_FILAS.toLocaleString("es")} registros para este rango. Reduce el rango de fechas para ver todos los datos.
           </div>
         </div>
       )}
