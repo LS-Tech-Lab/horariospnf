@@ -2,6 +2,10 @@
  * AdminQRPanel.jsx
  *
  * Panel del admin/operador_qr para gestionar la sesión QR.
+ *
+ * U-1 (auditoría Junio 2026): estilos migrados a AdminQRPanel.css usando
+ * tokens del sistema (var(--brand-*), var(--color-*)). Eliminados los 142
+ * bloques style={{}} inline que existían en la versión anterior.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -10,8 +14,8 @@ import { DEFAULT_PROGRAMAS, TURNOS_CONFIG } from "../../constants";
 import { playRegistroSound, useFlashFeed } from "./useRegistroSound";
 import { supabase } from "../../lib/supabase";
 import { fechaHoyVE } from "../../utils/time";
-// Fix O-7: gestión de cola offline
 import { contarPendientes, obtenerPendientes, eliminarPendiente, purgarExpirados } from "../../utils/offlineQueue";
+import "./AdminQRPanel.css";
 
 function horaActualVE() {
   const ve = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
@@ -33,15 +37,15 @@ function CountdownBar({ segundos, total }) {
   const pct   = Math.max(0, (segundos / total) * 100);
   const color = pct > 40 ? "#22C55E" : pct > 15 ? "#F59E0B" : "#EF4444";
   return (
-    <div style={{ marginTop: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#64748B", marginBottom: 5, fontWeight: 500 }}>
+    <div className="qrp-cdb-root">
+      <div className="qrp-cdb-header">
         <span>Próxima rotación</span>
         <span style={{ color, fontWeight: 700 }}>
           {Math.floor(segundos / 60)}:{String(segundos % 60).padStart(2, "0")}
         </span>
       </div>
-      <div style={{ height: 6, borderRadius: 3, background: "#E2E8F0", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width 0.9s linear, background 0.4s" }} />
+      <div className="qrp-cdb-track">
+        <div className="qrp-cdb-fill" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   );
@@ -60,10 +64,10 @@ export function QRDisplay({ qrUrl, segundos, ttlMinutes, size = 280 }) {
   }, [qrUrl, size]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div className="qrp-qr-wrap">
       <canvas ref={canvasRef} style={{ display: "block", borderRadius: 6 }} />
       <CountdownBar segundos={segundos} total={ttlMinutes * 60} />
-      <p style={{ marginTop: 6, fontSize: 11, color: "#64748B", textAlign: "center" }}>
+      <p className="qrp-cdb-note">
         Se regenera automáticamente tras cada escaneo. Las fotos compartidas no son válidas.
       </p>
     </div>
@@ -73,25 +77,14 @@ export function QRDisplay({ qrUrl, segundos, ttlMinutes, size = 280 }) {
 // ── Feed de actividad reciente ───────────────────────────────────────────────
 function FeedActividad({ registros, flash }) {
   if (registros.length === 0) return null;
-
   return (
-    <>
-    <style>{`@keyframes feedFlash{0%{background:#DCFCE7}100%{background:#F8FAFC}}`}</style>
-    <div style={{ marginTop: 16, background: "#F8FAFC", borderRadius: 10, border: flash ? "1px solid #86EFAC" : "1px solid #E2E8F0", overflow: "hidden", animation: flash ? "feedFlash 0.8s ease-out" : "none", transition: "border-color 0.3s" }}>
-      <div style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.07em", borderBottom: "1px solid #E2E8F0", background: "#F1F5F9" }}>
-        Actividad reciente
-      </div>
-      <div style={{ maxHeight: 200, overflowY: "auto" }}>
+    <div className={`qrp-feed ${flash ? "qrp-feed--flash" : "qrp-feed--idle"}`}>
+      <div className="qrp-feed-header">Actividad reciente</div>
+      <div className="qrp-feed-body">
         {registros.map((r, i) => (
           <div
             key={r.id}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "8px 14px",
-              borderBottom: i < registros.length - 1 ? "1px solid #F1F5F9" : "none",
-              background: i === 0 ? "#FFFBEB" : "#fff",
-              transition: "background 0.3s",
-            }}
+            className={`qrp-feed-row ${i === 0 ? "qrp-feed-row--first" : "qrp-feed-row--rest"} ${i < registros.length - 1 ? "qrp-feed-row-sep" : ""}`}
           >
             <i
               className={r.tipo === "SALIDA" ? "ti ti-circle-x" : "ti ti-circle-check"}
@@ -99,18 +92,14 @@ function FeedActividad({ registros, flash }) {
               aria-hidden="true"
             />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {r.nombre_docente}
-              </div>
-              <div style={{ fontSize: 11, color: "#64748B", fontFamily: "monospace" }}>
-                {r.cedula_docente}
-              </div>
+              <div className="qrp-feed-name">{r.nombre_docente}</div>
+              <div className="qrp-feed-ced">{r.cedula_docente}</div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: r.tipo === "SALIDA" ? "#DC2626" : "#15803D" }}>
+              <div className="qrp-feed-tipo" style={{ color: r.tipo === "SALIDA" ? "#DC2626" : "#15803D" }}>
                 {r.tipo === "SALIDA" ? "Salida" : "Entrada"}
               </div>
-              <div style={{ fontSize: 11, color: "#64748B" }}>
+              <div className="qrp-feed-hora">
                 {new Date(r.hora_registro).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}
               </div>
             </div>
@@ -118,7 +107,6 @@ function FeedActividad({ registros, flash }) {
         ))}
       </div>
     </div>
-    </>
   );
 }
 
@@ -134,7 +122,6 @@ function ContadorSesion({ sessionId }) {
         .from("asistencias_diarias")
         .select("cedula_docente, tipo")
         .eq("qr_session_id", sessionId);
-
       if (!data) return;
       const cedulas = new Set(data.filter(r => r.tipo === "ENTRADA").map(r => r.cedula_docente));
       const salidas = new Set(data.filter(r => r.tipo === "SALIDA").map(r => r.cedula_docente));
@@ -142,31 +129,25 @@ function ContadorSesion({ sessionId }) {
     };
 
     fetchStats();
-
     const ch = supabase.channel(`panel_stats_${sessionId}`)
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "asistencias_diarias",
-        filter: `qr_session_id=eq.${sessionId}`,
-      }, fetchStats)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias_diarias", filter: `qr_session_id=eq.${sessionId}` }, fetchStats)
       .subscribe();
-
     const pollId = setInterval(fetchStats, POLL_FALLBACK_MS);
-
     return () => { supabase.removeChannel(ch); clearInterval(pollId); };
   }, [sessionId]);
 
   return (
-    <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      <div style={{ padding: "12px 14px", background: "#F0FDF4", borderRadius: 10, border: "1px solid #BBF7D0", textAlign: "center" }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#15803D" }}>{stats.entradas}</div>
-        <div style={{ fontSize: 11, color: "#166534", fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+    <div className="qrp-counter">
+      <div className="qrp-counter-card qrp-counter-card--e">
+        <div className={`qrp-counter-n qrp-counter-n--e`}>{stats.entradas}</div>
+        <div className="qrp-counter-lbl qrp-counter-lbl--e">
           <i className="ti ti-login" style={{ fontSize: 12 }} aria-hidden="true" />
           {stats.entradas === 1 ? "docente entró" : "docentes entraron"}
         </div>
       </div>
-      <div style={{ padding: "12px 14px", background: "#FFF1F2", borderRadius: 10, border: "1px solid #FECDD3", textAlign: "center" }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#BE123C" }}>{stats.salidas}</div>
-        <div style={{ fontSize: 11, color: "#9F1239", fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+      <div className="qrp-counter-card qrp-counter-card--s">
+        <div className={`qrp-counter-n qrp-counter-n--s`}>{stats.salidas}</div>
+        <div className="qrp-counter-lbl qrp-counter-lbl--s">
           <i className="ti ti-logout" style={{ fontSize: 12 }} aria-hidden="true" />
           {stats.salidas === 1 ? "docente salió" : "docentes salieron"}
         </div>
@@ -175,9 +156,9 @@ function ContadorSesion({ sessionId }) {
   );
 }
 
-// ── Fix O-7: panel de gestión de cola offline ────────────────────────────────
+// ── Cola offline panel ───────────────────────────────────────────────────────
 function ColaOfflinePanel() {
-  const [conteo,       setConteo]       = useState(null);   // null = cargando
+  const [conteo,       setConteo]       = useState(null);
   const [items,        setItems]        = useState([]);
   const [expandido,    setExpandido]    = useState(false);
   const [purgando,     setPurgando]     = useState(false);
@@ -186,119 +167,83 @@ function ColaOfflinePanel() {
   const cargar = async () => {
     try {
       const lista = await obtenerPendientes();
-      setItems(lista);
-      setConteo(lista.length);
-    } catch {
-      setConteo(0);
-    }
+      setItems(lista); setConteo(lista.length);
+    } catch { setConteo(0); }
   };
 
   useEffect(() => { cargar(); }, []);
-
-  // Refrescar conteo cada vez que se expande
   useEffect(() => { if (expandido) cargar(); }, [expandido]);
 
   const handlePurgar = async () => {
     setPurgando(true);
-    try {
-      for (const item of items) await eliminarPendiente(item.id);
-      await cargar();
-    } catch { /* silencioso */ }
+    try { for (const item of items) await eliminarPendiente(item.id); await cargar(); }
+    catch { /* silencioso */ }
     setPurgando(false);
   };
 
   const handlePurgarExpirados = async () => {
     setPurgando(true);
-    try {
-      await purgarExpirados();
-      await cargar();
-    } catch { /* silencioso */ }
+    try { await purgarExpirados(); await cargar(); }
+    catch { /* silencioso */ }
     setPurgando(false);
   };
 
-  // No mostrar si no hay nada pendiente y no está expandido
   if (conteo === 0 && !expandido) return null;
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <div className="qrp-cola">
       <button
         onClick={() => setExpandido(v => !v)}
-        style={{
-          width: "100%", padding: "9px 14px",
-          background: conteo > 0 ? "#FFFBEB" : "#F8FAFC",
-          border: `1px solid ${conteo > 0 ? "#FDE68A" : "#E2E8F0"}`,
-          borderRadius: 9, fontSize: 12, fontWeight: 600,
-          color: conteo > 0 ? "#92400E" : "#334155",
-          cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center",
-        }}
+        className={`qrp-cola-toggle ${conteo > 0 ? "qrp-cola-toggle--pending" : "qrp-cola-toggle--empty"}`}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span className="qrp-cola-toggle-left">
           <i className="ti ti-clock-upload" style={{ fontSize: 14 }} aria-hidden="true" />
           Cola offline
           {conteo != null && conteo > 0 && (
-            <span style={{
-              background: "#F59E0B", color: "#fff", borderRadius: 20,
-              fontSize: 10, fontWeight: 800, padding: "1px 7px", lineHeight: "16px",
-            }}>{conteo}</span>
+            <span className="qrp-cola-badge">{conteo}</span>
           )}
         </span>
-        <i className={`ti ti-chevron-${expandido ? "up" : "down"}`} style={{ fontSize: 12, color: "#64748B" }} aria-hidden="true" />
+        <i className={`ti ti-chevron-${expandido ? "up" : "down"}`} style={{ fontSize: 12 }} aria-hidden="true" />
       </button>
 
       {expandido && (
-        <div style={{ marginTop: 6, border: "1px solid #E2E8F0", borderRadius: 9, overflow: "hidden", background: "#fff" }}>
+        <div className="qrp-cola-body">
           {conteo === 0 ? (
-            <div style={{ padding: "14px 16px", fontSize: 13, color: "#64748B", textAlign: "center" }}>
-              No hay registros pendientes de sincronizar.
-            </div>
+            <div className="qrp-cola-empty-msg">No hay registros pendientes de sincronizar.</div>
           ) : (
             <>
-              <div style={{ padding: "10px 14px", background: "#FFFBEB", borderBottom: "1px solid #FDE68A", fontSize: 12, color: "#92400E" }}>
-                <strong>{conteo}</strong> registro{conteo !== 1 ? 's' : ''} guardado{conteo !== 1 ? 's' : ''} offline pendiente{conteo !== 1 ? 's' : ''} de sincronizar.
-                Se enviarán automáticamente al reconectar.
+              <div className="qrp-cola-info">
+                <strong>{conteo}</strong> registro{conteo !== 1 ? "s" : ""} guardado{conteo !== 1 ? "s" : ""} offline pendiente{conteo !== 1 ? "s" : ""} de sincronizar.
+                {" "}Se enviarán automáticamente al reconectar.
               </div>
-              <div style={{ maxHeight: 180, overflowY: "auto" }}>
+              <div className="qrp-cola-list">
                 {items.map((item, i) => {
-                  const fecha = item.creadoEn ? new Date(item.creadoEn) : null;
-                  const edadMs = fecha ? Date.now() - item.creadoEn : null;
+                  const fecha   = item.creadoEn ? new Date(item.creadoEn) : null;
+                  const edadMs  = fecha ? Date.now() - item.creadoEn : null;
                   const vencido = edadMs && edadMs > 48 * 3600 * 1000;
                   return (
-                    <div key={item.id} style={{
-                      padding: "8px 14px", fontSize: 12,
-                      borderBottom: i < items.length - 1 ? "1px solid #F1F5F9" : "none",
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      background: vencido ? "#FEF2F2" : "#fff",
-                    }}>
+                    <div
+                      key={item.id}
+                      className={`qrp-cola-item ${i < items.length - 1 ? "qrp-cola-item--sep" : ""} ${vencido ? "qrp-cola-item--exp" : "qrp-cola-item--ok"}`}
+                    >
                       <div>
-                        <span style={{ fontWeight: 600, color: "#0F172A" }}>
-                          {item.p_cedula_docente || item.cedula_docente || "—"}
-                        </span>
-                        <span style={{ color: "#64748B", marginLeft: 8 }}>
-                          {item.p_tipo || item.tipo || ""}
-                        </span>
+                        <span className="qrp-cola-item-ced">{item.p_cedula_docente || item.cedula_docente || "—"}</span>
+                        <span className="qrp-cola-item-tipo">{item.p_tipo || item.tipo || ""}</span>
                       </div>
-                      <div style={{ textAlign: "right", color: vencido ? "#DC2626" : "#64748B" }}>
+                      <div className={`qrp-cola-item-fecha ${vencido ? "qrp-cola-item-fecha--exp" : "qrp-cola-item-fecha--ok"}`}>
                         {fecha ? fecha.toLocaleString("es-VE", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-                        {vencido && <span style={{ marginLeft: 4, fontWeight: 600 }}>⚠ vencido</span>}
+                        {vencido && <span className="qrp-cola-item-venc">⚠ vencido</span>}
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <div style={{ padding: "10px 14px", borderTop: "1px solid #F1F5F9", display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  onClick={handlePurgarExpirados}
-                  disabled={purgando}
-                  style={{ fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 7, border: "1px solid #E2E8F0", background: "#F8FAFC", color: "#334155", cursor: purgando ? "not-allowed" : "pointer" }}
-                >
+              <div className="qrp-cola-actions">
+                <button onClick={handlePurgarExpirados} disabled={purgando} className="qrp-btn-purgar-exp">
                   <i className="ti ti-trash" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
                   Purgar expirados
                 </button>
-                <button
-                  onClick={() => setConfirmPurga(true)}
-                  disabled={purgando}
-                  style={{ fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 7, border: "1.5px solid #FECACA", background: "#FEF2F2", color: "#DC2626", cursor: purgando ? "not-allowed" : "pointer" }}
-                >
+                <button onClick={() => setConfirmPurga(true)} disabled={purgando} className="qrp-btn-purgar-all">
                   <i className="ti ti-trash-x" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
                   Vaciar todo
                 </button>
@@ -308,36 +253,25 @@ function ColaOfflinePanel() {
         </div>
       )}
 
-      {/* Modal de confirmación para vaciar cola offline */}
       {confirmPurga && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div className="qrp-modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="modal-purga-title">
+          <div className="qrp-modal">
+            <div className="qrp-modal-header">
+              <div className="qrp-modal-icon">
                 <i className="ti ti-trash-x" style={{ fontSize: 22, color: "#DC2626" }} aria-hidden="true" />
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>¿Vaciar cola offline?</div>
-                <div style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>Esta acción no se puede deshacer</div>
+                <div id="modal-purga-title" className="qrp-modal-title">¿Vaciar cola offline?</div>
+                <div className="qrp-modal-subtitle">Esta acción no se puede deshacer</div>
               </div>
             </div>
-            <p style={{ margin: "0 0 20px", fontSize: 14, color: "#334155", lineHeight: 1.6 }}>
+            <p className="qrp-modal-body">
               Se eliminarán los <strong>{conteo}</strong> registro{conteo !== 1 ? "s" : ""} pendiente{conteo !== 1 ? "s" : ""} de sincronizar.
               Si la conexión se recupera, <strong>no se enviarán</strong> al servidor.
             </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setConfirmPurga(false)}
-                style={{ flex: 1, padding: "10px 0", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, color: "#334155", cursor: "pointer" }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => { setConfirmPurga(false); handlePurgar(); }}
-                style={{ flex: 1, padding: "10px 0", background: "#DC2626", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}
-              >
-                Sí, vaciar todo
-              </button>
+            <div className="qrp-modal-actions">
+              <button onClick={() => setConfirmPurga(false)} className="qrp-btn-cancel">Cancelar</button>
+              <button onClick={() => { setConfirmPurga(false); handlePurgar(); }} className="qrp-btn-danger">Sí, vaciar todo</button>
             </div>
           </div>
         </div>
@@ -387,45 +321,46 @@ function HistorialSesiones({ fecha, sessionIdActiva }) {
   const sesionesAnteriores = sesiones.filter(s => s.id !== sessionIdActiva);
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <button
-        onClick={() => setExpandido(v => !v)}
-        style={{ width: "100%", padding: "9px 14px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 12, fontWeight: 600, color: "#334155", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-      >
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div className="qrp-hist">
+      <button onClick={() => setExpandido(v => !v)} className="qrp-hist-toggle">
+        <span className="qrp-hist-toggle-left">
           <i className="ti ti-history" style={{ fontSize: 14 }} aria-hidden="true" />
           Historial de sesiones hoy
         </span>
-        <i className={`ti ti-chevron-${expandido ? "up" : "down"}`} style={{ fontSize: 12, color: "#64748B" }} aria-hidden="true" />
+        <i className={`ti ti-chevron-${expandido ? "up" : "down"}`} style={{ fontSize: 12 }} aria-hidden="true" />
       </button>
+
       {expandido && (
-        <div style={{ marginTop: 8, border: "1px solid #E2E8F0", borderRadius: 9, overflow: "hidden", background: "#fff" }}>
+        <div className="qrp-hist-body">
           {loading ? (
-            <div style={{ padding: "20px 14px", textAlign: "center", color: "#64748B", fontSize: 13 }}>Cargando…</div>
+            <div className="qrp-hist-loading">Cargando…</div>
           ) : sesionesAnteriores.length === 0 ? (
-            <div style={{ padding: "16px 14px", textAlign: "center", color: "#64748B", fontSize: 13 }}>
+            <div className="qrp-hist-empty">
               {sesiones.length === 0 ? "No hay sesiones anteriores para esta fecha." : "Esta es la única sesión del día."}
             </div>
           ) : sesionesAnteriores.map((s, i) => {
-            const c = conteosPorId[s.id] || { entradas: 0, salidas: 0 };
+            const c     = conteosPorId[s.id] || { entradas: 0, salidas: 0 };
             const total = c.entradas + c.salidas;
             const turnoConf = TURNOS_CONFIG.find(t => t.id === s.turno);
             return (
-              <div key={s.id} style={{ padding: "11px 14px", borderBottom: i < sesionesAnteriores.length - 1 ? "1px solid #F1F5F9" : "none", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: s.activa ? "#22C55E" : "#94A3B8", flexShrink: 0, marginTop: 4 }} />
+              <div key={s.id} className={`qrp-hist-row ${i < sesionesAnteriores.length - 1 ? "qrp-hist-row-sep" : ""}`}>
+                <span className={`qrp-hist-dot ${s.activa ? "qrp-hist-dot--on" : "qrp-hist-dot--off"}`} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A" }}>
+                  <div className="qrp-hist-title">
                     {turnoConf?.label || s.turno}
-                    {s.programa ? <span style={{ color: "#64748B", fontWeight: 500 }}> · {s.programa.replace("PNF ", "")}</span> : ""}
+                    {s.programa && <span className="qrp-hist-prog"> · {s.programa.replace("PNF ", "")}</span>}
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>
+                  <div className="qrp-hist-sub">
                     Iniciada {new Date(s.created_at).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" })}
-                    {" · "}<span style={{ color: s.activa ? "#15803D" : "#64748B", fontWeight: 600 }}>{s.activa ? "activa" : "cerrada"}</span>
+                    {" · "}
+                    <span className={s.activa ? "qrp-hist-status--on" : "qrp-hist-status--off"}>
+                      {s.activa ? "activa" : "cerrada"}
+                    </span>
                   </div>
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: total > 0 ? "#1D4ED8" : "#64748B" }}>{total}</div>
-                  <div style={{ fontSize: 10, color: "#64748B" }}>{c.entradas}E · {c.salidas}S</div>
+                <div className="qrp-hist-count">
+                  <div className={`qrp-hist-count-n ${total > 0 ? "qrp-hist-count-n--pos" : "qrp-hist-count-n--zero"}`}>{total}</div>
+                  <div className="qrp-hist-count-sub">{c.entradas}E · {c.salidas}S</div>
                 </div>
               </div>
             );
@@ -443,7 +378,7 @@ export default function AdminQRPanel({
   crearSesion, renovarManual, cerrarSesion,
   isOffline = false,
 }) {
-  const hoy = fechaHoyVE();
+  const hoy    = fechaHoyVE();
   const minHoy = horaActualVE();
 
   const turnoDefault = TURNOS_VISIBLES.find(t => !t.finMin || minHoy < t.finMin)?.id
@@ -453,7 +388,6 @@ export default function AdminQRPanel({
   const [turno,    setTurno]    = useState(turnoDefault);
   const [programa, setPrograma] = useState(profile?.programa || "");
   const [fecha,    setFecha]    = useState(hoy);
-
   const [feedRegistros, setFeedRegistros] = useState([]);
   const feedRegistrosRef = useRef([]);
   const { flash: feedFlash, trigger: flashTrigger } = useFlashFeed();
@@ -461,19 +395,16 @@ export default function AdminQRPanel({
 
   const esHoy = fecha === hoy;
 
-  // Razón por la que un turno no está disponible hoy (null = sí disponible)
   function turnoIndisponibleRazon(tId) {
     if (!esHoy) return null;
     const conf = TURNOS_CONFIG.find(t => t.id === tId);
     if (!conf) return null;
     if (conf.inicioMin !== undefined && minHoy < conf.inicioMin) return "aún no ha comenzado";
-    if (conf.finMin   !== undefined && minHoy >= conf.finMin)    return "ya finalizó";
+    if (conf.finMin    !== undefined && minHoy >= conf.finMin)   return "ya finalizó";
     return null;
   }
 
-  function turnoDisponible(tId) {
-    return turnoIndisponibleRazon(tId) === null;
-  }
+  function turnoDisponible(tId) { return turnoIndisponibleRazon(tId) === null; }
 
   useEffect(() => {
     if (!sessionId) { setFeedRegistros([]); return; }
@@ -487,57 +418,36 @@ export default function AdminQRPanel({
         .limit(10);
       const prev = feedRegistrosRef.current;
       const next = data || [];
-      if (prev.length > 0 && next.length > prev.length) {
-        playRegistroSound();
-        flashTrigger();
-      }
+      if (prev.length > 0 && next.length > prev.length) { playRegistroSound(); flashTrigger(); }
       feedRegistrosRef.current = next;
       setFeedRegistros(next);
     };
 
     fetchFeed();
-
     const ch = supabase.channel(`panel_feed_${sessionId}`)
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "asistencias_diarias",
-        filter: `qr_session_id=eq.${sessionId}`,
-      }, fetchFeed)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias_diarias", filter: `qr_session_id=eq.${sessionId}` }, fetchFeed)
       .subscribe();
-
     const pollId = setInterval(fetchFeed, POLL_FALLBACK_MS);
-
     return () => { supabase.removeChannel(ch); clearInterval(pollId); };
   }, [sessionId]);
 
   const handleIniciar = () => {
-    if (esHoy && !turnoDisponible(turno)) {
-      const razon = turnoIndisponibleRazon(turno);
-      const turnoLabel = TURNOS_VISIBLES.find(t => t.id === turno)?.label || turno;
-      // El error se muestra via el prop `error` de useQRSession, pero como aquí
-      // bloqueamos antes de llamar a crearSesion, usamos el bloqueo visual.
-      // Este return es la segunda línea de defensa (el botón ya está disabled).
-      return;
-    }
+    if (esHoy && !turnoDisponible(turno)) return;
     crearSesion({ turno, programa: programa || null, fecha });
   };
 
-  const turnoInfo = TURNOS_VISIBLES.find(t => t.id === turno);
+  const turnoInfo     = TURNOS_VISIBLES.find(t => t.id === turno);
+  const btnDisabled   = loading || fecha < hoy || (esHoy && !turnoDisponible(turno));
 
   return (
-    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
-      {/* Fix O-1: banner de red caída — visible para el coordinador */}
+    <div className="qrp-root">
+      {/* Banner offline */}
       {isOffline && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 10,
-          background: "#FEF2F2", border: "1.5px solid #FECACA",
-          borderRadius: 10, padding: "12px 16px", marginBottom: 20,
-          animation: "offlinePulse 2.5s ease-in-out infinite",
-        }}>
-          <style>{`@keyframes offlinePulse{0%,100%{opacity:1}50%{opacity:.6}}`}</style>
+        <div className="qrp-offline-banner">
           <i className="ti ti-wifi-off" style={{ fontSize: 20, color: "#DC2626", flexShrink: 0 }} aria-hidden="true" />
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#991B1B" }}>Sin conexión a internet</div>
-            <div style={{ fontSize: 13, color: "#B91C1C", marginTop: 2 }}>
+            <div className="qrp-offline-title">Sin conexión a internet</div>
+            <div className="qrp-offline-sub">
               {activa
                 ? "La renovación automática del QR está pausada. Al recuperar la red se reanudará automáticamente."
                 : "No es posible iniciar una sesión QR sin conexión."}
@@ -547,32 +457,30 @@ export default function AdminQRPanel({
       )}
 
       {/* Cabecera */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      <div className="qrp-header">
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#0F172A", display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 className="qrp-header-title">
             <i className="ti ti-qrcode" style={{ fontSize: 22 }} aria-hidden="true" />
             Control de Asistencias QR
           </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 14, color: "#64748B" }}>Genera el código QR y proyéctalo. Los docentes escanean y eligen Entrada o Salida.</p>
+          <p className="qrp-header-subtitle">Genera el código QR y proyéctalo. Los docentes escanean y eligen Entrada o Salida.</p>
         </div>
         {onVerReporte && (
-          <button onClick={onVerReporte} style={{ padding: "8px 16px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#334155", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={onVerReporte} className="qrp-btn-reporte">
             <i className="ti ti-clipboard-list" style={{ fontSize: 15 }} aria-hidden="true" />
             Ver reporte del día
           </button>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+      <div className="qrp-body">
         {/* ── Columna izquierda: configuración ── */}
-        <div style={{ flex: "0 0 320px", background: "#fff", borderRadius: 12, border: "1px solid #E2E8F0", padding: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16 }}>
-            Configuración de la sesión
-          </div>
+        <div className="qrp-col-left">
+          <div className="qrp-section-label">Configuración de la sesión</div>
 
           {/* Fecha */}
-          <label style={{ display: "block", marginBottom: 14 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#334155", display: "block", marginBottom: 5 }}>Fecha</span>
+          <label className="qrp-field">
+            <span className="qrp-field-label">Fecha</span>
             <input
               type="date"
               value={fecha}
@@ -580,37 +488,29 @@ export default function AdminQRPanel({
               max={hoy}
               onChange={e => setFecha(e.target.value)}
               disabled={activa}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, color: "#0F172A", background: activa ? "#F8FAFC" : "#fff", cursor: activa ? "not-allowed" : "auto", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, color: "var(--color-text-primary)", background: activa ? "var(--color-background-subtle)" : "var(--color-surface)", cursor: activa ? "not-allowed" : "auto", boxSizing: "border-box" }}
             />
           </label>
 
           {/* Turno */}
           <div style={{ marginBottom: 14 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#334155", display: "block", marginBottom: 8 }}>Turno</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span className="qrp-field-label">Turno</span>
+            <div className="qrp-turno-list">
               {TURNOS_VISIBLES.map(t => {
-                const disponible = turnoDisponible(t.id);
+                const disponible  = turnoDisponible(t.id);
                 const seleccionado = turno === t.id;
+                const cls = seleccionado ? "qrp-turno-btn--sel" : disponible ? "qrp-turno-btn--ok" : "qrp-turno-btn--dis";
                 return (
                   <button
                     key={t.id}
                     onClick={() => !activa && disponible && setTurno(t.id)}
                     disabled={activa || !disponible}
                     title={!disponible ? `Este turno ${turnoIndisponibleRazon(t.id)} hoy` : ""}
-                    style={{
-                      padding: "9px 14px", borderRadius: 8,
-                      border: `1.5px solid ${seleccionado ? "#2563EB" : disponible ? "#E2E8F0" : "#F1F5F9"}`,
-                      background: seleccionado ? "#EFF6FF" : disponible ? "#fff" : "#F8FAFC",
-                      color: seleccionado ? "#1D4ED8" : disponible ? "#334155" : "#64748B",
-                      cursor: activa || !disponible ? "not-allowed" : "pointer",
-                      fontSize: 13, fontWeight: seleccionado ? 600 : 500,
-                      textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center",
-                      opacity: !disponible ? 0.55 : activa && !seleccionado ? 0.45 : 1,
-                      transition: "all 0.12s",
-                    }}
+                    className={`qrp-turno-btn ${cls}`}
+                    style={{ opacity: !disponible ? 0.55 : activa && !seleccionado ? 0.45 : 1, cursor: activa || !disponible ? "not-allowed" : "pointer" }}
                   >
                     <span>{t.label}{!disponible && esHoy ? ` · ${turnoIndisponibleRazon(t.id)}` : ""}</span>
-                    <span style={{ fontSize: 11, color: seleccionado ? "#3B82F6" : "#64748B", fontWeight: 500 }}>{t.hora}</span>
+                    <span className="qrp-turno-hora" style={{ color: seleccionado ? "var(--brand-400, #3B82F6)" : "var(--color-text-tertiary)" }}>{t.hora}</span>
                   </button>
                 );
               })}
@@ -619,25 +519,20 @@ export default function AdminQRPanel({
 
           {/* Aviso de turno no disponible */}
           {esHoy && !turnoDisponible(turno) && (() => {
-            const razon = turnoIndisponibleRazon(turno);
-            const turnoLabel = TURNOS_VISIBLES.find(t => t.id === turno)?.label || turno;
+            const razon       = turnoIndisponibleRazon(turno);
+            const turnoLabel  = TURNOS_VISIBLES.find(t => t.id === turno)?.label || turno;
             const esAnticipado = razon === "aún no ha comenzado";
             return (
-              <div style={{
-                marginBottom: 14, padding: "10px 14px", borderRadius: 8,
-                background: esAnticipado ? "#FFFBEB" : "#FEF2F2",
-                border: `1px solid ${esAnticipado ? "#FDE68A" : "#FECACA"}`,
-                display: "flex", alignItems: "flex-start", gap: 8,
-              }}>
+              <div className={`qrp-turno-aviso ${esAnticipado ? "qrp-turno-aviso--warn" : "qrp-turno-aviso--error"}`}>
                 <i
                   className={`ti ${esAnticipado ? "ti-clock" : "ti-alert-triangle"}`}
                   style={{ fontSize: 15, flexShrink: 0, marginTop: 1, color: esAnticipado ? "#D97706" : "#DC2626" }}
                   aria-hidden="true"
                 />
-                <span style={{ fontSize: 13, color: esAnticipado ? "#92400E" : "#991B1B", lineHeight: 1.5 }}>
+                <span className={`qrp-turno-aviso-text ${esAnticipado ? "qrp-turno-aviso-text--warn" : "qrp-turno-aviso-text--error"}`}>
                   {esAnticipado
-                    ? <>El turno <strong>{turnoLabel}</strong> aún no ha comenzado. Solo puedes iniciarlo a partir de su hora de inicio.</>
-                    : <>El turno <strong>{turnoLabel}</strong> ya finalizó hoy. Selecciona otro turno.</>
+                    ? <><strong>{turnoLabel}</strong> aún no ha comenzado. Solo puedes iniciarlo a partir de su hora de inicio.</>
+                    : <><strong>{turnoLabel}</strong> ya finalizó hoy. Selecciona otro turno.</>
                   }
                 </span>
               </div>
@@ -645,13 +540,13 @@ export default function AdminQRPanel({
           })()}
 
           {/* Programa */}
-          <label style={{ display: "block", marginBottom: 20 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#334155", display: "block", marginBottom: 5 }}>Programa (opcional)</span>
+          <label className="qrp-field-last">
+            <span className="qrp-field-label">Programa (opcional)</span>
             <select
               value={programa}
               onChange={e => setPrograma(e.target.value)}
               disabled={activa}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, color: "#0F172A", background: activa ? "#F8FAFC" : "#fff", cursor: activa ? "not-allowed" : "pointer", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, color: "var(--color-text-primary)", background: activa ? "var(--color-background-subtle)" : "var(--color-surface)", cursor: activa ? "not-allowed" : "pointer", boxSizing: "border-box" }}
             >
               <option value="">Todos los programas</option>
               {DEFAULT_PROGRAMAS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -660,7 +555,7 @@ export default function AdminQRPanel({
 
           {/* Error */}
           {error && (
-            <div style={{ background: "#FEF2F2", color: "#DC2626", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 500, marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="qrp-error-box">
               <i className="ti ti-alert-triangle" style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true" />
               {error}
             </div>
@@ -670,64 +565,42 @@ export default function AdminQRPanel({
           {!activa ? (
             <button
               onClick={handleIniciar}
-              disabled={loading || fecha < hoy || (esHoy && !turnoDisponible(turno))}
-              style={{
-                width: "100%", padding: "11px 0",
-                background: loading || fecha < hoy || (esHoy && !turnoDisponible(turno)) ? "#93C5FD" : "#2563EB",
-                color: "#fff", border: "none", borderRadius: 9, fontSize: 14, fontWeight: 600,
-                cursor: loading || fecha < hoy || (esHoy && !turnoDisponible(turno)) ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              }}
+              disabled={btnDisabled}
+              className={`qrp-btn-iniciar ${btnDisabled ? "qrp-btn-iniciar--off" : "qrp-btn-iniciar--on"}`}
             >
               <i className="ti ti-player-play" style={{ fontSize: 15 }} aria-hidden="true" />
               {loading ? "Iniciando…" : "Iniciar sesión QR"}
             </button>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button onClick={renovarManual} disabled={loading} style={{ width: "100%", padding: "10px 0", background: "#F0FDF4", color: "#15803D", border: "1.5px solid #86EFAC", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <div className="qrp-btn-group">
+              <button onClick={renovarManual} disabled={loading} className="qrp-btn-renovar">
                 <i className="ti ti-refresh" style={{ fontSize: 14 }} aria-hidden="true" />
                 Regenerar QR ahora
               </button>
-              <button
-                onClick={() => {
-                  const sinSalida = feedRegistros.filter ? undefined : undefined; // checked via ContadorSesion
-                  setConfirmCierre(true);
-                }}
-                style={{ width: "100%", padding: "10px 0", background: "#FFF1F2", color: "#BE123C", border: "1.5px solid #FECDD3", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              >
+              <button onClick={() => setConfirmCierre(true)} className="qrp-btn-cerrar">
                 <i className="ti ti-player-stop" style={{ fontSize: 14 }} aria-hidden="true" />
                 Cerrar sesión
               </button>
 
               {confirmCierre && (
-                <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                  <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 12, background: "#FEF2F2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div className="qrp-modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="modal-cierre-title">
+                  <div className="qrp-modal">
+                    <div className="qrp-modal-header">
+                      <div className="qrp-modal-icon">
                         <i className="ti ti-alert-triangle" style={{ fontSize: 22, color: "#DC2626" }} aria-hidden="true" />
                       </div>
                       <div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>¿Cerrar la sesión QR?</div>
-                        <div style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>Esta acción no se puede deshacer</div>
+                        <div id="modal-cierre-title" className="qrp-modal-title">¿Cerrar la sesión QR?</div>
+                        <div className="qrp-modal-subtitle">Esta acción no se puede deshacer</div>
                       </div>
                     </div>
-                    <p style={{ margin: "0 0 20px", fontSize: 14, color: "#334155", lineHeight: 1.6 }}>
+                    <p className="qrp-modal-body">
                       Los docentes que solo marcaron <strong>entrada</strong> quedarán sin registro de salida.
                       Asegúrate de que todos hayan completado su marca antes de cerrar.
                     </p>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <button
-                        onClick={() => setConfirmCierre(false)}
-                        style={{ flex: 1, padding: "10px 0", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, color: "#334155", cursor: "pointer" }}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => { setConfirmCierre(false); cerrarSesion(); }}
-                        style={{ flex: 1, padding: "10px 0", background: "#DC2626", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}
-                      >
-                        Sí, cerrar sesión
-                      </button>
+                    <div className="qrp-modal-actions">
+                      <button onClick={() => setConfirmCierre(false)} className="qrp-btn-cancel">Cancelar</button>
+                      <button onClick={() => { setConfirmCierre(false); cerrarSesion(); }} className="qrp-btn-danger">Sí, cerrar sesión</button>
                     </div>
                   </div>
                 </div>
@@ -737,46 +610,39 @@ export default function AdminQRPanel({
 
           {activa && <ContadorSesion sessionId={sessionId} />}
           {activa && <FeedActividad registros={feedRegistros} flash={feedFlash} />}
-          {/* Fix O-7: panel de gestión de cola offline */}
           <ColaOfflinePanel />
           <HistorialSesiones fecha={fecha} sessionIdActiva={sessionId} />
         </div>
 
-        {/* ── Columna derecha: estado de la sesión (SIN el QR) ── */}
-        <div style={{ flex: 1, minWidth: 280 }}>
+        {/* ── Columna derecha: estado de la sesión ── */}
+        <div className="qrp-col-right">
           {!activa ? (
-            <div style={{ background: "#fff", borderRadius: 12, border: "2px dashed #E2E8F0", padding: "60px 24px", textAlign: "center" }}>
-              <i className="ti ti-qrcode" style={{ fontSize: 48, color: "#CBD5E1", display: "block", marginBottom: 16 }} aria-hidden="true" />
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#334155", marginBottom: 8 }}>Sin sesión activa</div>
-              <div style={{ fontSize: 14, color: "#64748B", maxWidth: 280, margin: "0 auto" }}>
+            <div className="qrp-empty">
+              <i className="ti ti-qrcode qrp-empty-icon" aria-hidden="true" />
+              <div className="qrp-empty-title">Sin sesión activa</div>
+              <div className="qrp-empty-sub">
                 Configura el turno y la fecha, luego pulsa <strong>Iniciar sesión QR</strong>.
               </div>
             </div>
           ) : (
             <div>
-              {/* Banner activo */}
-              <div style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC", borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", display: "inline-block", animation: "pulse 1.4s ease-in-out infinite" }} />
-                <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#15803D" }}>
+              <div className="qrp-active-banner">
+                <span className="qrp-active-dot" />
+                <span className="qrp-active-label">
                   Sesión activa · {turnoInfo?.label} · {formatFechaVE(fecha)}
                   {programa ? ` · ${programa.replace("PNF ", "")}` : ""}
                 </span>
               </div>
 
-              {/* Aviso + enlace a Proyección */}
-              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E2E8F0", padding: "32px 24px", textAlign: "center" }}>
-                <i className="ti ti-device-desktop" style={{ fontSize: 40, color: "#2563EB", display: "block", marginBottom: 12 }} aria-hidden="true" />
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#334155", marginBottom: 6 }}>El código QR está listo</div>
-                <div style={{ fontSize: 13, color: "#64748B", maxWidth: 300, margin: "0 auto 18px" }}>
+              <div className="qrp-active-qr-card">
+                <i className="ti ti-device-desktop qrp-active-qr-icon" aria-hidden="true" />
+                <div className="qrp-active-qr-title">El código QR está listo</div>
+                <div className="qrp-active-qr-desc">
                   Para mantener este panel de control fuera del alcance de los docentes, el QR y las instrucciones se muestran solo en la pestaña de proyección.
                 </div>
-                <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                <div className="qrp-active-qr-btns">
                   {onVerProyeccion && (
-                    <button
-                      onClick={onVerProyeccion}
-                      style={{ padding: "10px 18px", background: "#2563EB", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
-                    >
+                    <button onClick={onVerProyeccion} className="qrp-btn-proyeccion">
                       <i className="ti ti-device-desktop" style={{ fontSize: 15 }} aria-hidden="true" />
                       Proyección aquí
                     </button>
@@ -784,7 +650,7 @@ export default function AdminQRPanel({
                   <button
                     onClick={() => window.open(window.location.href + "?proyeccion=1", "_blank", "noopener")}
                     title="Abre la proyección en una ventana separada (ideal para segundo monitor o proyector)"
-                    style={{ padding: "10px 18px", background: "#F8FAFC", color: "#334155", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    className="qrp-btn-nueva-ventana"
                   >
                     <i className="ti ti-external-link" style={{ fontSize: 15 }} aria-hidden="true" />
                     Nueva ventana
