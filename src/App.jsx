@@ -343,7 +343,6 @@ export default function App() {
         // Módulos
         tieneHorarios={tieneHorarios}
         tieneQR={tieneQR}
-        qrSession={qrSession}
         onCambiarModulo={() => setModuloActivo(null)}
         pendientesCount={pendientesCount}
       />
