@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import useFocusTrap from "../hooks/useFocusTrap";
 
 /**
  * Modal de confirmación propio para operaciones destructivas.
@@ -23,6 +24,8 @@ export default function ConfirmModal({
   onCancel,
 }) {
   const cancelBtnRef = useRef(null);
+  const dialogRef = useRef(null);
+  useFocusTrap(dialogRef, open);
 
   // Accesibilidad: cerrar con Escape y enfocar el botón "Cancelar" al abrir
   // (acción más segura por defecto para operaciones destructivas).
@@ -57,7 +60,7 @@ export default function ConfirmModal({
 
   return (
     <div style={overlay} onClick={onCancel} role="presentation">
-      <div style={modal} onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <div style={modal} ref={dialogRef} onClick={e => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         {/* Ícono + Título */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <i className={`ti ${danger ? "ti-alert-triangle" : "ti-help-circle"}`}
