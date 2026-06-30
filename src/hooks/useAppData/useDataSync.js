@@ -3,7 +3,7 @@
 // y los datos derivados (agrupación por docente/materia, trayectos, stats).
 // Extraído de useAppData.js.
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ALL_TRAYECTOS } from "../../constants";
 import { parseClase } from "../../utils/parsing";
 import { supabase } from "../../lib/supabase";
@@ -35,6 +35,13 @@ export default function useDataSync({
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [lastSync, setLastSync] = useState(obtenerUltimaSincronizacion());
 
+  // A-4: referencia al AbortController del fetch en curso. fetchHorarios se
+  // dispara desde varios lugares (cambio de programa/lapso, listener
+  // "online", listener realtime); si un fetch anterior sigue en vuelo y
+  // llega uno nuevo, se aborta el anterior para que su respuesta tardía no
+  // sobreescriba el estado con datos de un programa que ya no es el actual.
+  const abortControllerRef = useRef(null);
+
   // Fix #12: usar siempre una clave explícita para evitar colisiones entre
   // "sin lapso" y futuros lapsos: `horarios_nolap` vs `horarios_2025-1`.
   const cacheKey = lapso ? `${CACHE_KEYS.horarios}_${lapso}` : `${CACHE_KEYS.horarios}_nolap`;
@@ -43,6 +50,14 @@ export default function useDataSync({
   // externos (useUpload, handlers de lapso) puedan pasar el valor fresco
   // sin depender del closure, evitando stale references al memoizar.
   const fetchHorarios = useCallback(async (programa, lapsoParam = lapso) => {
+    // A-4: cancelar cualquier fetch anterior aún en curso antes de empezar
+    // uno nuevo, y guardar el controller de este fetch para poder abortarlo
+    // a su vez (por un cambio de programa más reciente o el desmonte).
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
+
     const cachedHorarios = cargarDeCache(cacheKey, userId, { offlineMode: !navigator.onLine });
     if (cachedHorarios?.length > 0) {
       setData(cachedHorarios);
@@ -67,12 +82,18 @@ export default function useDataSync({
           .select("*, docentes(nombre_raw), materias(nombre_raw)")
           .gt("id", cursor)
           .order("id", { ascending: true })
-          .limit(PAGE_SIZE);
+          .limit(PAGE_SIZE)
+          .abortSignal(signal);
 
         if (lapsoParam)           query = query.eq("lapso",    lapsoParam);
         if (programa !== "todos") query = query.eq("programa", programa);
 
         const { data: pagina, error } = await query;
+
+        // A-4: si este fetch fue abortado (superado por uno más reciente o
+        // por desmonte), descartar el resultado en silencio — no tocar
+        // estado ni mostrar toasts, el fetch vigente ya se encarga de eso.
+        if (signal.aborted) return;
 
         if (error) {
           console.error(error);
@@ -111,6 +132,9 @@ export default function useDataSync({
       localStorage.setItem(CACHE_KEYS.lastSync, Date.now().toString());
       setLastSync(obtenerUltimaSincronizacion());
     } catch (err) {
+      // A-4: un abort intencional (fetch superado o cleanup de desmonte) no
+      // es un error de conexión real — descartar en silencio.
+      if (signal.aborted || err.name === "AbortError") return;
       console.error(err);
       if (cachedHorarios?.length > 0) {
         setData(cachedHorarios);
@@ -124,6 +148,10 @@ export default function useDataSync({
 
   useEffect(() => { fetchProgramas(lapso); fetchDocenteNames(); fetchMateriaNames(); }, [lapso, fetchProgramas, fetchDocenteNames, fetchMateriaNames]);
   useEffect(() => { fetchHorarios(selectedPrograma); }, [selectedPrograma, lapso, fetchHorarios]);
+
+  // A-4: abortar el fetch en curso si el hook se desmonta, para que su
+  // respuesta tardía no intente actualizar estado de un componente ya fuera.
+  useEffect(() => () => { if (abortControllerRef.current) abortControllerRef.current.abort(); }, []);
 
   useEffect(() => {
     const handleOnline = () => { setIsOffline(false); showToast("✅ Conexión restablecida.", "success"); fetchHorarios(selectedPrograma); fetchDocenteNames(); fetchMateriaNames(); };
