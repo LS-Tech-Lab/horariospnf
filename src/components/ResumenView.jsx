@@ -1,113 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DAYS, S, ALL_TRAYECTOS, TRAYECTO_BG, TRAYECTO_COLORS } from '../constants';
 import { getTurnoDeRegistro } from '../utils/turno';
-import { fechaHoyVE } from '../utils/time';
-import { supabase } from '../lib/supabase';
 import StatCard from './StatCard';
 import Avatar from './Avatar';
 
-// ── Panel de asistencias del día (M-4) ────────────────────────────────
-// Muestra un resumen de las asistencias registradas hoy vía QR,
-// sin necesidad de ir al módulo de asistencias.
-function PanelAsistenciasHoy({ permisos }) {
-  const [resumen,  setResumen]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
-
-  useEffect(() => {
-    const cargar = async () => {
-      setLoading(true);
-      const hoy = fechaHoyVE();
-      const { data, error } = await supabase
-        .from("asistencias_diarias")
-        .select("tipo, turno, cedula_docente")
-        .eq("fecha", hoy);
-
-      if (!error && data) {
-        const entradas  = data.filter(r => r.tipo === "ENTRADA");
-        const salidas   = data.filter(r => r.tipo === "SALIDA");
-        const docUnicos = new Set(data.map(r => r.cedula_docente)).size;
-        const porTurno  = data.reduce((acc, r) => {
-          if (r.tipo === "ENTRADA") acc[r.turno] = (acc[r.turno] || 0) + 1;
-          return acc;
-        }, {});
-        setResumen({ entradas: entradas.length, salidas: salidas.length, docUnicos, porTurno, hoy });
-      } else {
-        setResumen(null);
-      }
-      setLoading(false);
-    };
-    // Solo cargar si tiene permiso de ver el reporte
-    if (permisos?.puedeGestionarQR || permisos?.puedeVerReporteAsistencias) {
-      cargar();
-    } else {
-      setLoading(false);
-    }
-  }, [permisos]);
-
-  if (!permisos?.puedeGestionarQR && !permisos?.puedeVerReporteAsistencias) return null;
-
-  return (
-    <div style={{ ...S.card, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <i className="ti ti-qrcode" style={{ fontSize: 18, color: "#2563EB" }} aria-hidden="true" />
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>Asistencias hoy</span>
-          {resumen && (
-            <span style={{ fontSize: 11, color: "#64748B", fontWeight: 400 }}>
-              {new Date(resumen.hoy + "T12:00:00").toLocaleDateString("es-VE", {
-                weekday: "long", day: "numeric", month: "long"
-              })}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ color: "#94A3B8", fontSize: 13, padding: "8px 0" }}>Cargando…</div>
-      ) : !resumen || (resumen.entradas === 0 && resumen.salidas === 0) ? (
-        <div style={{ color: "#94A3B8", fontSize: 13, padding: "8px 0", display: "flex",
-          alignItems: "center", gap: 6 }}>
-          <i className="ti ti-calendar-off" style={{ fontSize: 16 }} aria-hidden="true" />
-          Sin registros de asistencia hoy.
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6,
-            background: "#F0FDF4", borderRadius: 8, padding: "8px 14px" }}>
-            <i className="ti ti-login" style={{ fontSize: 16, color: "#16A34A" }} aria-hidden="true" />
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#15803D" }}>{resumen.entradas}</span>
-            <span style={{ fontSize: 12, color: "#166534" }}>entradas</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6,
-            background: "#FEF2F2", borderRadius: 8, padding: "8px 14px" }}>
-            <i className="ti ti-logout" style={{ fontSize: 16, color: "#DC2626" }} aria-hidden="true" />
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#B91C1C" }}>{resumen.salidas}</span>
-            <span style={{ fontSize: 12, color: "#991B1B" }}>salidas</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6,
-            background: "#EFF6FF", borderRadius: 8, padding: "8px 14px" }}>
-            <i className="ti ti-users" style={{ fontSize: 16, color: "#2563EB" }} aria-hidden="true" />
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#1D4ED8" }}>{resumen.docUnicos}</span>
-            <span style={{ fontSize: 12, color: "#1E40AF" }}>docentes</span>
-          </div>
-          {Object.entries(resumen.porTurno).map(([turno, n]) => (
-            <div key={turno} style={{ display: "flex", alignItems: "center", gap: 6,
-              background: "#F8FAFC", borderRadius: 8, padding: "8px 14px",
-              border: "1px solid #E2E8F0" }}>
-              <span style={{ fontSize: 11, color: "#475569", fontWeight: 600 }}>
-                {turno.charAt(0) + turno.slice(1).toLowerCase()}
-              </span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>{n}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function ResumenView({ stats, data, byDocente, byMateria, conflicts = [], getDocName, getMateriaName, onGoToConflictos, isSyncing, permisos }) {
+export default function ResumenView({ stats, data, byDocente, byMateria, conflicts = [], getDocName, getMateriaName, onGoToConflictos, isSyncing }) {
   const [tab, setTab] = useState('general');
 
   const metricas = useMemo(() => {
@@ -149,9 +46,6 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
 
   return (
     <div style={{ padding: 20 }}>
-      {/* M-4: panel de asistencias del día — visible si tiene permiso QR o reporte */}
-      <PanelAsistenciasHoy permisos={permisos} />
-
       {/* A-5: banner mientras data está vacía y se está cargando el programa nuevo */}
       {isSyncing && (!data || data.length === 0) && (
         <div style={{ background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "#0369A1", fontWeight: 500 }}>
