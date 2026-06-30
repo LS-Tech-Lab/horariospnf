@@ -2,10 +2,10 @@
 // selector de turno/día + tabla en blanco para firma física, generada
 // a partir del horario (no depende de datos de asistencia QR).
 //
-// Extraído de AsistenciasView.jsx para poder reutilizarlo tanto en el
-// submenú "Asistencias" del módulo Horarios (que ya tiene `data` vía
-// AppDataContext) como en la pestaña "Planilla" del módulo Asistencias
-// QR (que se autoabastece de datos, ver PlanillaQR.jsx).
+// Hoy se usa solo desde PlanillaQR.jsx (pestaña "Planilla" del módulo
+// Asistencias QR). Antes también existía como submenú dentro del módulo
+// Horarios (AsistenciasView.jsx), eliminado por redundante: la misma
+// planilla ya es accesible desde Asistencias QR.
 import React, { useState, useMemo } from 'react';
 import { S, DAYS, TRAYECTO_BG, TRAYECTO_COLORS } from '../../constants';
 import { getTurnoDeRegistro } from '../../utils/turno';
