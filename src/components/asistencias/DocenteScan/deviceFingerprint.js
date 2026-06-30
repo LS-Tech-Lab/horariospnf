@@ -15,7 +15,16 @@ export async function calcularDeviceFingerprint() {
     try {
       const buf = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-    } catch {}
+    } catch (err) {
+      console.warn(
+        "[deviceFingerprint] crypto.subtle.digest falló, usando fallback djb2 (colisionable):",
+        err
+      );
+    }
+  } else {
+    console.warn(
+      "[deviceFingerprint] crypto.subtle no disponible (contexto no seguro o navegador antiguo), usando fallback djb2 (colisionable)."
+    );
   }
   let h = 5381;
   for (let i = 0; i < raw.length; i++) { h = (h << 5) + h + raw.charCodeAt(i); h |= 0; }
