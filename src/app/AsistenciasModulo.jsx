@@ -36,6 +36,8 @@ export default function AsistenciasModulo({
   onVolverSelector,
   showToast,
   onLogout,
+  // UX-4: badge de registros offline pendientes
+  pendientesCount = 0,
 }) {
   // subView inicial: "panel" si tiene puedeGestionarQR, si no "reporte"
   const initialView = permisos.puedeGestionarQR ? "panel" : "reporte";
@@ -166,6 +168,23 @@ export default function AsistenciasModulo({
             <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#15803D" }}>Sesión activa</span>
           </div>
+        )}
+
+        {/* UX-4: badge de registros offline pendientes de sincronizar */}
+        {pendientesCount > 0 && (
+          <span
+            title={`${pendientesCount} registro${pendientesCount > 1 ? 's' : ''} de asistencia pendiente${pendientesCount > 1 ? 's' : ''} de sincronizar`}
+            style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "3px 10px", borderRadius: 20, flexShrink: 0,
+              background: "#FEF3C7", border: "1px solid #FCD34D",
+              fontSize: 11, fontWeight: 600, color: "#92400E",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <i className="ti ti-clock-exclamation" aria-hidden="true" />
+            {pendientesCount} pendiente{pendientesCount > 1 ? 's' : ''}
+          </span>
         )}
 
         {/* Menú de usuario */}
