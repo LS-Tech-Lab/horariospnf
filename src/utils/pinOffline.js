@@ -16,34 +16,18 @@
  *     cuando ya hay datos locales cacheados
  */
 
-const DB_NAME  = 'sigma_offline';
-const DB_VER   = 6; // v6 agrega login_lockout (lockout del login normal en IDB — SEC-5)
-const STORE    = 'pin_offline';
+import { abrirDBCompartida } from './idb';
+
+const STORE = 'pin_offline';
 const LOCKOUT_STORE = 'pin_lockout';
 
+// Fix A1 (auditoría 2026-06-30): la apertura de la base 'sigma_offline'
+// ahora vive centralizada en idb.js (DB_VER 6, con todos los stores
+// declarados en un único onupgradeneeded), para evitar el VersionError
+// que se producía cuando este módulo (antes v6) abría la base antes que
+// offlineQueue.js (antes v1) o reporteCache.js (antes v4). Ver idb.js.
 function abrirDB() {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('asistencias_pendientes'))
-        db.createObjectStore('asistencias_pendientes', { keyPath: 'id', autoIncrement: true });
-      if (!db.objectStoreNames.contains('reportes_asistencias'))
-        db.createObjectStore('reportes_asistencias', { keyPath: 'clave' });
-      if (!db.objectStoreNames.contains('ausentes_cache'))
-        db.createObjectStore('ausentes_cache', { keyPath: 'clave' });
-      if (!db.objectStoreNames.contains(STORE))
-        db.createObjectStore(STORE, { keyPath: 'userId' });
-      // Fix O-8: lockout del PIN en IDB — resiste tabs privadas y limpieza de localStorage
-      if (!db.objectStoreNames.contains(LOCKOUT_STORE))
-        db.createObjectStore(LOCKOUT_STORE, { keyPath: 'userId' });
-      // SEC-5: lockout del login normal en IDB — keyed por email
-      if (!db.objectStoreNames.contains('login_lockout'))
-        db.createObjectStore('login_lockout', { keyPath: 'email' });
-    };
-    req.onsuccess = e => res(e.target.result);
-    req.onerror   = e => rej(e.target.error);
-  });
+  return abrirDBCompartida();
 }
 
 // ── Crypto helpers ────────────────────────────────────────────────────────────
