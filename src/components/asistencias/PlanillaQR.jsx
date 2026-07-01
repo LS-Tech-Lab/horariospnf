@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { S } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { suscribirCambiosRemotos } from '../../lib/realtime';
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from '../../utils/lapso';
 import PlanillaImprimibleBase from './PlanillaImprimibleBase';
 
@@ -29,6 +30,14 @@ export default function PlanillaQR({ permisos = {}, profile }) {
   const getDocName = useCallback((raw) => docenteNames[raw] || raw, [docenteNames]);
   const getMateriaName = useCallback((raw) => materiaNames[raw] || raw, [materiaNames]);
 
+  // Lista de nombre_raw conocidos, para el fallback fuzzy de parseClase()
+  // cuando una fila de horarios aún no tiene docente_id vinculado.
+  const catalogoDocentes = Object.keys(docenteNames);
+
+  // Se incrementa cuando llega un evento remoto de horarios (otro usuario
+  // importó/editó el Excel) para forzar el refetch de la tabla horarios.
+  const [horariosRefreshKey, setHorariosRefreshKey] = useState(0);
+
   // Lista de programas disponibles para el selector (solo si el rol no
   // está restringido a un único programa).
   useEffect(() => {
@@ -45,23 +54,42 @@ export default function PlanillaQR({ permisos = {}, profile }) {
   }, [lapso, restringidoAPrograma]);
 
   // Nombres de docentes y materias (display name, independiente del lapso).
-  useEffect(() => {
-    (async () => {
-      const { data: docentes, error: errDoc } = await supabase.rpc("docentes_con_cedula");
-      if (!errDoc && docentes) {
-        setDocenteNames(Object.fromEntries(docentes.map(d => [d.nombre_raw, d.nombre_display])));
-      } else {
-        const { data: docentesFallback } = await supabase.from("docentes").select("nombre_raw, nombre_display");
-        if (docentesFallback) {
-          setDocenteNames(Object.fromEntries(docentesFallback.map(d => [d.nombre_raw, d.nombre_display])));
-        }
+  const fetchNombres = useCallback(async () => {
+    const { data: docentes, error: errDoc } = await supabase.rpc("docentes_con_cedula");
+    if (!errDoc && docentes) {
+      setDocenteNames(Object.fromEntries(docentes.map(d => [d.nombre_raw, d.nombre_display])));
+    } else {
+      const { data: docentesFallback } = await supabase.from("docentes").select("nombre_raw, nombre_display");
+      if (docentesFallback) {
+        setDocenteNames(Object.fromEntries(docentesFallback.map(d => [d.nombre_raw, d.nombre_display])));
       }
-      const { data: materias } = await supabase.from("materias").select("nombre_raw, nombre_display");
-      if (materias) {
-        setMateriaNames(Object.fromEntries(materias.map(m => [m.nombre_raw, m.nombre_display])));
-      }
-    })();
+    }
+    const { data: materias } = await supabase.from("materias").select("nombre_raw, nombre_display");
+    if (materias) {
+      setMateriaNames(Object.fromEntries(materias.map(m => [m.nombre_raw, m.nombre_display])));
+    }
   }, []);
+
+  useEffect(() => { fetchNombres(); }, [fetchNombres]);
+
+  // Suscripción realtime: si alguien renombra/unifica un docente o materia
+  // desde el menú de Docentes/Materias mientras esta pestaña está abierta,
+  // refrescamos el mapa de nombres sin necesidad de recargar la página.
+  // Si el cambio es en horarios (import de Excel), forzamos el refetch
+  // del horario vía horariosRefreshKey.
+  useEffect(() => {
+    let cancelar = () => {};
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      cancelar = suscribirCambiosRemotos({
+        lapso,
+        onHorariosChange: () => setHorariosRefreshKey(k => k + 1),
+        onDocentesChange: fetchNombres,
+        onMateriasChange: fetchNombres,
+      });
+    });
+    return () => cancelar();
+  }, [lapso, fetchNombres]);
 
   // Horario del lapso/programa seleccionado, paginado para no chocar con
   // el límite de 1000 filas por consulta de Supabase.
@@ -77,7 +105,7 @@ export default function PlanillaQR({ permisos = {}, profile }) {
         while (hayMas) {
           let query = supabase
             .from("horarios")
-            .select("dia, hora, clase, aula, trayecto, sheet, programa, turno, id")
+            .select("dia, hora, clase, aula, trayecto, sheet, programa, turno, id, docentes(nombre_raw), materias(nombre_raw)")
             .eq("lapso", lapso)
             .gt("id", cursor)
             .order("id", { ascending: true })
@@ -100,7 +128,7 @@ export default function PlanillaQR({ permisos = {}, profile }) {
       }
     })();
     return () => { cancelado = true; };
-  }, [lapso, programa]);
+  }, [lapso, programa, horariosRefreshKey]);
 
   return (
     <div>
@@ -143,6 +171,7 @@ export default function PlanillaQR({ permisos = {}, profile }) {
           data={data}
           getDocName={getDocName}
           getMateriaName={getMateriaName}
+          catalogoDocentes={catalogoDocentes}
           lapso={lapso}
         />
       )}
