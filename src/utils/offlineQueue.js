@@ -5,21 +5,18 @@
 // Fix O-2: TTL de 48 h para evitar crecimiento indefinido.
 // Los registros más viejos se purgan automáticamente al abrir la cola.
 
-const DB_NAME  = 'sigma_offline';
-const STORE    = 'asistencias_pendientes';
-const DB_VER   = 1;
+import { abrirDBCompartida } from './idb';
+
+const STORE = 'asistencias_pendientes';
 
 // 48 horas en ms — registros más antiguos se purgan automáticamente
 const TTL_MS = 48 * 60 * 60 * 1000;
 
+// Fix A1 (auditoría 2026-06-30): la apertura de la base 'sigma_offline'
+// ahora vive centralizada en idb.js, para evitar conflictos de versión
+// con pinOffline.js y reporteCache.js. Ver idb.js para el detalle.
 function abrirDB() {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = e =>
-      e.target.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-    req.onsuccess = e => res(e.target.result);
-    req.onerror   = e => rej(e.target.error);
-  });
+  return abrirDBCompartida();
 }
 
 export async function encolarAsistencia(payload) {
