@@ -109,7 +109,8 @@ export default function MateriasView({ byMateria, initialSel, onConsumeNav, getM
                   <tbody>
                     {asignaciones.map((e, i) => {
                       const tr = getTurnoDeRegistro(e);
-                      const { docente: rd } = parseClase(e.clase);
+                      const { docente: docenteParseado } = parseClase(e.clase);
+                      const rd = e.docentes?.nombre_raw || docenteParseado;
                       return (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#FAFAFB" }}>
                           <td style={{ ...S.td, fontWeight: 500 }}>{e.dia.charAt(0)+e.dia.slice(1).toLowerCase()}</td>
