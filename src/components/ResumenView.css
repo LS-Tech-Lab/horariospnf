@@ -1,0 +1,14 @@
+/* ──────────────────────────────────────────────────────────────────────────────
+   ResumenView.css
+   Fix quirúrgico del hallazgo S (auditoría 2026-07-01): los 11 usos de
+   `...S.card` en este archivo se migran a la clase compartida `.s-card`
+   (definida en index.css) + modificadores locales. El resto de los
+   estilos en línea de este archivo (los otros ~70 style={{...}}) queda
+   fuera de este cambio — se abordan en una pasada de A3 aparte.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.rv-card { padding: 16px 20px; }
+.rv-card--alert { background: #FEF2F2; border: 1px solid #FECACA; }
+.rv-card--full { grid-column: 1 / -1; }
+
+.rv-empty { padding: 60px 20px; text-align: center; color: #94A3B8; font-size: 15px; font-weight: 500; }
