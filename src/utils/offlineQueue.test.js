@@ -37,6 +37,7 @@ import {
   contarPendientes,
   purgarExpirados,
 } from "./offlineQueue";
+import { abrirDBCompartida } from "./idb";
 
 // ── Fixture de asistencia ──────────────────────────────────────────
 function makeAsistencia(overrides = {}) {
@@ -159,24 +160,27 @@ describe("eliminarPendiente", () => {
 
 // ── purgarExpirados ────────────────────────────────────────────────
 describe("purgarExpirados", () => {
-  const DB_NAME = "sigma_offline";
-  const STORE   = "asistencias_pendientes";
-  const TTL_MS  = 48 * 60 * 60 * 1000;
+  const STORE  = "asistencias_pendientes";
+  const TTL_MS = 48 * 60 * 60 * 1000;
 
-  // Helper: insertar un registro con timestamp personalizado directamente en IDB
+  // Helper: insertar un registro con timestamp personalizado directamente en IDB.
+  //
+  // Fix A1 (auditoría 2026-06-30): antes este helper abría la base con
+  // `indexedDB.open(DB_NAME, 1)` — la versión histórica de offlineQueue.js —
+  // y dejaba esa conexión sin cerrar. Ahora que la apertura está unificada
+  // en idb.js (versión 6), esa conexión "vieja" bloqueaba indefinidamente
+  // (evento `onblocked`, sin handler) la apertura posterior que hace
+  // purgarExpirados() a través de abrirDBCompartida(), colgando el test.
+  // Se usa abrirDBCompartida() directamente para reflejar el mismo punto
+  // de entrada que usa el código de producción, evitando la duplicación
+  // de versión que causaba el bloqueo.
   async function insertarConTimestamp(cedula, creadoEn) {
+    const db = await abrirDBCompartida();
     return new Promise((res, rej) => {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = e =>
-        e.target.result.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
-      req.onsuccess = e => {
-        const db  = e.target.result;
-        const tx  = db.transaction(STORE, "readwrite");
-        const add = tx.objectStore(STORE).add({ ...makeAsistencia({ cedula }), creadoEn });
-        add.onsuccess = res;
-        add.onerror   = rej;
-      };
-      req.onerror = rej;
+      const tx  = db.transaction(STORE, "readwrite");
+      const add = tx.objectStore(STORE).add({ ...makeAsistencia({ cedula }), creadoEn });
+      add.onsuccess = res;
+      add.onerror   = rej;
     });
   }
 
