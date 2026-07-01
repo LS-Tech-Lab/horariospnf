@@ -7,6 +7,7 @@ import {
   // SEC-5: lockout del login normal en IDB
   leerLoginLockoutIDB, registrarIntentoLoginFallido, limpiarLoginLockoutIDB,
 } from "../utils/pinOffline";
+import "./LoginScreen.css";
 
 // SEC-5 (Junio 2026): el lockout del login normal fue migrado de localStorage a IDB
 // usando leerLoginLockoutIDB / registrarIntentoLoginFallido / limpiarLoginLockoutIDB
@@ -52,56 +53,44 @@ function ModalActivarPIN({ user, profile, onDone }) {
     setSaving(false);
   };
 
-  const inputStyle = {
-    width: "100%", padding: "10px 14px", borderRadius: 9,
-    border: "1px solid var(--color-border-secondary)", fontSize: 22,
-    letterSpacing: "0.3em", textAlign: "center",
-    outline: "none", boxSizing: "border-box", fontFamily: "monospace",
-  };
-
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(2,6,23,0.55)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16,
-    }}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: "32px 28px", maxWidth: 340, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <i className="ti ti-shield-lock" style={{ fontSize: 40, color: "var(--brand-500)", display: "block", marginBottom: 8 }} aria-hidden="true" />
-          <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)" }}>Activar PIN offline</div>
-          <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", marginTop: 6 }}>
+    <div className="pin-modal-overlay">
+      <div className="pin-modal-card">
+        <div className="pin-modal-header">
+          <i className="ti ti-shield-lock pin-modal-icon" aria-hidden="true" />
+          <div className="pin-modal-title">Activar PIN offline</div>
+          <div className="pin-modal-subtitle">
             Si el internet falla podrás entrar con este PIN. Solo funciona en este dispositivo.
           </div>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "var(--navy-700)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <div className="mb-14">
+          <label className="form-label">
             PIN (4–6 dígitos)
           </label>
           <input type="password" inputMode="numeric" maxLength={6} value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, ""))} style={inputStyle} placeholder="••••" />
+            onChange={e => setPin(e.target.value.replace(/\D/g, ""))} className="pin-input" placeholder="••••" />
         </div>
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "var(--navy-700)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <div className="mb-20">
+          <label className="form-label">
             Confirmar PIN
           </label>
           <input type="password" inputMode="numeric" maxLength={6} value={pin2}
-            onChange={e => setPin2(e.target.value.replace(/\D/g, ""))} style={inputStyle} placeholder="••••" />
+            onChange={e => setPin2(e.target.value.replace(/\D/g, ""))} className="pin-input" placeholder="••••" />
         </div>
 
         {err && (
-          <div style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", padding: "9px 13px", borderRadius: 8, fontSize: 13, marginBottom: 14, display: "flex", gap: 6 }}>
-            <i className="ti ti-alert-circle" style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+          <div className="pin-modal-error">
+            <i className="ti ti-alert-circle pin-modal-error__icon" aria-hidden="true" />
             {err}
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => onDone(false)} disabled={saving}
-            style={{ flex: 1, padding: "10px 0", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#334155" }}>
+        <div className="pin-modal-btn-row">
+          <button onClick={() => onDone(false)} disabled={saving} className="pin-modal-btn-cancel">
             Ahora no
           </button>
-          <button onClick={handleGuardar} disabled={saving || pin.length < 4}
-            style={{ flex: 1, padding: "10px 0", background: pin.length >= 4 && !saving ? "var(--brand-500)" : "var(--color-border-info)", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: pin.length >= 4 && !saving ? "pointer" : "not-allowed", color: "#fff" }}>
+          <button onClick={handleGuardar} disabled={saving || pin.length < 4} className="pin-modal-btn-confirm">
             {saving ? "Guardando…" : "Activar PIN"}
           </button>
         </div>
@@ -306,19 +295,10 @@ export default function LoginScreen({ onOfflineLogin }) {
     setPinLoading(false);
   };
 
-  // ── Shared styles ─────────────────────────────────────────────────────────
-  const inputStyle = (disabled) => ({
-    width: "100%", padding: "10px 14px", borderRadius: 9,
-    border: "1px solid var(--color-border-secondary)", fontSize: 14,
-    outline: "none", boxSizing: "border-box",
-    transition: "border-color .15s, box-shadow .15s",
-    background: disabled ? "var(--color-background-tertiary)" : "#fff",
-    fontFamily: "inherit",
-  });
-  const labelStyle = {
-    display: "block", fontSize: 12, fontWeight: 600, color: "var(--navy-700)",
-    marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em",
-  };
+  // A3 (auditoría 2026-06-30): los estilos de inputs/labels/botones se
+  // resolvieron a clases CSS (LoginScreen.css + utilidades de index.css).
+  // El estado disabled ya no requiere objetos de estilo condicionales en JS
+  // — se resuelve con el selector :disabled directamente en el CSS.
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -331,41 +311,26 @@ export default function LoginScreen({ onOfflineLogin }) {
         />
       )}
 
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        minHeight: "100dvh", overflowY: "auto", padding: "24px 16px",
-        background: "radial-gradient(circle at 18% 14%, var(--brand-700) 0%, var(--color-text-primary) 42%, var(--navy-950) 100%)",
-        fontFamily: "var(--font-sans, system-ui, sans-serif)",
-      }}>
-        <div style={{
-          background: "#fff", borderRadius: 20, padding: "40px 32px",
-          width: "100%", maxWidth: 380,
-          boxShadow: "0 24px 64px rgba(2,6,23,0.35)",
-          border: "1px solid rgba(148,163,184,0.15)",
-        }}>
+      <div className="login-page">
+        <div className="login-card">
           {/* Cabecera */}
-          <div style={{ textAlign: "center", marginBottom: 30 }}>
-            <img src="/logo-coordinacion.png" alt="Logo Coordinación"
-              style={{ width: 180, height: 180, objectFit: "contain", margin: "0 auto 10px", display: "block" }} />
-            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, color: "var(--color-text-primary)", letterSpacing: "0.05em", lineHeight: 1.2 }}>
+          <div className="login-header">
+            <img src="/logo-coordinacion.png" alt="Logo Coordinación" className="login-logo" />
+            <h1 className="login-title">
               SIGMA
             </h1>
-            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--color-text-tertiary)", fontWeight: 500, letterSpacing: "0.01em" }}>
+            <p className="login-tagline">
               Sistema Integrado de Gestión y Módulos Académicos
             </p>
-            <p style={{ margin: "14px 0 0", fontSize: 13, color: "var(--color-text-tertiary)", fontWeight: 500 }}>
+            <p className="login-status">
               {isOffline ? "Sin conexión — acceso offline" : "Inicia sesión para continuar"}
             </p>
           </div>
 
           {/* Banner offline */}
           {isOffline && (
-            <div style={{
-              background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 9,
-              padding: "9px 13px", marginBottom: 20, fontSize: 13,
-              color: "#92400E", display: "flex", alignItems: "center", gap: 7,
-            }}>
-              <i className="ti ti-wifi-off" style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true" />
+            <div className="login-offline-banner">
+              <i className="ti ti-wifi-off icon-alert" aria-hidden="true" />
               <span>Sin red. {usuariosOffline.length > 0 ? "Usa tu PIN para acceder." : "No hay usuarios con PIN guardado en este dispositivo."}</span>
             </div>
           )}
@@ -374,8 +339,8 @@ export default function LoginScreen({ onOfflineLogin }) {
           {isOffline && !loadingOffline && usuariosOffline.length > 0 ? (
             <>
               {usuariosOffline.length > 1 && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>Usuario</label>
+                <div className="mb-16">
+                  <label className="form-label">Usuario</label>
                   <select
                     value={usuarioSelec?.userId || ""}
                     onChange={e => {
@@ -383,7 +348,7 @@ export default function LoginScreen({ onOfflineLogin }) {
                       setUsuarioSelec(u || null);
                       setPin(""); setPinError(null);
                     }}
-                    style={{ ...inputStyle(false), cursor: "pointer" }}
+                    className="form-input"
                   >
                     <option value="">— Selecciona usuario —</option>
                     {usuariosOffline.map(u => (
@@ -396,21 +361,17 @@ export default function LoginScreen({ onOfflineLogin }) {
               )}
 
               {usuarioSelec && usuariosOffline.length === 1 && (
-                <div style={{
-                  background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 9,
-                  padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#0369A1",
-                  display: "flex", alignItems: "center", gap: 8,
-                }}>
-                  <i className="ti ti-user-circle" style={{ fontSize: 18, flexShrink: 0 }} aria-hidden="true" />
+                <div className="login-user-badge">
+                  <i className="ti ti-user-circle login-user-badge__icon" aria-hidden="true" />
                   <div>
-                    <div style={{ fontWeight: 600 }}>{usuarioSelec.nombre}</div>
-                    <div style={{ fontSize: 12, color: "#0C4A6E" }}>{usuarioSelec.email}</div>
+                    <div className="login-user-badge__name">{usuarioSelec.nombre}</div>
+                    <div className="login-user-badge__email">{usuarioSelec.email}</div>
                   </div>
                 </div>
               )}
 
-              <div style={{ marginBottom: 22 }}>
-                <label style={labelStyle}>PIN offline</label>
+              <div className="mb-22">
+                <label className="form-label">PIN offline</label>
                 <input
                   type="password"
                   inputMode="numeric"
@@ -421,28 +382,20 @@ export default function LoginScreen({ onOfflineLogin }) {
                   disabled={isPinLocked || !usuarioSelec}
                   placeholder="••••"
                   autoFocus
-                  style={{ ...inputStyle(isPinLocked || !usuarioSelec), fontSize: 28, letterSpacing: "0.3em", textAlign: "center" }}
+                  className="pin-offline-input"
                 />
               </div>
 
               {pinError && (
-                <div style={{
-                  background: "var(--color-danger-bg)", color: "var(--color-danger)",
-                  padding: "10px 14px", borderRadius: 9, fontSize: 13, marginBottom: 16,
-                  fontWeight: 500, display: "flex", alignItems: "flex-start", gap: 8,
-                }}>
-                  <i className="ti ti-alert-circle" style={{ fontSize: 15, marginTop: 1, flexShrink: 0 }} aria-hidden="true" />
+                <div className="alert-box alert-box--danger">
+                  <i className="ti ti-alert-circle icon-alert--top" aria-hidden="true" />
                   {pinError}
                 </div>
               )}
 
               {isPinLocked && (
-                <div style={{
-                  background: "var(--color-warning-bg)", color: "var(--color-warning-text)",
-                  padding: "10px 14px", borderRadius: 9, fontSize: 13, marginBottom: 16,
-                  fontWeight: 500, display: "flex", alignItems: "center", gap: 8,
-                }}>
-                  <i className="ti ti-clock-hour-4" style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true" />
+                <div className="alert-box alert-box--warning alert-box--center">
+                  <i className="ti ti-clock-hour-4 icon-alert" aria-hidden="true" />
                   Bloqueado. Intenta de nuevo en {Math.ceil(pinRemaining / 60)} min {pinRemaining % 60}s.
                 </div>
               )}
@@ -450,15 +403,7 @@ export default function LoginScreen({ onOfflineLogin }) {
               <button
                 onClick={handlePinLogin}
                 disabled={pinLoading || isPinLocked || !usuarioSelec || pin.length < 4}
-                style={{
-                  width: "100%", padding: "11px 0", border: "none", borderRadius: 9,
-                  fontSize: 14, fontWeight: 600, cursor: "pointer",
-                  background: (pinLoading || isPinLocked || !usuarioSelec || pin.length < 4)
-                    ? "var(--color-border-info)" : "var(--brand-500)",
-                  color: "#fff",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                  transition: "background .15s",
-                }}
+                className="pin-login-btn"
               >
                 {pinLoading
                   ? "Verificando…"
@@ -468,54 +413,46 @@ export default function LoginScreen({ onOfflineLogin }) {
                 }
               </button>
 
-              <div style={{ textAlign: "center", marginTop: 16, fontSize: 12, color: "var(--color-text-tertiary)" }}>
+              <div className="login-offline-hint">
                 Modo offline — los datos se sincronizarán al reconectar
               </div>
             </>
           ) : isOffline && !loadingOffline ? (
             // Sin red y sin usuarios offline guardados
-            <div style={{ textAlign: "center", padding: "16px 0 8px", color: "#64748B", fontSize: 13 }}>
-              <i className="ti ti-database-off" style={{ fontSize: 36, display: "block", marginBottom: 10, color: "#CBD5E1" }} aria-hidden="true" />
+            <div className="login-offline-empty">
+              <i className="ti ti-database-off login-offline-empty__icon" aria-hidden="true" />
               Para usar el acceso offline, inicia sesión con internet al menos una vez y activa tu PIN desde la pantalla de login.
             </div>
           ) : !isOffline ? (
             /* ── MODO NORMAL: form email + contraseña ─────────────────── */
             <form onSubmit={handleLogin}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>Correo electrónico</label>
+              <div className="mb-16">
+                <label className="form-label">Correo electrónico</label>
                 <input
                   type="email" value={email} onChange={e => setEmail(e.target.value)}
                   required disabled={isLocked} placeholder="tucorreo@dominio.com"
                   autoComplete="email"
-                  onFocus={e => { e.target.style.borderColor = "var(--brand-500)"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
-                  onBlur={e  => { e.target.style.borderColor = "var(--color-border-secondary)"; e.target.style.boxShadow = "none"; }}
-                  style={inputStyle(isLocked)}
+                  className="form-input"
                 />
               </div>
 
-              <div style={{ marginBottom: 22 }}>
-                <label style={labelStyle}>Contraseña</label>
+              <div className="mb-22">
+                <label className="form-label">Contraseña</label>
                 <input
                   type="password" value={password} onChange={e => setPassword(e.target.value)}
                   required disabled={isLocked} placeholder="••••••••"
                   autoComplete="current-password"
-                  onFocus={e => { e.target.style.borderColor = "var(--brand-500)"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.15)"; }}
-                  onBlur={e  => { e.target.style.borderColor = "var(--color-border-secondary)"; e.target.style.boxShadow = "none"; }}
-                  style={inputStyle(isLocked)}
+                  className="form-input"
                 />
               </div>
 
               {error && !isLocked && (
-                <div style={{
-                  background: "var(--color-danger-bg)", color: "var(--color-danger)",
-                  padding: "10px 14px", borderRadius: 9, fontSize: 13, marginBottom: 16,
-                  fontWeight: 500, display: "flex", alignItems: "flex-start", gap: 8,
-                }}>
-                  <i className="ti ti-alert-circle" style={{ fontSize: 15, marginTop: 1, flexShrink: 0 }} aria-hidden="true" />
+                <div className="alert-box alert-box--danger">
+                  <i className="ti ti-alert-circle icon-alert--top" aria-hidden="true" />
                   <div>
                     {error}
                     {failedAttempts > 0 && failedAttempts < MAX_ATTEMPTS && (
-                      <div style={{ marginTop: 4, fontSize: 12, color: "var(--color-danger-dark)" }}>
+                      <div className="login-attempt-count">
                         Intento {failedAttempts} de {MAX_ATTEMPTS}.
                       </div>
                     )}
@@ -524,26 +461,15 @@ export default function LoginScreen({ onOfflineLogin }) {
               )}
 
               {isLocked && (
-                <div style={{
-                  background: "var(--color-warning-bg)", color: "var(--color-warning-text)",
-                  padding: "10px 14px", borderRadius: 9, fontSize: 13, marginBottom: 16,
-                  fontWeight: 500, display: "flex", alignItems: "center", gap: 8,
-                }}>
-                  <i className="ti ti-clock-hour-4" style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true" />
+                <div className="alert-box alert-box--warning alert-box--center">
+                  <i className="ti ti-clock-hour-4 icon-alert" aria-hidden="true" />
                   Demasiados intentos fallidos. Intenta de nuevo en {remaining} segundo{remaining === 1 ? "" : "s"}.
                 </div>
               )}
 
               <button
                 type="submit" disabled={loading || isLocked}
-                style={{
-                  width: "100%", padding: "11px 0",
-                  background: (loading || isLocked) ? "var(--color-border-info)" : "var(--brand-500)",
-                  color: "#fff", border: "none", borderRadius: 9, fontSize: 14, fontWeight: 600,
-                  cursor: (loading || isLocked) ? "not-allowed" : "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                  transition: "background .15s",
-                }}
+                className="login-submit-btn"
               >
                 {isLocked
                   ? `Bloqueado (${remaining}s)`
