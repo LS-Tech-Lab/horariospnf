@@ -49,35 +49,40 @@ export const IconScan = () => (
 // aula. Ver REESCANEAR_REQUERIDO en index.jsx.
 export const CODIGOS_REQUIEREN_REESCANEO = ["TOKEN_INVALIDO", "TOKEN_EXPIRADO", "SESION_FECHA_INVALIDA"];
 
+// A3 (auditoría 2026-06-30): "color" pasó a "colorClass" — referencia a una
+// clase definida en DocenteScan.css en vez de un hex embebido, para poder
+// aplicarlo como className y no como style en línea (necesario para S3).
+// Mapa de equivalencia: scan-color-success=#15803D, scan-color-indigo=#4338CA,
+// scan-color-warning=#92400E, scan-color-danger=#991B1B, scan-color-blue=#1E40AF.
 export const RESULTADO_UI = {
-  ok:                   { Icon: IconCheck,   titulo: "¡Registro exitoso!",                    color: "#15803D" },
-  OFFLINE:              { Icon: IconOffline, titulo: "Guardado sin conexión",                  color: "#4338CA",
+  ok:                   { Icon: IconCheck,   titulo: "¡Registro exitoso!",                    colorClass: "scan-color-success" },
+  OFFLINE:              { Icon: IconOffline, titulo: "Guardado sin conexión",                  colorClass: "scan-color-indigo",
                           hint: "Se sincronizará automáticamente al recuperar conexión." },
-  YA_REGISTRADO:        { Icon: IconWarn,  titulo: "Ya registraste tu entrada hoy", color: "#92400E",
+  YA_REGISTRADO:        { Icon: IconWarn,  titulo: "Ya registraste tu entrada hoy", colorClass: "scan-color-warning",
                           hint: "Tu entrada ya estaba registrada. No es necesario hacer nada más." },
-  YA_REGISTRADO_SALIDA: { Icon: IconWarn,  titulo: "Ya registraste tu salida hoy", color: "#92400E",
+  YA_REGISTRADO_SALIDA: { Icon: IconWarn,  titulo: "Ya registraste tu salida hoy", colorClass: "scan-color-warning",
                           hint: "Tu salida ya estaba registrada. No es necesario hacer nada más." },
-  SIN_ENTRADA_PREVIA:   { Icon: IconWarn,  titulo: "Falta registrar tu entrada", color: "#92400E",
+  SIN_ENTRADA_PREVIA:   { Icon: IconWarn,  titulo: "Falta registrar tu entrada", colorClass: "scan-color-warning",
                           hint: "Debes marcar tu entrada antes de poder marcar la salida." },
-  TIPO_INVALIDO:        { Icon: IconError, titulo: "Error interno", color: "#991B1B",
+  TIPO_INVALIDO:        { Icon: IconError, titulo: "Error interno", colorClass: "scan-color-danger",
                           hint: "Recarga la página e inténtalo de nuevo." },
-  TOKEN_EXPIRADO:       { Icon: IconError, titulo: "Código QR expirado", color: "#991B1B",
+  TOKEN_EXPIRADO:       { Icon: IconError, titulo: "Código QR expirado", colorClass: "scan-color-danger",
                           hint: "Pide al administrador que regenere el código." },
-  TOKEN_INVALIDO:       { Icon: IconError, titulo: "Código QR no válido", color: "#991B1B",
+  TOKEN_INVALIDO:       { Icon: IconError, titulo: "Código QR no válido", colorClass: "scan-color-danger",
                           hint: "Asegúrate de escanear el código desde la pantalla del aula." },
-  SESION_INACTIVA:      { Icon: IconError, titulo: "Sesión cerrada por el administrador", color: "#1E40AF",
+  SESION_INACTIVA:      { Icon: IconError, titulo: "Sesión cerrada por el administrador", colorClass: "scan-color-blue",
                           hint: "Esta sesión QR fue cerrada. Busca al operador o administrador del aula y pídele que abra una nueva sesión. Cuando lo haga, escanea el nuevo código QR de la pantalla." },
-  DEVICE_DUPLICADO:      { Icon: IconError, titulo: "Dispositivo ya utilizado", color: "#991B1B",
+  DEVICE_DUPLICADO:      { Icon: IconError, titulo: "Dispositivo ya utilizado", colorClass: "scan-color-danger",
                            hint: "Este celular ya registró la asistencia de otro docente en esta sesión." },
-  SESION_FECHA_INVALIDA: { Icon: IconError, titulo: "Código QR de otro día", color: "#991B1B",
+  SESION_FECHA_INVALIDA: { Icon: IconError, titulo: "Código QR de otro día", colorClass: "scan-color-danger",
                            hint: "Este código QR no corresponde a la fecha de hoy. Escanea el código actual de la pantalla del aula." },
-  FECHA_INVALIDA:        { Icon: IconError, titulo: "Fecha no permitida", color: "#991B1B",
+  FECHA_INVALIDA:        { Icon: IconError, titulo: "Fecha no permitida", colorClass: "scan-color-danger",
                            hint: "Solo se puede crear una sesión QR para el día de hoy." },
   // M-2 fix: código RATE_LIMIT devuelto por registrar_asistencia() cuando
   // el dispositivo supera 10 intentos por hora (tabla scan_rate_limit).
   // Antes se mostraba como "Error de conexión" genérico.
-  RATE_LIMIT:            { Icon: IconWarn,  titulo: "Demasiados intentos", color: "#92400E",
+  RATE_LIMIT:            { Icon: IconWarn,  titulo: "Demasiados intentos", colorClass: "scan-color-warning",
                            hint: "Este dispositivo ha realizado demasiados intentos en poco tiempo. Espera unos minutos e intenta de nuevo." },
-  ERROR:                 { Icon: IconError, titulo: "Error de conexión", color: "#991B1B",
+  ERROR:                 { Icon: IconError, titulo: "Error de conexión", colorClass: "scan-color-danger",
                           hint: "Intenta de nuevo o contacta al administrador." },
 };
