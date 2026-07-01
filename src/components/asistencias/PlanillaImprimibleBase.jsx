@@ -14,7 +14,7 @@ import { parseClase } from '../../utils/parsing';
 import { getCurrentLapso } from '../../utils/lapso';
 import Avatar from '../Avatar';
 
-export default function PlanillaImprimibleBase({ data, getDocName, getMateriaName, lapso }) {
+export default function PlanillaImprimibleBase({ data, getDocName, getMateriaName, catalogoDocentes = [], lapso }) {
   const lapsoActual = lapso || getCurrentLapso();
   const [turno, setTurno] = useState("DIURNO"), [selectedDay, setSelectedDay] = useState(DAYS[0]);
 
@@ -28,11 +28,15 @@ export default function PlanillaImprimibleBase({ data, getDocName, getMateriaNam
   const docentesDelDia = useMemo(() => {
     const map = {};
     data.filter(d => getTurnoDeRegistro(d) === turno && d.dia === selectedDay).forEach(d => {
-      const { docente, materia } = parseClase(d.clase);
+      const { materia, docente: docenteParseado } = parseClase(d.clase, catalogoDocentes);
+      // Prioridad: relación real docentes.nombre_raw (garantizada por FK,
+      // inmune a variaciones de tipeo) > parseClase con catálogo fuzzy
+      // como respaldo para filas legacy sin docente_id vinculado.
+      const docente = d.docentes?.nombre_raw || docenteParseado;
       if (!docente) return;
       if (!map[docente]) map[docente] = { clases: [] };
       map[docente].clases.push({
-        materia: getMateriaName(materia),
+        materia: getMateriaName(d.materias?.nombre_raw || materia),
         hora: getHoraDisplayDeRegistro(d),
         horaMin: getHoraMin(d),
         seccion: d.sheet.trim(),
