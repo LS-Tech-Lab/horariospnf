@@ -1,32 +1,33 @@
 import { parseClase } from "../../../utils/parsing";
 import { getHoraDisplayDeRegistro } from "../../../utils/time";
+import "./DocenteScan.css";
 
 function HorarioHoyCard({ horarioHoy, diaSemana }) {
   if (!Array.isArray(horarioHoy) || horarioHoy.length === 0) {
     return (
-      <div style={{ marginTop:16, background:"#F8FAFC", border:"1px solid #E2E8F0", borderRadius:12, padding:"14px 18px", width:"100%", textAlign:"center" }}>
-        <div style={{ fontSize:12, color:"#64748B", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>
+      <div className="scan-horario-empty">
+        <div className="scan-horario-empty__label">
           {diaSemana ? `Horario de hoy (${diaSemana.charAt(0)}${diaSemana.slice(1).toLowerCase()})` : "Horario de hoy"}
         </div>
-        <div style={{ fontSize:13, color:"#64748B" }}>No tienes clases asignadas hoy según el sistema.</div>
+        <div className="scan-horario-empty__text">No tienes clases asignadas hoy según el sistema.</div>
       </div>
     );
   }
 
   return (
-    <div style={{ marginTop:16, background:"#EFF6FF", border:"1px solid #BFDBFE", borderRadius:12, padding:"14px 18px", width:"100%" }}>
-      <div style={{ fontSize:12, color:"#1D4ED8", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10, textAlign:"center" }}>
+    <div className="scan-horario-card">
+      <div className="scan-horario-card__label">
         {diaSemana ? `Tu horario de hoy (${diaSemana.charAt(0)}${diaSemana.slice(1).toLowerCase()})` : "Tu horario de hoy"}
       </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      <div className="scan-horario-list">
         {horarioHoy.map((clase, i) => {
           const { materia } = parseClase(clase.materia);
           return (
-            <div key={i} style={{ background:"#fff", borderRadius:9, padding:"10px 12px", border:"1px solid #DBEAFE" }}>
-              <div style={{ fontSize:14, fontWeight:700, color:"#0F172A" }}>{materia || clase.materia}</div>
-              <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
-                <span style={{ fontSize:12, color:"#64748B" }}>Sección {clase.sheet}</span>
-                <span style={{ fontSize:12, color:"#1D4ED8", fontWeight:700 }}>{getHoraDisplayDeRegistro(clase)}</span>
+            <div key={i} className="scan-horario-item">
+              <div className="scan-horario-item__materia">{materia || clase.materia}</div>
+              <div className="scan-horario-item__row">
+                <span className="scan-horario-item__seccion">Sección {clase.sheet}</span>
+                <span className="scan-horario-item__hora">{getHoraDisplayDeRegistro(clase)}</span>
               </div>
             </div>
           );
