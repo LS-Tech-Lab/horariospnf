@@ -243,7 +243,7 @@ export default function ResumenView({ stats, data, byDocente, byMateria, conflic
       )}
 
       {!metricas && (
-        <div className="s-card rv-empty">
+        <div className="s-card s-empty-state">
           Carga un archivo Excel para ver el resumen.
         </div>
       )}
