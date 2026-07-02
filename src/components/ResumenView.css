@@ -10,5 +10,3 @@
 .rv-card { padding: 16px 20px; }
 .rv-card--alert { background: #FEF2F2; border: 1px solid #FECACA; }
 .rv-card--full { grid-column: 1 / -1; }
-
-.rv-empty { padding: 60px 20px; text-align: center; color: #94A3B8; font-size: 15px; font-weight: 500; }
