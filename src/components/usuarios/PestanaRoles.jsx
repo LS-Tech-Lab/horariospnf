@@ -13,7 +13,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
-import { S } from "../../constants";
 import { GRUPOS_PERMISOS, hex2rgba, Spinner, ModalConfirm } from "./shared";
 import ModalRol from "./ModalRol";
 
@@ -91,7 +90,7 @@ export default function PestanaRoles({ permisos: permisosUsuario, onRolesChanged
             const abierto = expandido === r.nombre;
             const permsCounts = Object.entries(r.permisos || {}).filter(([, v]) => v === true).length;
             return (
-              <div key={r.nombre} style={{ ...S.card, overflow: "visible" }}>
+              <div key={r.nombre} className="s-card pr-card-visible">
                 {/* Cabecera del rol */}
                 <div
                   style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
@@ -113,7 +112,7 @@ export default function PestanaRoles({ permisos: permisosUsuario, onRolesChanged
                         <span title="Rol del sistema" style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒</span>
                       )}
                       {r.restringe_programa && (
-                        <span style={{ ...S.badge("#FEF3C7", "var(--color-warning-text)"), fontSize: 11 }}>
+                        <span className="s-badge pr-badge-warning">
                           Restricción de programa
                         </span>
                       )}
