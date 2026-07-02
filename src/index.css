@@ -430,12 +430,20 @@ textarea:focus-visible,
 .s-td { padding: 11px 14px; font-size: 13px; border-top: 1px solid var(--color-background-tertiary); color: var(--color-text-mid); }
 
 .s-select { font-size: 13px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--color-border-secondary); background: #fff; color: var(--color-text-primary); cursor: pointer; font-weight: 500; }
+.s-select--full { width: 100%; }
 
 .s-input { font-size: 13px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--color-border-secondary); background: #fff; color: var(--color-text-primary); outline: none; font-weight: 500; }
+.s-input--full { width: 100%; box-sizing: border-box; }
 
 /* S.btn(active) — dos variantes según el booleano `active` */
 .s-btn { padding: 7px 16px; border-radius: 8px; border: 1px solid var(--color-border-tertiary); background: #fff; color: var(--color-text-mid); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
 .s-btn--active { border-color: var(--brand-500); background: var(--color-background-info); color: var(--brand-600); font-weight: 600; }
+.s-btn--cancel { padding: 9px 20px; }
+.s-btn--sm { font-size: 12px; padding: 4px 10px; }
+
+/* Patrón "estado vacío" repetido tal cual en varios archivos
+   (ResumenView, HorariosView...): tarjeta centrada con ícono/texto atenuado. */
+.s-empty-state { padding: 60px 20px; text-align: center; color: #94A3B8; font-size: 15px; font-weight: 500; }
 
 /* S.badge(bg, col) — bg/col son dinámicos por color de rol/trayecto/estado,
    no un set fijo enumerable como en HistorialView. Se resuelven con
@@ -474,3 +482,12 @@ textarea:focus-visible,
 /* PestanaRoles.jsx */
 .pr-card-visible { overflow: visible; }
 .pr-badge-warning { background: #FEF3C7; color: var(--color-warning-text); font-size: 11px; }
+
+/* SeccionesView.jsx */
+.sv-list-panel { flex: 1; overflow-y: auto; }
+.sv-info-card { padding: 18px 22px; margin-bottom: 16px; }
+
+/* TurnoGrid.jsx */
+.tg-card { margin-bottom: 16px; }
+.tg-th-hora { padding: 10px 12px; font-size: 12px; width: 110px; }
+.tg-th-day { padding: 10px 10px; font-size: 13px; border-left: 1px solid #E2E8F0; text-align: center; }
