@@ -442,3 +442,35 @@ textarea:focus-visible,
    custom properties: className="s-badge" style={{ '--badge-bg': bg, '--badge-color': col }}.
    Sigue siendo un style={{...}} inline, pero de 2 propiedades en vez de 6-8. */
 .s-badge { background: var(--badge-bg, #F1F5F9); color: var(--badge-color, #334155); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Modificadores puntuales de archivos con muy poco CSS propio.
+
+   Criterio: si al migrar un archivo del hallazgo S el CSS resultante es
+   menos de ~5 reglas, va aquí en vez de en un .css nuevo — un archivo +
+   una línea de import por 1-2 reglas es más ruido que beneficio, y
+   fragmenta el CSS del bundle sin necesidad. Los archivos con una
+   extracción sustancial (HistorialView, ResumenView, DocenteScan, etc.)
+   siguen teniendo su propio .css — la regla es de escala, no una excepción
+   puntual.
+
+   Prefijo por archivo para que no colisionen entre sí (sc- StatCard,
+   qr- PlanillaQR, hl- HorariosLayout, cv- ConflictosView, pr- PestanaRoles).
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* StatCard.jsx */
+.sc-root { padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+
+/* PlanillaQR.jsx */
+.qr-error-card { margin: 20px; padding: 20px; color: #B91C1C; font-size: 14px; }
+
+/* HorariosLayout.jsx — select de programa en sidebar oscuro */
+.hl-select-dark { width: 100%; background: var(--navy-800); color: var(--color-border-secondary); border-color: var(--navy-700); font-size: 12px; padding: 6px 8px; }
+
+/* ConflictosView.jsx */
+.cv-empty { padding: 60px 20px; text-align: center; }
+.cv-item { border-left: 4px solid #EF4444; padding: 14px 18px; }
+
+/* PestanaRoles.jsx */
+.pr-card-visible { overflow: visible; }
+.pr-badge-warning { background: #FEF3C7; color: var(--color-warning-text); font-size: 11px; }
