@@ -14,7 +14,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
-import { S } from "../../constants";
 import { Spinner } from "./shared";
 import { validarPassword } from "../../utils/password";
 import useFocusTrap from "../../hooks/useFocusTrap";
@@ -136,7 +135,7 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
     setSaving(false);
   };
 
-  const inputStyle = { ...S.input, width: "100%", boxSizing: "border-box" };
+  const inputClass = "s-input s-input--full";
 
   // Accesibilidad: foco al primer campo al abrir + Escape para cerrar
   const firstInputRef = useRef(null);
@@ -192,7 +191,7 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
               <input
                 id={`usr-field-${field}`}
                 ref={idx === 0 ? firstInputRef : undefined}
-                style={inputStyle}
+                className={inputClass}
                 value={form[field]}
                 onChange={set(field)}
                 placeholder={placeholder}
@@ -211,7 +210,7 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
             </label>
             <input
               id="usr-field-password"
-              style={inputStyle}
+              className={inputClass}
               value={form.password}
               onChange={set("password")}
               type="password"
@@ -224,7 +223,7 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
               fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
               textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
             }}>Rol</label>
-            <select id="usr-field-rol" style={{ ...S.select, width: "100%" }} value={form.rol} onChange={set("rol")}>
+            <select id="usr-field-rol" className="s-select s-select--full" value={form.rol} onChange={set("rol")}>
               {roles.map(r => (
                 <option key={r.nombre} value={r.nombre}>{r.emoji} {r.label}</option>
               ))}
@@ -244,7 +243,7 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
                 fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)",
                 textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5,
               }}>Programa asignado</label>
-              <select id="usr-field-programa" style={{ ...S.select, width: "100%" }} value={form.programa} onChange={set("programa")}>
+              <select id="usr-field-programa" className="s-select s-select--full" value={form.programa} onChange={set("programa")}>
                 <option value="">— Seleccionar programa —</option>
                 {programas.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -262,7 +261,7 @@ export default function ModalUsuario({ usuario, roles, programas, onSave, onClos
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ ...S.btn(false), padding: "9px 20px" }} disabled={saving}>
+          <button onClick={onClose} className="s-btn s-btn--cancel" disabled={saving}>
             Cancelar
           </button>
           <button
