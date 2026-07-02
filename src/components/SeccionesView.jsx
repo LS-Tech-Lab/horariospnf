@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { S, DAYS, TRAYECTO_COLORS, TRAYECTO_BG, ALL_TRAYECTOS } from '../constants';
+import { DAYS, TRAYECTO_COLORS, TRAYECTO_BG, ALL_TRAYECTOS } from '../constants';
 import { getHoraDisplayDeRegistro, getHoraMin } from '../utils/time';
 import { parseClase } from '../utils/parsing';
 
@@ -47,11 +47,11 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
   return (
     <div className="secciones-layout" style={{ padding: 20, display: "flex", gap: 16, flex: 1, height: 0, overflow: "hidden" }}>
       <div className="secciones-left-panel" style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        <select value={filterTray} onChange={e => setFilterTray(e.target.value)} style={{ ...S.select, width: "100%" }}>
+        <select value={filterTray} onChange={e => setFilterTray(e.target.value)} className="s-select s-select--full">
           <option value="all">Todos los trayectos</option>
           {ALL_TRAYECTOS.map(t => <option key={t} value={t}>Trayecto {t}</option>)}
         </select>
-        <div style={{ ...S.card, flex: 1, overflowY: "auto" }}>
+        <div className="s-card sv-list-panel">
           <div style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: "#64748B", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid #E2E8F0", background: "#F8FAFC" }}>{filteredSecciones.length} secciones</div>
           {filteredSecciones.map(s => {
             const tray = getTrayectoIndicador(s);
@@ -75,7 +75,7 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
       <div style={{ flex: 1, overflowY: "auto" }}>
         {info && (
           <>
-            <div style={{ ...S.card, padding: "18px 22px", marginBottom: 16 }}>
+            <div className="s-card sv-info-card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>{selSheet}</div>
@@ -98,7 +98,7 @@ export default function SeccionesView({ data, getDocName, getMateriaName }) {
                 ))}
               </div>
             </div>
-            <div style={S.card}>
+            <div className="s-card">
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", borderBottom: "2px solid #E2E8F0" }}>
                 {DAYS.map(day => (
                   <div key={day} style={{ padding: "12px 14px", borderRight: "1px solid #E2E8F0", fontWeight: 700, fontSize: 12, color: "#334155", textTransform: "uppercase", letterSpacing: "0.05em", background: "#F8FAFC" }}>
