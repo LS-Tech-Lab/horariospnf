@@ -11,7 +11,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
-import { S } from "../../constants";
 import {
   GRUPOS_PERMISOS,
   TODOS_LOS_PERMISOS,
@@ -152,8 +151,7 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
               <input
                 id="rol-field-nombre"
                 ref={firstInputRef}
-                style={{ ...S.input, width: "100%", boxSizing: "border-box" }}
-                value={form.nombre}
+                className="s-input s-input--full"
                 onChange={e => set("nombre")(e.target.value.toLowerCase().replace(/\s/g, "_"))}
                 placeholder="ej: coord_informatica"
               />
@@ -168,8 +166,7 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
             <input
               id="rol-field-label"
               ref={esNuevo ? undefined : firstInputRef}
-              style={{ ...S.input, width: "100%", boxSizing: "border-box" }}
-              value={form.label}
+              className="s-input s-input--full"
               onChange={e => set("label")(e.target.value)}
               placeholder="Ej: Coordinador de Informática"
             />
@@ -255,11 +252,11 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => setForm(f => ({ ...f, permisos: Object.fromEntries(TODOS_LOS_PERMISOS.map(k => [k, true])) }))}
-                style={{ ...S.btn(false), fontSize: 12, padding: "4px 10px" }}
+                className="s-btn s-btn--sm"
               >Todos</button>
               <button
                 onClick={() => setForm(f => ({ ...f, permisos: Object.fromEntries(TODOS_LOS_PERMISOS.map(k => [k, false])) }))}
-                style={{ ...S.btn(false), fontSize: 12, padding: "4px 10px" }}
+                className="s-btn s-btn--sm"
               >Ninguno</button>
             </div>
           </div>
@@ -320,7 +317,7 @@ export default function ModalRol({ rol, onSave, onClose, logAudit }) {
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ ...S.btn(false), padding: "9px 20px" }} disabled={saving}>
+          <button onClick={onClose} className="s-btn s-btn--cancel" disabled={saving}>
             Cancelar
           </button>
           <button
