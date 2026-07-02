@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import { useAppDataContext } from "../context/AppDataContext";
-import { S, ROL_SIDEBAR } from "../constants";
+import { ROL_SIDEBAR } from "../constants";
 import { getCurrentLapso, getLapsosDisponibles, formatLapso } from "../utils/lapso";
 import buildNavGroups from "./buildNavGroups";
 import AdminMenu from "./AdminMenu";
@@ -257,9 +257,8 @@ export default function HorariosLayout({
               value={appData.selectedPrograma}
               onChange={e => puedeSeleccionarPrograma && appData.setSelectedPrograma(e.target.value)}
               disabled={!puedeSeleccionarPrograma}
+              className="s-select hl-select-dark"
               style={{
-                ...S.select, width: "100%", background: "var(--navy-800)", color: "var(--color-border-secondary)",
-                borderColor: "var(--navy-700)", fontSize: 12, padding: "6px 8px",
                 opacity: puedeSeleccionarPrograma ? 1 : 0.6,
                 cursor: puedeSeleccionarPrograma ? "pointer" : "not-allowed",
               }}
